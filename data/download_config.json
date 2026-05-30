@@ -1,0 +1,10 @@
+{
+  "topics": [
+    "Generative Adversarial Networks",
+    "Diffusion Models image generation",
+    "Transformer attention mechanism"
+  ],
+  "max_per_topic": 10,
+  "output_dir": "data/papers",
+  "min_year": 2018
+}

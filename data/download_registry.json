@@ -1,0 +1,444 @@
+{
+  "2104.09630v2": {
+    "title": "Quaternion Generative Adversarial Networks",
+    "filename": "Quaternion_Generative_Adversarial_Networks.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2021,
+    "authors": [
+      "Eleonora Grassucci",
+      "Edoardo Cicero",
+      "Danilo Comminiello"
+    ],
+    "abstract": "Latest Generative Adversarial Networks (GANs) are gathering outstanding results through a large-scale training, thus employing models composed of millions of parameters requiring extensive computational capabilities. Building such huge models undermines their replicability and increases the training",
+    "url": "http://arxiv.org/abs/2104.09630v2",
+    "arxiv_id": "2104.09630v2",
+    "downloaded_at": "2026-05-30T22:02:12.685395"
+  },
+  "2307.05760v1": {
+    "title": "Line Art Colorization of Fakemon using Generative Adversarial Neural Networks",
+    "filename": "Line_Art_Colorization_of_Fakemon_using_Generative_Adversaria.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2023,
+    "authors": [
+      "Erick Oliveira Rodrigues",
+      "Esteban Clua",
+      "Giovani Bernardes Vitor"
+    ],
+    "abstract": "This work proposes a complete methodology to colorize images of Fakemon, anime-style monster-like creatures. In addition, we propose algorithms to extract the line art from colorized images as well as to extract color hints. Our work is the first in the literature to use automatic color hint extract",
+    "url": "http://arxiv.org/abs/2307.05760v1",
+    "arxiv_id": "2307.05760v1",
+    "downloaded_at": "2026-05-30T22:02:15.178115"
+  },
+  "1808.03082v2": {
+    "title": "Paired 3D Model Generation with Conditional Generative Adversarial Networks",
+    "filename": "Paired_3D_Model_Generation_with_Conditional_Generative_Adver.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2018,
+    "authors": [
+      "Cihan \u00d6ng\u00fcn",
+      "Alptekin Temizel"
+    ],
+    "abstract": "Generative Adversarial Networks (GANs) are shown to be successful at generating new and realistic samples including 3D object models. Conditional GAN, a variant of GANs, allows generating samples in given conditions. However, objects generated for each condition are different and it does not allow g",
+    "url": "http://arxiv.org/abs/1808.03082v2",
+    "arxiv_id": "1808.03082v2",
+    "downloaded_at": "2026-05-30T22:02:18.447757"
+  },
+  "1801.04693v1": {
+    "title": "Towards Imperceptible and Robust Adversarial Example Attacks against Neural Networks",
+    "filename": "Towards_Imperceptible_and_Robust_Adversarial_Example_Attacks.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2018,
+    "authors": [
+      "Bo Luo",
+      "Yannan Liu",
+      "Lingxiao Wei"
+    ],
+    "abstract": "Machine learning systems based on deep neural networks, being able to produce state-of-the-art results on various perception tasks, have gained mainstream adoption in many applications. However, they are shown to be vulnerable to adversarial example attack, which generates malicious output by adding",
+    "url": "http://arxiv.org/abs/1801.04693v1",
+    "arxiv_id": "1801.04693v1",
+    "downloaded_at": "2026-05-30T22:02:19.641564"
+  },
+  "1910.05300v1": {
+    "title": "Patterns of Multiplex Layer Entanglement across Real and Synthetic Networks",
+    "filename": "Patterns_of_Multiplex_Layer_Entanglement_across_Real_and_Syn.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2019,
+    "authors": [
+      "Bla\u017e \u0160krlj",
+      "Benjamin Renoust"
+    ],
+    "abstract": "Real world complex networks often exhibit multiplex structure, connecting entities from different aspects of physical systems such as social, transportation and biological networks. Little is known about general properties of such networks across disciplines. In this work, we first investigate how c",
+    "url": "http://arxiv.org/abs/1910.05300v1",
+    "arxiv_id": "1910.05300v1",
+    "downloaded_at": "2026-05-30T22:02:23.831479"
+  },
+  "2105.01800v1": {
+    "title": "Generative Adversarial Networks (GAN) Powered Fast Magnetic Resonance Imaging -- Mini Review, Comparison and Perspectives",
+    "filename": "Generative_Adversarial_Networks_GAN_Powered_Fast_Magnetic_Re.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2021,
+    "authors": [
+      "Guang Yang",
+      "Jun Lv",
+      "Yutong Chen"
+    ],
+    "abstract": "Magnetic Resonance Imaging (MRI) is a vital component of medical imaging. When compared to other image modalities, it has advantages such as the absence of radiation, superior soft tissue contrast, and complementary multiple sequence information. However, one drawback of MRI is its comparatively slo",
+    "url": "http://arxiv.org/abs/2105.01800v1",
+    "arxiv_id": "2105.01800v1",
+    "downloaded_at": "2026-05-30T22:02:41.875012"
+  },
+  "2409.13934v1": {
+    "title": "On the Extrapolation of Generative Adversarial Networks for downscaling precipitation extremes in warmer climates",
+    "filename": "On_the_Extrapolation_of_Generative_Adversarial_Networks_for_.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2024,
+    "authors": [
+      "Neelesh Rampal",
+      "Peter B. Gibson",
+      "Steven Sherwood"
+    ],
+    "abstract": "While deep-learning downscaling algorithms can generate fine-scale climate projections cost-effectively, it is still unclear how well they will extrapolate to unobserved climates. We assess the extrapolation capabilities of a deterministic Convolutional Neural Network baseline and a Generative Adver",
+    "url": "http://arxiv.org/abs/2409.13934v1",
+    "arxiv_id": "2409.13934v1",
+    "downloaded_at": "2026-05-30T22:02:45.025150"
+  },
+  "1905.11475v4": {
+    "title": "GAT: Generative Adversarial Training for Adversarial Example Detection and Robust Classification",
+    "filename": "GAT_Generative_Adversarial_Training_for_Adversarial_Example_.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2019,
+    "authors": [
+      "Xuwang Yin",
+      "Soheil Kolouri",
+      "Gustavo K. Rohde"
+    ],
+    "abstract": "The vulnerabilities of deep neural networks against adversarial examples have become a significant concern for deploying these models in sensitive domains. Devising a definitive defense against such attacks is proven to be challenging, and the methods relying on detecting adversarial samples are onl",
+    "url": "http://arxiv.org/abs/1905.11475v4",
+    "arxiv_id": "1905.11475v4",
+    "downloaded_at": "2026-05-30T22:02:50.413976"
+  },
+  "2006.03243v3": {
+    "title": "mFI-PSO: A Flexible and Effective Method in Adversarial Image Generation for Deep Neural Networks",
+    "filename": "mFI-PSO_A_Flexible_and_Effective_Method_in_Adversarial_Image.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2020,
+    "authors": [
+      "Hai Shu",
+      "Ronghua Shi",
+      "Qiran Jia"
+    ],
+    "abstract": "Deep neural networks (DNNs) have achieved great success in image classification, but can be very vulnerable to adversarial attacks with small perturbations to images. To improve adversarial image generation for DNNs, we develop a novel method, called mFI-PSO, which utilizes a Manifold-based First-or",
+    "url": "http://arxiv.org/abs/2006.03243v3",
+    "arxiv_id": "2006.03243v3",
+    "downloaded_at": "2026-05-30T22:02:53.976235"
+  },
+  "1905.00307v2": {
+    "title": "3DFaceGAN: Adversarial Nets for 3D Face Representation, Generation, and Translation",
+    "filename": "3DFaceGAN_Adversarial_Nets_for_3D_Face_Representation_Genera.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2019,
+    "authors": [
+      "Stylianos Moschoglou",
+      "Stylianos Ploumpis",
+      "Mihalis Nicolaou"
+    ],
+    "abstract": "Over the past few years, Generative Adversarial Networks (GANs) have garnered increased interest among researchers in Computer Vision, with applications including, but not limited to, image generation, translation, imputation, and super-resolution. Nevertheless, no GAN-based method has been proposed",
+    "url": "http://arxiv.org/abs/1905.00307v2",
+    "arxiv_id": "1905.00307v2",
+    "downloaded_at": "2026-05-30T22:03:03.873791"
+  },
+  "2403.04279v2": {
+    "title": "Controllable Generation with Text-to-Image Diffusion Models: A Survey",
+    "filename": "Controllable_Generation_with_Text-to-Image_Diffusion_Models_.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2024,
+    "authors": [
+      "Pu Cao",
+      "Feng Zhou",
+      "Qing Song"
+    ],
+    "abstract": "In the rapidly advancing realm of visual generation, diffusion models have revolutionized the landscape, marking a significant shift in capabilities with their impressive text-guided generative functions. However, relying solely on text for conditioning these models does not fully cater to the varie",
+    "url": "http://arxiv.org/abs/2403.04279v2",
+    "arxiv_id": "2403.04279v2",
+    "downloaded_at": "2026-05-30T22:04:10.213158"
+  },
+  "2303.07909v3": {
+    "title": "Text-to-image Diffusion Models in Generative AI: A Survey",
+    "filename": "Text-to-image_Diffusion_Models_in_Generative_AI_A_Survey.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2023,
+    "authors": [
+      "Chenshuang Zhang",
+      "Chaoning Zhang",
+      "Mengchun Zhang"
+    ],
+    "abstract": "This survey reviews the progress of diffusion models in generating images from text, ~\\textit{i.e.} text-to-image diffusion models. As a self-contained work, this survey starts with a brief introduction of how diffusion models work for image synthesis, followed by the background for text-conditioned",
+    "url": "http://arxiv.org/abs/2303.07909v3",
+    "arxiv_id": "2303.07909v3",
+    "downloaded_at": "2026-05-30T22:04:24.271549"
+  },
+  "2303.09295v1": {
+    "title": "DIRE for Diffusion-Generated Image Detection",
+    "filename": "DIRE_for_Diffusion-Generated_Image_Detection.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2023,
+    "authors": [
+      "Zhendong Wang",
+      "Jianmin Bao",
+      "Wengang Zhou"
+    ],
+    "abstract": "Diffusion models have shown remarkable success in visual synthesis, but have also raised concerns about potential abuse for malicious purposes. In this paper, we seek to build a detector for telling apart real images from diffusion-generated images. We find that existing detectors struggle to detect",
+    "url": "http://arxiv.org/abs/2303.09295v1",
+    "arxiv_id": "2303.09295v1",
+    "downloaded_at": "2026-05-30T22:04:28.616658"
+  },
+  "2410.19288v1": {
+    "title": "A Flow-based Truncated Denoising Diffusion Model for Super-resolution Magnetic Resonance Spectroscopic Imaging",
+    "filename": "A_Flow-based_Truncated_Denoising_Diffusion_Model_for_Super-r.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2024,
+    "authors": [
+      "Siyuan Dong",
+      "Zhuotong Cai",
+      "Gilbert Hangel"
+    ],
+    "abstract": "Magnetic Resonance Spectroscopic Imaging (MRSI) is a non-invasive imaging technique for studying metabolism and has become a crucial tool for understanding neurological diseases, cancers and diabetes. High spatial resolution MRSI is needed to characterize lesions, but in practice MRSI is acquired at",
+    "url": "http://arxiv.org/abs/2410.19288v1",
+    "arxiv_id": "2410.19288v1",
+    "downloaded_at": "2026-05-30T22:04:34.333740"
+  },
+  "2406.09416v2": {
+    "title": "Alleviating Distortion in Image Generation via Multi-Resolution Diffusion Models and Time-Dependent Layer Normalization",
+    "filename": "Alleviating_Distortion_in_Image_Generation_via_Multi-Resolut.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2024,
+    "authors": [
+      "Qihao Liu",
+      "Zhanpeng Zeng",
+      "Ju He"
+    ],
+    "abstract": "This paper presents innovative enhancements to diffusion models by integrating a novel multi-resolution network and time-dependent layer normalization. Diffusion models have gained prominence for their effectiveness in high-fidelity image generation. While conventional approaches rely on convolution",
+    "url": "http://arxiv.org/abs/2406.09416v2",
+    "arxiv_id": "2406.09416v2",
+    "downloaded_at": "2026-05-30T22:04:43.428460"
+  },
+  "2206.01714v6": {
+    "title": "Compositional Visual Generation with Composable Diffusion Models",
+    "filename": "Compositional_Visual_Generation_with_Composable_Diffusion_Mo.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2022,
+    "authors": [
+      "Nan Liu",
+      "Shuang Li",
+      "Yilun Du"
+    ],
+    "abstract": "Large text-guided diffusion models, such as DALLE-2, are able to generate stunning photorealistic images given natural language descriptions. While such models are highly flexible, they struggle to understand the composition of certain concepts, such as confusing the attributes of different objects ",
+    "url": "http://arxiv.org/abs/2206.01714v6",
+    "arxiv_id": "2206.01714v6",
+    "downloaded_at": "2026-05-30T22:04:49.101424"
+  },
+  "2312.08195v2": {
+    "title": "Image is All You Need to Empower Large-scale Diffusion Models for In-Domain Generation",
+    "filename": "Image_is_All_You_Need_to_Empower_Large-scale_Diffusion_Model.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2023,
+    "authors": [
+      "Pu Cao",
+      "Feng Zhou",
+      "Lu Yang"
+    ],
+    "abstract": "In-domain generation aims to perform a variety of tasks within a specific domain, such as unconditional generation, text-to-image, image editing, 3D generation, and more. Early research typically required training specialized generators for each unique task and domain, often relying on fully-labeled",
+    "url": "http://arxiv.org/abs/2312.08195v2",
+    "arxiv_id": "2312.08195v2",
+    "downloaded_at": "2026-05-30T22:05:08.750050"
+  },
+  "2303.02490v2": {
+    "title": "Diffusion Models Generate Images Like Painters: an Analytical Theory of Outline First, Details Later",
+    "filename": "Diffusion_Models_Generate_Images_Like_Painters_an_Analytical.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2023,
+    "authors": [
+      "Binxu Wang",
+      "John J. Vastola"
+    ],
+    "abstract": "How do diffusion generative models convert pure noise into meaningful images? In a variety of pretrained diffusion models (including conditional latent space models like Stable Diffusion), we observe that the reverse diffusion process that underlies image generation has the following properties: (i)",
+    "url": "http://arxiv.org/abs/2303.02490v2",
+    "arxiv_id": "2303.02490v2",
+    "downloaded_at": "2026-05-30T22:05:52.796394"
+  },
+  "2501.13926v2": {
+    "title": "Can We Generate Images with CoT? Let's Verify and Reinforce Image Generation Step by Step",
+    "filename": "Can_We_Generate_Images_with_CoT_Lets_Verify_and_Reinforce_Im.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2025,
+    "authors": [
+      "Ziyu Guo",
+      "Renrui Zhang",
+      "Chengzhuo Tong"
+    ],
+    "abstract": "Chain-of-Thought (CoT) reasoning has been extensively explored in large models to tackle complex understanding tasks. However, it still remains an open question whether such strategies can be applied to verifying and reinforcing image generation scenarios. In this paper, we provide the first compreh",
+    "url": "http://arxiv.org/abs/2501.13926v2",
+    "arxiv_id": "2501.13926v2",
+    "downloaded_at": "2026-05-30T22:06:01.011674"
+  },
+  "2311.13629v2": {
+    "title": "Diffusion models meet image counter-forensics",
+    "filename": "Diffusion_models_meet_image_counter-forensics.pdf",
+    "topic": "Diffusion Models image generation",
+    "year": 2023,
+    "authors": [
+      "Mat\u00edas Tailanian",
+      "Marina Gardella",
+      "\u00c1lvaro Pardo"
+    ],
+    "abstract": "From its acquisition in the camera sensors to its storage, different operations are performed to generate the final image. This pipeline imprints specific traces into the image to form a natural watermark. Tampering with an image disturbs these traces; these disruptions are clues that are used by mo",
+    "url": "http://arxiv.org/abs/2311.13629v2",
+    "arxiv_id": "2311.13629v2",
+    "downloaded_at": "2026-05-30T22:06:28.206406"
+  },
+  "2206.03003v2": {
+    "title": "Transformer-based Personalized Attention Mechanism for Medical Images with Clinical Records",
+    "filename": "Transformer-based_Personalized_Attention_Mechanism_for_Medic.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2022,
+    "authors": [
+      "Yusuke Takagi",
+      "Noriaki Hashimoto",
+      "Hiroki Masuda"
+    ],
+    "abstract": "In medical image diagnosis, identifying the attention region, i.e., the region of interest for which the diagnosis is made, is an important task. Various methods have been developed to automatically identify target regions from given medical images. However, in actual medical practice, the diagnosis",
+    "url": "http://arxiv.org/abs/2206.03003v2",
+    "arxiv_id": "2206.03003v2",
+    "downloaded_at": "2026-05-30T22:06:38.955546"
+  },
+  "2209.15001v3": {
+    "title": "Dilated Neighborhood Attention Transformer",
+    "filename": "Dilated_Neighborhood_Attention_Transformer.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2022,
+    "authors": [
+      "Ali Hassani",
+      "Humphrey Shi"
+    ],
+    "abstract": "Transformers are quickly becoming one of the most heavily applied deep learning architectures across modalities, domains, and tasks. In vision, on top of ongoing efforts into plain transformers, hierarchical transformers have also gained significant attention, thanks to their performance and easy in",
+    "url": "http://arxiv.org/abs/2209.15001v3",
+    "arxiv_id": "2209.15001v3",
+    "downloaded_at": "2026-05-30T22:06:41.413325"
+  },
+  "1809.04281v3": {
+    "title": "Music Transformer",
+    "filename": "Music_Transformer.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2018,
+    "authors": [
+      "Cheng-Zhi Anna Huang",
+      "Ashish Vaswani",
+      "Jakob Uszkoreit"
+    ],
+    "abstract": "Music relies heavily on repetition to build structure and meaning. Self-reference occurs on multiple timescales, from motifs to phrases to reusing of entire sections of music, such as in pieces with ABA structure. The Transformer (Vaswani et al., 2017), a sequence model based on self-attention, has ",
+    "url": "http://arxiv.org/abs/1809.04281v3",
+    "arxiv_id": "1809.04281v3",
+    "downloaded_at": "2026-05-30T22:06:42.497556"
+  },
+  "2002.00741v1": {
+    "title": "D\u00e9j\u00e0 vu: A Contextualized Temporal Attention Mechanism for Sequential Recommendation",
+    "filename": "D\u00e9j\u00e0_vu_A_Contextualized_Temporal_Attention_Mechanism_for_Se.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2020,
+    "authors": [
+      "Jibang Wu",
+      "Renqin Cai",
+      "Hongning Wang"
+    ],
+    "abstract": "Predicting users' preferences based on their sequential behaviors in history is challenging and crucial for modern recommender systems. Most existing sequential recommendation algorithms focus on transitional structure among the sequential actions, but largely ignore the temporal and context informa",
+    "url": "http://arxiv.org/abs/2002.00741v1",
+    "arxiv_id": "2002.00741v1",
+    "downloaded_at": "2026-05-30T22:06:44.312382"
+  },
+  "2605.26355v1": {
+    "title": "Energy-Gated Attention and Wavelet Positional Encoding: Complementary Inductive Biases for Transformer Attention",
+    "filename": "Energy-Gated_Attention_and_Wavelet_Positional_Encoding_Compl.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2026,
+    "authors": [
+      "Athanasios Zeris"
+    ],
+    "abstract": "Standard transformer attention computes pairwise token similarity but treats all tokens as equally salient and all positions as equally local, regardless of the informational structure of the input. We identify two complementary inductive biases that standard attention lacks: energy salience (which ",
+    "url": "http://arxiv.org/abs/2605.26355v1",
+    "arxiv_id": "2605.26355v1",
+    "downloaded_at": "2026-05-30T22:06:44.974844"
+  },
+  "2309.01692v1": {
+    "title": "Mask-Attention-Free Transformer for 3D Instance Segmentation",
+    "filename": "Mask-Attention-Free_Transformer_for_3D_Instance_Segmentation.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2023,
+    "authors": [
+      "Xin Lai",
+      "Yuhui Yuan",
+      "Ruihang Chu"
+    ],
+    "abstract": "Recently, transformer-based methods have dominated 3D instance segmentation, where mask attention is commonly involved. Specifically, object queries are guided by the initial instance masks in the first cross-attention, and then iteratively refine themselves in a similar manner. However, we observe ",
+    "url": "http://arxiv.org/abs/2309.01692v1",
+    "arxiv_id": "2309.01692v1",
+    "downloaded_at": "2026-05-30T22:06:52.604090"
+  },
+  "2402.04563v1": {
+    "title": "Attention Guided CAM: Visual Explanations of Vision Transformer Guided by Self-Attention",
+    "filename": "Attention_Guided_CAM_Visual_Explanations_of_Vision_Transform.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2024,
+    "authors": [
+      "Saebom Leem",
+      "Hyunseok Seo"
+    ],
+    "abstract": "Vision Transformer(ViT) is one of the most widely used models in the computer vision field with its great performance on various tasks. In order to fully utilize the ViT-based architecture in various applications, proper visualization methods with a decent localization performance are necessary, but",
+    "url": "http://arxiv.org/abs/2402.04563v1",
+    "arxiv_id": "2402.04563v1",
+    "downloaded_at": "2026-05-30T22:07:10.726180"
+  },
+  "2503.02130v2": {
+    "title": "Forgetting Transformer: Softmax Attention with a Forget Gate",
+    "filename": "Forgetting_Transformer_Softmax_Attention_with_a_Forget_Gate.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2025,
+    "authors": [
+      "Zhixuan Lin",
+      "Evgenii Nikishin",
+      "Xu Owen He"
+    ],
+    "abstract": "An essential component of modern recurrent sequence models is the forget gate. While Transformers do not have an explicit recurrent form, we show that a forget gate can be naturally incorporated into Transformers by down-weighting the unnormalized attention scores in a data-dependent way. We name th",
+    "url": "http://arxiv.org/abs/2503.02130v2",
+    "arxiv_id": "2503.02130v2",
+    "downloaded_at": "2026-05-30T22:07:19.272919"
+  },
+  "2409.17625v3": {
+    "title": "Benign Overfitting in Token Selection of Attention Mechanism",
+    "filename": "Benign_Overfitting_in_Token_Selection_of_Attention_Mechanism.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2024,
+    "authors": [
+      "Keitaro Sakamoto",
+      "Issei Sato"
+    ],
+    "abstract": "Attention mechanism is a fundamental component of the transformer model and plays a significant role in its success. However, the theoretical understanding of how attention learns to select tokens is still an emerging area of research. In this work, we study the training dynamics and generalization ",
+    "url": "http://arxiv.org/abs/2409.17625v3",
+    "arxiv_id": "2409.17625v3",
+    "downloaded_at": "2026-05-30T22:07:22.251136"
+  },
+  "2305.11403v5": {
+    "title": "Efficient Mixed Transformer for Single Image Super-Resolution",
+    "filename": "Efficient_Mixed_Transformer_for_Single_Image_Super-Resolutio.pdf",
+    "topic": "Transformer attention mechanism",
+    "year": 2023,
+    "authors": [
+      "Ling Zheng",
+      "Jinchen Zhu",
+      "Jinpeng Shi"
+    ],
+    "abstract": "Recently, Transformer-based methods have achieved impressive results in single image super-resolution (SISR). However, the lack of locality mechanism and high complexity limit their application in the field of super-resolution (SR). To solve these problems, we propose a new method, Efficient Mixed T",
+    "url": "http://arxiv.org/abs/2305.11403v5",
+    "arxiv_id": "2305.11403v5",
+    "downloaded_at": "2026-05-30T22:07:25.325510"
+  }
+}
