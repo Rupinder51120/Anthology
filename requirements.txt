@@ -1,0 +1,17 @@
+langchain
+langchain-community
+langchain-groq
+pymupdf
+sentence-transformers
+faiss-cpu
+rank_bm25
+transformers
+torch
+streamlit
+python-dotenv
+arxiv
+numpy
+ragas
+datasets
+openai
+groq
