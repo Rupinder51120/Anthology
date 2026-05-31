@@ -8,4 +8,4 @@ data/papers/
 faiss_index/
 chroma_db/
 
-.DS_Store
+.DS_Storeindexes/

@@ -134,3 +134,52 @@ Always mention which paper (title + year) each piece of information comes from."
         "response_type": response_type,
         "tokens_used":   tokens_used
     }
+
+def generate_answer_streaming(
+    query: str,
+    chunks: list[dict],
+    chat_history: list[dict] = None
+):
+    """
+    Generator function that yields answer tokens one by one.
+    Use with st.write_stream() in Streamlit.
+    """
+    if not chunks:
+        yield "I couldn't find relevant information in your papers for this query."
+        return
+
+    context       = format_context(chunks)
+    response_type = detect_response_type(query)
+
+    user_message = f"""Context from research papers:
+{context}
+
+---
+Student question: {query}
+
+Answer the question thoroughly using the context above.
+Always mention which paper (title + year) each piece of information comes from."""
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    if chat_history:
+        messages.extend(chat_history[-6:])
+
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        stream = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            temperature=0.2,
+            max_tokens=1500,
+            stream=True  # ← this is the only difference
+        )
+
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+
+    except Exception as e:
+        yield f"Generation failed: {e}"

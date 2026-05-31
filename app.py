@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from src.retriever import retrieve, detect_query_intent
 from src.hyde import expand_query_with_hyde
-from src.generator import generate_answer
-from src.recommender import recommend_local, recommend_arxiv, recommend_by_query
+from src.generator import generate_answer, generate_answer_streaming, format_citations, detect_response_type
+from src.recommender import recommend_by_query, recommend_arxiv
 from src.memory import ConversationMemory
 from src.indexer import get_index_stats
 
@@ -32,7 +32,7 @@ with st.sidebar:
 
     st.subheader("⚙️ Retrieval settings")
     use_hyde = st.toggle("HyDE query expansion", value=True,
-                         help="LLM expands your query before searching — improves recall")
+                         help="LLM expands your query before searching")
     top_k    = st.slider("Chunks to retrieve", 3, 10, 5,
                          help="More chunks = more context but slower")
     st.divider()
@@ -92,25 +92,36 @@ query = st.chat_input("e.g. How does the GAN discriminator loss work?")
 if query:
     st.session_state.query_count += 1
 
-    # show user message
     st.session_state.chat.append({"role": "user", "content": query})
     with st.chat_message("user"):
         st.markdown(query)
 
-    # detect intent for display
     intent = detect_query_intent(query)
 
     with st.chat_message("assistant"):
-        with st.spinner(f"Searching ({intent} query)..."):
 
-            # retrieval
+        # ── retrieval ─────────────────────────────────────────
+        with st.spinner("Retrieving..."):
             search_query = expand_query_with_hyde(query) if use_hyde else query
             chunks       = retrieve(search_query, top_k=top_k)
-            result       = generate_answer(query, chunks,
-                                           st.session_state.memory.get())
+            citations    = format_citations(chunks)
 
-        # ── answer ────────────────────────────────────────────
-        st.markdown(result["answer"])
+        # ── streaming answer ──────────────────────────────────
+        answer = st.write_stream(
+            generate_answer_streaming(
+                query,
+                chunks,
+                st.session_state.memory.get()
+            )
+        )
+
+        result = {
+            "answer":        answer,
+            "citations":     citations,
+            "chunks_used":   len(chunks),
+            "response_type": detect_response_type(query),
+            "tokens_used":   "—"
+        }
 
         # ── citations ─────────────────────────────────────────
         if result["citations"]:
@@ -124,7 +135,7 @@ if query:
                         f"Section: `{c['section']}`{score_str}"
                     )
 
-        # ── local recommendations ──────────────────────────────
+        # ── recommendations ───────────────────────────────────
         col1, col2 = st.columns(2)
 
         with col1:
@@ -139,7 +150,6 @@ if query:
                             f"Similarity: `{sim_pct}%`"
                         )
 
-        # ── arxiv recommendations ──────────────────────────────
         with col2:
             arxiv_recs = recommend_arxiv(query, top_k=3)
             if arxiv_recs:
@@ -160,7 +170,7 @@ if query:
                 "response_type": result["response_type"]
             })
 
-    # update memory
+    # ── update memory ─────────────────────────────────────────
     st.session_state.memory.add("user",      query)
     st.session_state.memory.add("assistant", result["answer"])
     st.session_state.memory.add_topic(query[:50])
