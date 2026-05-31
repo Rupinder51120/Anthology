@@ -1,7 +1,6 @@
 import numpy as np
 import json
 import re
-from pathlib import Path
 from sentence_transformers import CrossEncoder
 from src.embedder import embed_texts
 from src.indexer import load_faiss_index, load_bm25_index
@@ -10,6 +9,9 @@ _cross_encoder = None
 _chunks_cache  = None
 _faiss_cache   = None
 _bm25_cache    = None
+
+# set True on Linux/cloud — reranking is 10x faster there
+USE_RERANKER = False
 
 
 # ─── loaders with caching ─────────────────────────────────────
@@ -69,22 +71,18 @@ def detect_query_intent(query: str) -> str:
 
 # ─── search functions ─────────────────────────────────────────
 
-def faiss_search(query_embedding: np.ndarray, top_k: int = 20) -> list[int]:
-    """Works with both NumpyIndex and real FAISS index."""
+def faiss_search(query_embedding: np.ndarray, top_k: int = 15) -> list[int]:
     index  = get_faiss_index()
     query  = query_embedding.astype("float32")
-
     scores, indices = index.search(query, top_k)
 
-    # NumpyIndex returns 1D indices directly
-    # real FAISS returns 2D — handle both
     if hasattr(indices, 'ndim') and indices.ndim == 2:
         indices = indices[0]
 
     return [int(i) for i in indices if int(i) >= 0]
 
 
-def bm25_search(query: str, chunks: list[dict], top_k: int = 20) -> list[int]:
+def bm25_search(query: str, chunks: list[dict], top_k: int = 15) -> list[int]:
     bm25   = get_bm25_index()
     tokens = re.findall(r'\b[a-z][a-z0-9]{1,}\b', query.lower())
     if not tokens:
@@ -159,20 +157,36 @@ def retrieve(
         faiss_weight = 1.1
         bm25_weight  = 1.1
 
+    # lightweight MiniLM for fast query embedding
+    import time
+
+    t = time.time()
     query_embedding = embed_texts([query])[0]
+    print(f"  embed: {int((time.time()-t)*1000)}ms")
 
-    faiss_ids = faiss_search(query_embedding, top_k=20)
-    bm25_ids  = bm25_search(query, chunks, top_k=20)
+    t = time.time()
+    faiss_ids = faiss_search(query_embedding, top_k=15)
+    print(f"  faiss: {int((time.time()-t)*1000)}ms")
 
-    fused_ids  = reciprocal_rank_fusion(
+    t = time.time()
+    bm25_ids  = bm25_search(query, chunks, top_k=15)
+    print(f"  bm25:  {int((time.time()-t)*1000)}ms")
+
+    fused_ids = reciprocal_rank_fusion(
         faiss_ids, bm25_ids,
         faiss_weight=faiss_weight,
         bm25_weight=bm25_weight
-    )[:20]
+    )[:10]
 
     candidates = [chunks[i] for i in fused_ids if i < len(chunks)]
     candidates = boost_by_section_priority(candidates)
-    final      = rerank(query, candidates, top_k=top_k)
+
+    if USE_RERANKER:
+        final = rerank(query, candidates, top_k=top_k)
+    else:
+        for c in candidates:
+            c["metadata"]["rerank_score"] = None
+        final = candidates[:top_k]
 
     print(f"Retrieved {len(final)} chunks | intent={intent}")
     return final
@@ -186,4 +200,3 @@ if __name__ == "__main__":
         print(f"Section: {r['metadata']['section']}")
         print(f"Score:   {r['metadata'].get('rerank_score', 'N/A')}")
         print(r["text"][:250])
-        

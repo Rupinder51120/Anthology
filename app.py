@@ -1,9 +1,27 @@
 import streamlit as st
 import json
+import time
 from pathlib import Path
+from sentence_transformers import SentenceTransformer
+
+
+# ── cache model at startup — persists across all reruns ───────
+@st.cache_resource
+def load_embedding_model():
+    print("Loading MiniLM via Streamlit cache (one time only)...")
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    return model
+
+
+# inject into embedder before any imports use it
+_cached_model = load_embedding_model()
+from src.embedder import set_model
+set_model(_cached_model)
+
+# ── rest of imports ───────────────────────────────────────────
 from src.retriever import retrieve, detect_query_intent
 from src.hyde import expand_query_with_hyde
-from src.generator import generate_answer, generate_answer_streaming, format_citations, detect_response_type
+from src.generator import generate_answer_streaming, format_citations, detect_response_type
 from src.recommender import recommend_by_query, recommend_arxiv
 from src.memory import ConversationMemory
 from src.indexer import get_index_stats
@@ -81,12 +99,10 @@ with st.sidebar:
 st.header("Ask about your research papers")
 st.caption("Get concept explanations, citations, and paper recommendations")
 
-# display chat history
 for msg in st.session_state.chat:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# chat input
 query = st.chat_input("e.g. How does the GAN discriminator loss work?")
 
 if query:
@@ -100,13 +116,20 @@ if query:
 
     with st.chat_message("assistant"):
 
-        # ── retrieval ─────────────────────────────────────────
+        # ── retrieval with timing ─────────────────────────────
         with st.spinner("Retrieving..."):
+            t0           = time.time()
             search_query = expand_query_with_hyde(query) if use_hyde else query
-            chunks       = retrieve(search_query, top_k=top_k)
-            citations    = format_citations(chunks)
+            hyde_ms      = int((time.time() - t0) * 1000)
 
-        # ── streaming answer ──────────────────────────────────
+            t1      = time.time()
+            chunks  = retrieve(search_query, top_k=top_k)
+            retr_ms = int((time.time() - t1) * 1000)
+
+            citations = format_citations(chunks)
+
+        # ── streaming answer with timing ──────────────────────
+        t2     = time.time()
         answer = st.write_stream(
             generate_answer_streaming(
                 query,
@@ -114,13 +137,21 @@ if query:
                 st.session_state.memory.get()
             )
         )
+        gen_ms   = int((time.time() - t2) * 1000)
+        total_ms = hyde_ms + retr_ms + gen_ms
 
         result = {
             "answer":        answer,
             "citations":     citations,
             "chunks_used":   len(chunks),
             "response_type": detect_response_type(query),
-            "tokens_used":   "—"
+            "tokens_used":   "—",
+            "latency": {
+                "hyde_ms":  hyde_ms,
+                "retr_ms":  retr_ms,
+                "gen_ms":   gen_ms,
+                "total_ms": total_ms
+            }
         }
 
         # ── citations ─────────────────────────────────────────
@@ -160,13 +191,21 @@ if query:
                             f"*{r['authors']}* ({r['year']})"
                         )
 
-        # ── debug info ────────────────────────────────────────
+        # ── debug info with latency ───────────────────────────
         with st.expander("🔍 Debug info"):
+            lat = result.get("latency", {})
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("HyDE",       f"{lat.get('hyde_ms', 0)}ms")
+            m2.metric("Retrieval",  f"{lat.get('retr_ms', 0)}ms")
+            m3.metric("Generation", f"{lat.get('gen_ms', 0)}ms")
+            m4.metric("Total",      f"{lat.get('total_ms', 0)}ms")
+
+            st.divider()
             st.json({
                 "intent":        intent,
                 "hyde_used":     use_hyde,
                 "chunks_used":   result["chunks_used"],
-                "tokens_used":   result.get("tokens_used", "—"),
                 "response_type": result["response_type"]
             })
 
