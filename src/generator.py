@@ -1,10 +1,10 @@
 import os
-from groq import Groq
+from groq import Groq, RateLimitError
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 load_dotenv()
 
-# ── NO CHANGES NEEDED — reads GROQ_API_KEY from .env automatically ──
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SYSTEM_PROMPT = """You are an expert AI research assistant helping a student deeply understand research papers.
@@ -65,7 +65,6 @@ def format_citations(chunks: list[dict]) -> list[dict]:
                 "score":    meta.get("rerank_score")
             })
 
-    # sort by rerank score
     citations.sort(key=lambda x: x.get("score") or 0, reverse=True)
     return citations
 
@@ -108,19 +107,28 @@ Always mention which paper (title + year) each piece of information comes from."
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     if chat_history:
-        # keep last 3 exchanges (6 messages)
         messages.extend(chat_history[-6:])
 
     messages.append({"role": "user", "content": user_message})
 
-    try:
-        response = client.chat.completions.create(
+    # ── retry wrapper for rate limits ──
+    @retry(
+        retry=retry_if_exception_type(RateLimitError),
+        wait=wait_exponential(multiplier=2, min=10, max=120),
+        stop=stop_after_attempt(6),
+        reraise=True,
+    )
+    def _call():
+        return client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
             temperature=0.2,
             max_tokens=1500
         )
-        answer = response.choices[0].message.content.strip()
+
+    try:
+        response    = _call()
+        answer      = response.choices[0].message.content.strip()
         tokens_used = response.usage.total_tokens
 
     except Exception as e:
@@ -135,6 +143,7 @@ Always mention which paper (title + year) each piece of information comes from."
         "tokens_used":   tokens_used
     }
 
+
 def generate_answer_streaming(
     query: str,
     chunks: list[dict],
@@ -148,8 +157,7 @@ def generate_answer_streaming(
         yield "I couldn't find relevant information in your papers for this query."
         return
 
-    context       = format_context(chunks)
-    response_type = detect_response_type(query)
+    context = format_context(chunks)
 
     user_message = f"""Context from research papers:
 {context}
@@ -173,7 +181,7 @@ Always mention which paper (title + year) each piece of information comes from."
             messages=messages,
             temperature=0.2,
             max_tokens=1500,
-            stream=True  # ← this is the only difference
+            stream=True
         )
 
         for chunk in stream:
