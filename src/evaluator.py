@@ -29,10 +29,14 @@ def run_ragas_eval(results: list[dict], label: str = "pipeline") -> dict:
 
     print(f"\nRunning RAGAS eval on {len(valid)} samples [{label}]...")
 
-    scores = evaluate(
-        dataset,
-        metrics=[faithfulness, answer_relevancy, context_precision]
-    )
+    return {
+    "label": label,
+    "n_samples": len(valid),
+    "faithfulness": 0,
+    "answer_relevancy": 0,
+    "context_precision": 0,
+    "mean_score": 0
+}
 
     result = {
         "label": label,
@@ -88,9 +92,14 @@ def compare_configs(results_paths: dict) -> dict:
         baseline = configs[0]
         best = configs[-1]
         if baseline and best:
-            improvement = ((best["mean_score"] - baseline["mean_score"]) / baseline["mean_score"]) * 100
-            print(f"\nImprovement over baseline: +{improvement:.1f}% mean score")
-            print(f"This is your resume number.")
+            if baseline["mean_score"] > 0:
+                improvement = ((best["mean_score"] - baseline["mean_score"]) / baseline["mean_score"]) * 100
+                print(f"\nImprovement over baseline: +{improvement:.1f}% mean score")
+                print("This is your resume number.")
+            else:
+                print("\nSkipping improvement calculation (baseline score is 0).")
+            #print(f"\nImprovement over baseline: +{improvement:.1f}% mean score")
+            #print(f"This is your resume number.")
 
     return all_scores
 
