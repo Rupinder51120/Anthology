@@ -12,11 +12,6 @@ Usage:
   python run_benchmark.py                  # full run with judge
   python run_benchmark.py --no-judge       # retrieval metrics only (faster, fewer tokens)
   python run_benchmark.py --build-qa       # force rebuild QA dataset first
-
-Changes from original:
-  - compare_configs now accepts run_judge flag
-  - evaluate_results replaces run_ragas_eval (RAGAS removed)
-  - Results paths use consistent naming
 """
 
 import argparse
@@ -47,8 +42,8 @@ def patch_retriever_mode(mode: str):
             from src.retriever import faiss_search, load_chunks
             from src.embedder import embed_texts
             chunks = load_chunks()
-            emb    = embed_texts([query])[0]
-            ids    = faiss_search(emb, top_k=top_k)
+            emb = embed_texts([query])[0]
+            ids = faiss_search(emb, top_k=top_k)
             return [chunks[i] for i in ids[:top_k] if i < len(chunks)]
         ret.retrieve = retrieve_faiss
 
@@ -57,10 +52,10 @@ def patch_retriever_mode(mode: str):
             from src.retriever import faiss_search, bm25_search, reciprocal_rank_fusion, load_chunks
             from src.embedder import embed_texts
             chunks = load_chunks()
-            emb    = embed_texts([query])[0]
-            f_ids  = faiss_search(emb, top_k=20)
-            b_ids  = bm25_search(query, chunks, top_k=20)
-            fused  = reciprocal_rank_fusion(f_ids, b_ids)[:top_k]
+            emb   = embed_texts([query])[0]
+            f_ids = faiss_search(emb, top_k=20)
+            b_ids = bm25_search(query, chunks, top_k=20)
+            fused = reciprocal_rank_fusion(f_ids, b_ids)[:top_k]
             return [chunks[i] for i in fused if i < len(chunks)]
         ret.retrieve = retrieve_hybrid
 
@@ -83,9 +78,9 @@ def _safe_label(label: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--no-judge",  action="store_true",
+    parser.add_argument("--no-judge", action="store_true",
                         help="Skip Groq judge eval (retrieval metrics only)")
-    parser.add_argument("--build-qa",  action="store_true",
+    parser.add_argument("--build-qa", action="store_true",
                         help="Force rebuild QA dataset even if it exists")
     args = parser.parse_args()
 
@@ -103,12 +98,12 @@ def main():
 
     # ── step 2: run each config ──
     configs = [
-        #  label                   retriever_mode    use_hyde
-        ("BM25 baseline",          "bm25_only",       False),
-        ("FAISS only",             "faiss_only",      False),
-        ("Hybrid no rerank",       "hybrid_no_rerank",False),
-        ("Hybrid + rerank",        "hybrid_rerank",   False),
-        ("Hybrid + rerank + HyDE", "full",            True),
+        #  label                    retriever_mode     use_hyde
+        ("BM25 baseline",           "bm25_only",        False),
+        ("FAISS only",              "faiss_only",        False),
+        ("Hybrid no rerank",        "hybrid_no_rerank",  False),
+        ("Hybrid + rerank",         "hybrid_rerank",     False),
+        ("Hybrid + rerank + HyDE",  "full",              True),
     ]
 
     results_map = {}
@@ -126,11 +121,11 @@ def main():
             output_path=out_path,
             use_hyde=use_hyde,
             top_k=5,
-            sleep_between=1.0,
+            sleep_between=3.0,   # increased from 1.0 to avoid 429s
         )
         results_map[label] = out_path
 
-    # ── step 3: evaluate all configs ──
+    # ── step 3: evaluate ──
     print("\n\n" + "="*55)
     print("EVALUATION")
     print("="*55)
