@@ -3,7 +3,7 @@ import json
 import re
 from pathlib import Path
 from sentence_transformers import CrossEncoder
-from src.embedder import embed_texts, load_embeddings
+from src.embedder import embed_texts
 from src.indexer import load_faiss_index, load_bm25_index
 
 _cross_encoder = None
@@ -47,10 +47,6 @@ def get_bm25_index():
 # ─── query intent detection ───────────────────────────────────
 
 def detect_query_intent(query: str) -> str:
-    """
-    Route queries to different retrieval strategies.
-    Returns: 'concept', 'search', 'comparison', 'math'
-    """
     q = query.lower()
 
     math_words = ['equation', 'formula', 'loss function', 'derivative',
@@ -74,11 +70,18 @@ def detect_query_intent(query: str) -> str:
 # ─── search functions ─────────────────────────────────────────
 
 def faiss_search(query_embedding: np.ndarray, top_k: int = 20) -> list[int]:
-    index = get_faiss_index()
-    query = query_embedding.reshape(1, -1).astype("float32")
+    """Works with both NumpyIndex and real FAISS index."""
+    index  = get_faiss_index()
+    query  = query_embedding.astype("float32")
+
     scores, indices = index.search(query, top_k)
-    # filter out -1 (padding from IVF)
-    return [int(i) for i in indices[0] if i >= 0]
+
+    # NumpyIndex returns 1D indices directly
+    # real FAISS returns 2D — handle both
+    if hasattr(indices, 'ndim') and indices.ndim == 2:
+        indices = indices[0]
+
+    return [int(i) for i in indices if int(i) >= 0]
 
 
 def bm25_search(query: str, chunks: list[dict], top_k: int = 20) -> list[int]:
@@ -92,11 +95,11 @@ def bm25_search(query: str, chunks: list[dict], top_k: int = 20) -> list[int]:
 
 
 def reciprocal_rank_fusion(
-    faiss_ids: list[int],
-    bm25_ids: list[int],
-    k: int = 60,
+    faiss_ids:    list[int],
+    bm25_ids:     list[int],
+    k:            int   = 60,
     faiss_weight: float = 1.0,
-    bm25_weight: float = 1.0
+    bm25_weight:  float = 1.0
 ) -> list[int]:
     scores = {}
     for rank, doc_id in enumerate(faiss_ids):
@@ -107,7 +110,6 @@ def reciprocal_rank_fusion(
 
 
 def boost_by_section_priority(candidates: list[dict]) -> list[dict]:
-    """Re-order candidates slightly by section importance."""
     return sorted(
         candidates,
         key=lambda c: c["metadata"].get("section_priority", 0.5),
@@ -120,8 +122,8 @@ def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
         return []
 
     cross_encoder = get_cross_encoder()
-    pairs  = [(query, c["text"][:512]) for c in candidates]
-    scores = cross_encoder.predict(pairs)
+    pairs         = [(query, c["text"][:512]) for c in candidates]
+    scores        = cross_encoder.predict(pairs)
 
     ranked = sorted(
         zip(scores, candidates),
@@ -129,7 +131,6 @@ def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
         reverse=True
     )
 
-    # attach rerank score to metadata
     results = []
     for score, doc in ranked[:top_k]:
         doc["metadata"]["rerank_score"] = round(float(score), 4)
@@ -138,26 +139,23 @@ def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
     return results
 
 
-# ─── main retrieve function ───────────────────────────────────
+# ─── main retrieve ────────────────────────────────────────────
 
 def retrieve(
-    query: str,
-    top_k: int = 5,
+    query:        str,
+    top_k:        int   = 5,
     faiss_weight: float = 1.0,
-    bm25_weight: float = 1.0
+    bm25_weight:  float = 1.0
 ) -> list[dict]:
+
     chunks = load_chunks()
     intent = detect_query_intent(query)
 
-    # adjust weights based on intent
     if intent == "math":
-        # math queries: BM25 finds exact terms better
-        bm25_weight = 1.4
+        bm25_weight  = 1.4
     elif intent == "concept":
-        # concept queries: semantic search dominates
         faiss_weight = 1.4
     elif intent == "comparison":
-        # comparison: balanced
         faiss_weight = 1.1
         bm25_weight  = 1.1
 
@@ -174,8 +172,7 @@ def retrieve(
 
     candidates = [chunks[i] for i in fused_ids if i < len(chunks)]
     candidates = boost_by_section_priority(candidates)
-
-    final = rerank(query, candidates, top_k=top_k)
+    final      = rerank(query, candidates, top_k=top_k)
 
     print(f"Retrieved {len(final)} chunks | intent={intent}")
     return final
@@ -189,3 +186,4 @@ if __name__ == "__main__":
         print(f"Section: {r['metadata']['section']}")
         print(f"Score:   {r['metadata'].get('rerank_score', 'N/A')}")
         print(r["text"][:250])
+        
