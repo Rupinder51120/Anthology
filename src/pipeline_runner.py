@@ -15,6 +15,7 @@ def run_pipeline_on_dataset(
 
     with open(qa_path) as f:
         qa_pairs = json.load(f)
+    qa_pairs = qa_pairs[:5]   
 
     print(f"Running pipeline on {len(qa_pairs)} questions...")
     print(f"Config: HyDE={use_hyde}, top_k={top_k}\n")
