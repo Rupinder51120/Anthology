@@ -27,7 +27,7 @@ Paragraph:"""
 def expand_query_with_hyde(query: str) -> str:
     try:
         response = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             messages=[{
                 "role": "user",
                 "content": HYDE_PROMPT.format(query=query)
