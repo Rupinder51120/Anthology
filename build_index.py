@@ -10,7 +10,6 @@ Advanced index builder with:
 import json
 import time
 import re
-import asyncio
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -33,24 +32,12 @@ REPORT_PATH     = "indexes/build_report.json"
 # ─── chunk quality scorer ─────────────────────────────────────
 
 def score_chunk(chunk: dict) -> float:
-    """
-    Score a chunk 0.0–1.0 based on information density.
-    Filters out garbage chunks before embedding.
-
-    Factors:
-    - length (too short = low info)
-    - sentence count
-    - presence of numbers/data (signals factual content)
-    - math/formula presence (high value in research papers)
-    - ratio of stopwords (high ratio = low info)
-    """
-    text = chunk["text"].strip()
+    text  = chunk["text"].strip()
     score = 0.0
 
-    # length score (ideal: 100–500 chars)
     length = len(text)
     if length < 80:
-        return 0.0  # hard reject — too short
+        return 0.0
     elif length < 150:
         score += 0.1
     elif length <= 500:
@@ -58,26 +45,21 @@ def score_chunk(chunk: dict) -> float:
     else:
         score += 0.3
 
-    # sentence count
     sentences = [s for s in re.split(r'[.!?]', text) if len(s.strip()) > 10]
     if len(sentences) >= 2:
         score += 0.2
     if len(sentences) >= 4:
         score += 0.1
 
-    # numeric/data presence (research papers with numbers are content-rich)
     numbers = re.findall(r'\b\d+\.?\d*\b', text)
     if len(numbers) >= 2:
         score += 0.1
 
-    # math/formula presence (LaTeX patterns)
     math_patterns = [r'\$.*?\$', r'\\[a-zA-Z]+', r'[αβγδεζηθλμπσφψω]',
                      r'=\s*\d', r'\^{', r'_{', r'\\frac', r'\\sum', r'\\int']
-    has_math = any(re.search(p, text) for p in math_patterns)
-    if has_math:
+    if any(re.search(p, text) for p in math_patterns):
         score += 0.15
 
-    # penalize high stopword ratio
     stopwords = {'the', 'a', 'an', 'is', 'it', 'in', 'of', 'to', 'and',
                  'or', 'for', 'on', 'at', 'by', 'be', 'as', 'this', 'that'}
     words = text.lower().split()
@@ -90,48 +72,40 @@ def score_chunk(chunk: dict) -> float:
 
 
 def filter_chunks(chunks: list[dict], min_score: float = 0.3) -> tuple[list[dict], dict]:
-    """Filter low-quality chunks. Returns (kept, stats)."""
-    scored = [(chunk, score_chunk(chunk)) for chunk in chunks]
-
+    scored  = [(chunk, score_chunk(chunk)) for chunk in chunks]
     kept    = [c for c, s in scored if s >= min_score]
     removed = [c for c, s in scored if s < min_score]
 
-    # attach score to metadata for debugging
     for chunk, score in scored:
         chunk["metadata"]["quality_score"] = round(score, 3)
 
     stats = {
-        "total":   len(chunks),
-        "kept":    len(kept),
-        "removed": len(removed),
+        "total":        len(chunks),
+        "kept":         len(kept),
+        "removed":      len(removed),
         "removal_rate": f"{len(removed)/len(chunks)*100:.1f}%" if chunks else "0%"
     }
-
     return kept, stats
 
 
 # ─── math/LaTeX preservation ──────────────────────────────────
 
 def preserve_math(text: str) -> str:
-    """
-    Flag math expressions so they survive chunking intact.
-    Wraps LaTeX patterns with [MATH]...[/MATH] markers.
-    """
-    # inline math: $...$
-    text = re.sub(r'\$([^$]+)\$', r'[MATH]\1[/MATH]', text)
-    # display math: $$...$$
     text = re.sub(r'\$\$([^$]+)\$\$', r'[MATH_BLOCK]\1[/MATH_BLOCK]', text)
-    # common LaTeX commands
+    text = re.sub(r'\$([^$]+)\$',     r'[MATH]\1[/MATH]', text)
     text = re.sub(r'(\\[a-zA-Z]+\{[^}]*\})', r'[MATH]\1[/MATH]', text)
     return text
 
 
-# ─── checkpoint system ────────────────────────────────────────
+# ─── checkpoint ───────────────────────────────────────────────
 
 def load_checkpoint() -> dict:
     if Path(CHECKPOINT_PATH).exists():
         with open(CHECKPOINT_PATH) as f:
-            return json.load(f)
+            data = json.load(f)
+        if "processed_files" not in data:
+            data["processed_files"] = []
+        return data
     return {"processed_files": [], "last_run": None}
 
 
@@ -145,10 +119,8 @@ def save_checkpoint(checkpoint: dict):
 # ─── parallel ingestion ───────────────────────────────────────
 
 def load_paper_safe(pdf_path) -> dict | None:
-    """Load one paper — returns None on failure."""
     try:
         paper = load_paper(pdf_path)
-        # apply math preservation to full text
         paper["full_text"] = preserve_math(paper["full_text"])
         for section in paper["sections"]:
             paper["sections"][section] = preserve_math(paper["sections"][section])
@@ -158,33 +130,52 @@ def load_paper_safe(pdf_path) -> dict | None:
         return None
 
 
-def load_papers_parallel(papers_dir: str, checkpoint: dict, max_workers: int = 4) -> list[dict]:
-    """Load all PDFs in parallel using ThreadPoolExecutor."""
+def load_papers_parallel(
+    papers_dir: str,
+    checkpoint: dict,
+    max_workers: int = 4
+) -> list[dict]:
+
     papers_path = Path(papers_dir)
-    pdf_files = list(papers_path.glob("*.pdf"))
+    pdf_files   = list(papers_path.glob("*.pdf"))
 
     if not pdf_files:
         print(f"No PDFs found in {papers_dir}")
         return []
 
-    # skip already processed
-    already_done = set(checkpoint.get("processed_files", []))
-    to_process = [f for f in pdf_files if f.name not in already_done]
-    skipped = len(pdf_files) - len(to_process)
+    # ensure key exists
+    if "processed_files" not in checkpoint:
+        checkpoint["processed_files"] = []
+
+    already_done = set(checkpoint["processed_files"])
+    to_process   = [f for f in pdf_files if f.name not in already_done]
+    skipped      = len(pdf_files) - len(to_process)
 
     if skipped:
         print(f"Checkpoint: skipping {skipped} already-processed papers")
+
     print(f"Processing: {len(to_process)} new papers with {max_workers} workers\n")
 
+    if not to_process:
+        return []
+
     results = []
-    failed = []
+    failed  = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_file = {executor.submit(load_paper_safe, f): f for f in to_process}
+        future_to_file = {
+            executor.submit(load_paper_safe, f): f
+            for f in to_process
+        }
 
         for i, future in enumerate(as_completed(future_to_file), 1):
             pdf_file = future_to_file[future]
-            paper = future.result()
+            try:
+                paper = future.result()
+            except Exception as e:
+                print(f"  [{i}/{len(to_process)}] ✗ {pdf_file.name[:55]} — {e}")
+                failed.append(pdf_file.name)
+                continue
 
             if paper:
                 results.append(paper)
@@ -195,7 +186,7 @@ def load_papers_parallel(papers_dir: str, checkpoint: dict, max_workers: int = 4
                 print(f"  [{i}/{len(to_process)}] ✗ {pdf_file.name[:55]}")
 
     if failed:
-        print(f"\nFailed to load {len(failed)} papers: {failed}")
+        print(f"\nFailed: {len(failed)} papers — {failed}")
 
     print(f"\nLoaded {len(results)} papers successfully")
     return results
@@ -211,25 +202,29 @@ def print_step(step: int, total: int, title: str):
 
 # ─── main ─────────────────────────────────────────────────────
 
-def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_workers: int = 4):
+def main(
+    force_rebuild:     bool  = False,
+    min_chunk_quality: float = 0.3,
+    max_workers:       int   = 4
+):
     start_time = time.time()
     Path(INDEXES_DIR).mkdir(exist_ok=True)
 
     build_stats = {
         "started_at": datetime.now().isoformat(),
         "config": {
-            "force_rebuild": force_rebuild,
+            "force_rebuild":     force_rebuild,
             "min_chunk_quality": min_chunk_quality,
-            "max_workers": max_workers
+            "max_workers":       max_workers
         }
     }
 
-    # ── checkpoint ──
-    checkpoint = {} if force_rebuild else load_checkpoint()
+    # checkpoint
+    checkpoint = {"processed_files": [], "last_run": None} if force_rebuild else load_checkpoint()
     if force_rebuild:
         print("Force rebuild — ignoring checkpoint")
 
-    # ══ STEP 1: INGEST ══════════════════════════════════════
+    # ══ STEP 1 ══════════════════════════════════════════════
     print_step(1, 6, "Parallel PDF ingestion + math preservation")
 
     papers = load_papers_parallel(PAPERS_DIR, checkpoint, max_workers=max_workers)
@@ -240,10 +235,9 @@ def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_worker
 
     save_metadata(papers)
     save_checkpoint(checkpoint)
-
     build_stats["papers_loaded"] = len(papers)
 
-    # ══ STEP 2: CHUNK ═══════════════════════════════════════
+    # ══ STEP 2 ══════════════════════════════════════════════
     print_step(2, 6, "Section-aware chunking")
 
     raw_chunks = []
@@ -253,9 +247,8 @@ def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_worker
         print(f"  {paper['metadata']['filename'][:45]}: {len(paper_chunks)} chunks")
 
     print(f"\nRaw chunks: {len(raw_chunks)}")
+    print(f"Applying quality filter (min score: {min_chunk_quality})...")
 
-    # ── quality filter ──
-    print(f"\nApplying quality filter (min score: {min_chunk_quality})...")
     filtered_chunks, quality_stats = filter_chunks(raw_chunks, min_score=min_chunk_quality)
 
     print(f"  Total:   {quality_stats['total']}")
@@ -265,15 +258,14 @@ def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_worker
     save_chunks(filtered_chunks)
     build_stats["chunking"] = quality_stats
 
-    # ══ STEP 3: EMBED CHUNKS ════════════════════════════════
+    # ══ STEP 3 ══════════════════════════════════════════════
     print_step(3, 6, "Embedding chunks with SPECTER2")
 
     chunk_embeddings = embed_chunks(filtered_chunks)
     save_embeddings(chunk_embeddings, f"{INDEXES_DIR}/chunk_embeddings.npy")
-
     build_stats["embedding_shape"] = list(chunk_embeddings.shape)
 
-    # ══ STEP 4: EMBED PAPERS ════════════════════════════════
+    # ══ STEP 4 ══════════════════════════════════════════════
     print_step(4, 6, "Embedding papers for recommendation engine")
 
     paper_embeddings, paper_meta = embed_papers_for_recommendation(papers)
@@ -284,23 +276,22 @@ def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_worker
 
     build_stats["paper_embeddings"] = len(paper_meta)
 
-    # ══ STEP 5: FAISS ═══════════════════════════════════════
+    # ══ STEP 5 ══════════════════════════════════════════════
     print_step(5, 6, "Building FAISS index")
 
     faiss_index = build_faiss_index(chunk_embeddings)
     save_faiss_index(faiss_index)
-
     build_stats["faiss_vectors"] = int(faiss_index.ntotal)
 
-    # ══ STEP 6: BM25 ════════════════════════════════════════
+    # ══ STEP 6 ══════════════════════════════════════════════
     print_step(6, 6, "Building BM25 index")
 
     bm25_index = build_bm25_index(filtered_chunks)
     save_bm25_index(bm25_index)
 
-    # ── final report ──
+    # final report
     elapsed = round(time.time() - start_time, 1)
-    build_stats["finished_at"] = datetime.now().isoformat()
+    build_stats["finished_at"]     = datetime.now().isoformat()
     build_stats["elapsed_seconds"] = elapsed
 
     with open(REPORT_PATH, "w") as f:
@@ -316,7 +307,7 @@ def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_worker
     print(f"FAISS vectors:    {build_stats['faiss_vectors']}")
     print(f"Report saved:     {REPORT_PATH}")
     print(f"{'═'*50}")
-    print(f"\nNext step: streamlit run app.py")
+    print(f"\nNext: streamlit run app.py")
 
 
 # ─── CLI ──────────────────────────────────────────────────────
@@ -324,7 +315,9 @@ def main(force_rebuild: bool = False, min_chunk_quality: float = 0.3, max_worker
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Build RAG indexes from research papers")
+    parser = argparse.ArgumentParser(
+        description="Build RAG indexes from research papers"
+    )
     parser.add_argument(
         "--force", "-f",
         action="store_true",
