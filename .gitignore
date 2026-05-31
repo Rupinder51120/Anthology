@@ -9,3 +9,4 @@ faiss_index/
 chroma_db/
 
 .DS_Storeindexes/
+indexes/
