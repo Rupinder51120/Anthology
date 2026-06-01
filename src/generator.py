@@ -1,11 +1,19 @@
-import os
-from groq import Groq, RateLimitError
-from dotenv import load_dotenv
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+"""
+src/generator.py
 
-load_dotenv()
+Migrated from Groq to Ollama (local LLM).
+- No API key needed
+- No rate limits
+- No token limits
+- Model: qwen2.5:7b (runs on 16GB Mac)
+- Streaming still works via Ollama stream API
+"""
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+import json
+import requests
+
+OLLAMA_URL  = "http://localhost:11434/api/chat"
+OLLAMA_MODEL = "qwen2.5:7b"
 
 SYSTEM_PROMPT = """You are an expert AI research assistant helping a student deeply understand research papers.
 
@@ -49,7 +57,6 @@ def format_context(chunks: list[dict]) -> str:
 def format_citations(chunks: list[dict]) -> list[dict]:
     seen      = set()
     citations = []
-
     for chunk in chunks:
         meta = chunk["metadata"]
         key  = (meta["title"], meta["section"])
@@ -64,7 +71,6 @@ def format_citations(chunks: list[dict]) -> list[dict]:
                 "doi":      meta.get("doi"),
                 "score":    meta.get("rerank_score")
             })
-
     citations.sort(key=lambda x: x.get("score") or 0, reverse=True)
     return citations
 
@@ -78,59 +84,56 @@ def detect_response_type(query: str) -> str:
     return "explanation"
 
 
+def _call_ollama(messages: list[dict], stream: bool = False) -> requests.Response:
+    return requests.post(
+        OLLAMA_URL,
+        json={
+            "model":    OLLAMA_MODEL,
+            "messages": messages,
+            "stream":   stream,
+            "options":  {"temperature": 0.2, "num_predict": 1500},
+        },
+        stream=stream,
+        timeout=120,
+    )
+
+
 def generate_answer(
     query: str,
     chunks: list[dict],
-    chat_history: list[dict] = None
+    chat_history: list[dict] = None,
 ) -> dict:
     if not chunks:
         return {
-            "answer": "I couldn't find relevant information in your papers for this query.",
-            "citations": [],
-            "chunks_used": 0,
-            "response_type": "error"
+            "answer":        "I couldn't find relevant information in your papers for this query.",
+            "citations":     [],
+            "chunks_used":   0,
+            "response_type": "error",
+            "tokens_used":   0,
         }
 
     context       = format_context(chunks)
     citations     = format_citations(chunks)
     response_type = detect_response_type(query)
 
-    user_message = f"""Context from research papers:
-{context}
-
----
-Student question: {query}
-
-Answer the question thoroughly using the context above.
-Always mention which paper (title + year) each piece of information comes from."""
+    user_message = (
+        f"Context from research papers:\n{context}\n\n"
+        f"---\nStudent question: {query}\n\n"
+        f"Answer the question thoroughly using the context above. "
+        f"Always mention which paper (title + year) each piece of information comes from."
+    )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
     if chat_history:
         messages.extend(chat_history[-6:])
-
     messages.append({"role": "user", "content": user_message})
 
-    # ── retry wrapper for rate limits ──
-    @retry(
-        retry=retry_if_exception_type(RateLimitError),
-        wait=wait_exponential(multiplier=2, min=10, max=120),
-        stop=stop_after_attempt(6),
-        reraise=True,
-    )
-    def _call():
-        return client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=0.2,
-            max_tokens=1500
-        )
-
     try:
-        response    = _call()
-        answer      = response.choices[0].message.content.strip()
-        tokens_used = response.usage.total_tokens
-
+        resp   = _call_ollama(messages, stream=False)
+        resp.raise_for_status()
+        data   = resp.json()
+        answer = data["message"]["content"].strip()
+        tokens_used = data.get("eval_count", 0)
     except Exception as e:
         answer      = f"Generation failed: {e}"
         tokens_used = 0
@@ -140,54 +143,43 @@ Always mention which paper (title + year) each piece of information comes from."
         "citations":     citations,
         "chunks_used":   len(chunks),
         "response_type": response_type,
-        "tokens_used":   tokens_used
+        "tokens_used":   tokens_used,
     }
 
 
 def generate_answer_streaming(
     query: str,
     chunks: list[dict],
-    chat_history: list[dict] = None
+    chat_history: list[dict] = None,
 ):
-    """
-    Generator function that yields answer tokens one by one.
-    Use with st.write_stream() in Streamlit.
-    """
+    """Yields answer tokens one by one. Use with st.write_stream() in Streamlit."""
     if not chunks:
         yield "I couldn't find relevant information in your papers for this query."
         return
 
     context = format_context(chunks)
-
-    user_message = f"""Context from research papers:
-{context}
-
----
-Student question: {query}
-
-Answer the question thoroughly using the context above.
-Always mention which paper (title + year) each piece of information comes from."""
+    user_message = (
+        f"Context from research papers:\n{context}\n\n"
+        f"---\nStudent question: {query}\n\n"
+        f"Answer the question thoroughly using the context above. "
+        f"Always mention which paper (title + year) each piece of information comes from."
+    )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
     if chat_history:
         messages.extend(chat_history[-6:])
-
     messages.append({"role": "user", "content": user_message})
 
     try:
-        stream = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=0.2,
-            max_tokens=1500,
-            stream=True
-        )
-
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
-
+        resp = _call_ollama(messages, stream=True)
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                delta = chunk.get("message", {}).get("content", "")
+                if delta:
+                    yield delta
+                if chunk.get("done"):
+                    break
     except Exception as e:
         yield f"Generation failed: {e}"
