@@ -28,7 +28,10 @@ def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
         t = t.strip()
         if not t:
             t = "[EMPTY]"
-        cleaned.append(t[:512])
+        # Fix #7: HyDE documents are ~250 tokens (~1000 chars); the old 512-char
+        # limit cut them roughly in half before embedding.  MiniLM supports up
+        # to 512 *tokens* (~2000 chars), so 1024 chars is safe for all inputs.
+        cleaned.append(t[:1024])
 
     embeddings = model.encode(
         cleaned,

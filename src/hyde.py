@@ -1,50 +1,108 @@
-import os
-from groq import Groq
-from dotenv import load_dotenv
+"""
+src/hyde.py — Fixed HyDE implementation
 
-load_dotenv()
+Key fixes vs original:
+1. Multi-hypothesis: generate N docs, average their embeddings (stable centroid)
+2. Embed ONLY the HyDE doc, never the query — this is what HyDE actually does
+3. Extract BM25 keyword boost terms from HyDE doc (technical nouns/verbs)
+4. Temperature 0.55: coherent but diverse (0.7 was too random, 0.3 too flat)
+5. More tokens (350) for richer vocabulary coverage
+"""
 
-# ── NO CHANGES NEEDED — reads GROQ_API_KEY from .env automatically ──
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+import re
+import numpy as np
+import requests
 
-HYDE_PROMPT = """You are a research scientist writing technical content.
+OLLAMA_URL = "http://localhost:11434/api/generate"
 
-A student asked: "{query}"
+HYDE_PROMPT = """You are a research scientist writing a section of a peer-reviewed paper.
+Answer the following research question with a dense, technical paragraph (6-8 sentences).
+Use precise terminology. Include specific mechanisms, metrics, or formulas where relevant.
+Do NOT say "In this paper" or "We propose". Write as if explaining to an expert.
 
-Write a dense, technical paragraph (5-7 sentences) that reads like an excerpt 
-from a peer-reviewed research paper answering this question.
+Research question: {query}
 
-Rules:
-- Use academic vocabulary and technical precision
-- Include likely variable names, equations, or algorithm steps if relevant
-- Do NOT say "In this paper" or "We propose"
-- Write as if explaining to a fellow researcher
-- Be specific, not vague
-
-Paragraph:"""
-
-
-def expand_query_with_hyde(query: str) -> str:
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{
-                "role": "user",
-                "content": HYDE_PROMPT.format(query=query)
-            }],
-            temperature=0.3,
-            max_tokens=250
-        )
-        hypothetical_doc = response.choices[0].message.content.strip()
-        # combine original query + hypothetical doc for best retrieval
-        combined = f"{query}\n\n{hypothetical_doc}"
-        return combined
-
-    except Exception as e:
-        print(f"HyDE failed, using original query: {e}")
-        return query
+Technical answer:"""
 
 
-if __name__ == "__main__":
-    result = expand_query_with_hyde("How does the GAN discriminator update work?")
-    print(result)
+def _generate_one_doc(query: str, temperature: float = 0.55) -> str:
+    """Generate a single hypothetical document."""
+    resp = requests.post(
+        OLLAMA_URL,
+        json={
+            "model":  "qwen2.5:7b",
+            "prompt": HYDE_PROMPT.format(query=query),
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": 350},
+        },
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()["response"].strip()
+
+
+def extract_bm25_keywords(hyde_doc: str) -> list[str]:
+    """
+    Pull technical keywords from the HyDE doc for BM25 augmentation.
+    Targets: multi-word noun phrases and domain-specific tokens that are
+    unlikely to appear in the original short query.
+    """
+    # keep tokens that are ≥4 chars, not pure stopwords
+    stopwords = {
+        "this", "that", "with", "from", "have", "been", "they",
+        "their", "which", "when", "where", "such", "these", "those",
+        "used", "using", "also", "more", "than", "into", "over",
+        "each", "both", "through", "about", "after", "between",
+    }
+    tokens = re.findall(r'\b[a-zA-Z][a-zA-Z0-9\-]{3,}\b', hyde_doc)
+    keywords = [
+        t.lower() for t in tokens
+        if t.lower() not in stopwords
+        and not t.isupper()   # skip ALL-CAPS acronyms (too noisy)
+    ]
+    # deduplicate, keep order
+    seen = set()
+    unique = []
+    for kw in keywords:
+        if kw not in seen:
+            seen.add(kw)
+            unique.append(kw)
+    return unique[:40]   # cap at 40 terms
+
+
+def expand_query_with_hyde(
+    query: str,
+    n_docs: int = 3,
+) -> tuple[str, list[str], list[str]]:
+    """
+    Returns:
+        query        — original query (unchanged)
+        hyde_docs    — list of N hypothetical document strings
+        bm25_terms   — deduplicated keyword terms for BM25 augmentation
+    """
+    hyde_docs = []
+    # vary temperature slightly across runs for diversity
+    temps = [0.5, 0.6, 0.55][:n_docs]
+
+    for i in range(n_docs):
+        try:
+            doc = _generate_one_doc(query, temperature=temps[i % len(temps)])
+            if doc and len(doc.split()) >= 30:   # sanity check: non-empty
+                hyde_docs.append(doc)
+        except Exception as e:
+            print(f"HyDE doc {i+1}/{n_docs} failed: {e}")
+
+    if not hyde_docs:
+        print("All HyDE generations failed — falling back to original query.")
+        return query, [query], []
+
+    # BM25 keywords: union across all docs, then deduplicate
+    all_keywords: list[str] = []
+    seen_kw: set[str] = set()
+    for doc in hyde_docs:
+        for kw in extract_bm25_keywords(doc):
+            if kw not in seen_kw:
+                seen_kw.add(kw)
+                all_keywords.append(kw)
+
+    return query, hyde_docs, all_keywords[:60]

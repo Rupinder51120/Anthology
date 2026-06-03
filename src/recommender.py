@@ -6,6 +6,8 @@ from src.embedder import load_embeddings, embed_texts
 
 
 def load_paper_meta(path: str = "indexes/paper_meta.json") -> list[dict]:
+    if not Path(path).exists():
+        return []
     with open(path) as f:
         return json.load(f)
 

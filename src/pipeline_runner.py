@@ -1,21 +1,12 @@
 """
-src/pipeline_runner.py
+src/pipeline_runner.py — Ollama version (no Groq, no rate limits)
 """
 
 import json
 import time
 from pathlib import Path
 
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-)
-from groq import RateLimitError
-
 import src.retriever as _retriever_module
-from src.hyde import expand_query_with_hyde
 from src.generator import generate_answer
 
 
@@ -37,28 +28,6 @@ def _save_checkpoint(results: list[dict], checkpoint_path: str):
         json.dump(results, f, indent=2)
 
 
-# ─── retry-wrapped retrieve + generate ───────────────────────
-
-@retry(
-    retry=retry_if_exception_type(RateLimitError),
-    wait=wait_exponential(multiplier=2, min=4, max=60),
-    stop=stop_after_attempt(6),
-    reraise=True,
-)
-def _retrieve_with_retry(search_query: str, top_k: int) -> list[dict]:
-    return _retriever_module.retrieve(search_query, top_k=top_k)
-
-
-@retry(
-    retry=retry_if_exception_type(RateLimitError),
-    wait=wait_exponential(multiplier=2, min=4, max=60),
-    stop=stop_after_attempt(6),
-    reraise=True,
-)
-def _generate_with_retry(question: str, chunks: list[dict]) -> dict:
-    return generate_answer(question, chunks)
-
-
 # ─── main runner ─────────────────────────────────────────────
 
 def run_pipeline_on_dataset(
@@ -66,7 +35,7 @@ def run_pipeline_on_dataset(
     output_path: str = "indexes/pipeline_results.json",
     use_hyde: bool = True,
     top_k: int = 5,
-    sleep_between: float = 1.0,
+    sleep_between: float = 0.0,
 ) -> list[dict]:
 
     checkpoint_path = output_path.replace(".json", "_checkpoint.json")
@@ -74,8 +43,18 @@ def run_pipeline_on_dataset(
     with open(qa_path) as f:
         qa_pairs = json.load(f)
 
+    # Fix #2 (checkpoint): each config has its own checkpoint file (namespaced
+    # by output_path).  But a fully-completed checkpoint from a previous run
+    # makes `remaining` empty → 0 questions processed → empty output file.
+    # Detect that case and wipe the stale checkpoint so the config reruns.
+    # Mid-run crashes still resume correctly (checkpoint is partial).
     done_map = _load_checkpoint(checkpoint_path)
-    results  = list(done_map.values())
+    if done_map and len(done_map) >= len(qa_pairs):
+        print("  Checkpoint covers all questions — clearing stale checkpoint for a clean run.")
+        Path(checkpoint_path).unlink(missing_ok=True)
+        done_map = {}
+
+    results   = list(done_map.values())
     remaining = [qa for qa in qa_pairs if qa["question"] not in done_map]
 
     print(f"Total questions: {len(qa_pairs)}")
@@ -94,10 +73,8 @@ def run_pipeline_on_dataset(
         t_start = time.time()
 
         try:
-            search_query = expand_query_with_hyde(question) if use_hyde else question
-            chunks       = _retrieve_with_retry(search_query, top_k=top_k)
-            result       = _generate_with_retry(question, chunks)
-
+            chunks  = _retriever_module.retrieve(question, top_k=top_k, use_hyde=use_hyde)
+            result  = generate_answer(question, chunks)
             elapsed = round(time.time() - t_start, 2)
 
             results.append({
@@ -110,12 +87,6 @@ def run_pipeline_on_dataset(
                 "config":       {"hyde": use_hyde, "top_k": top_k},
                 "elapsed_s":    elapsed,
             })
-
-        except RateLimitError as e:
-            print(f"\n  Rate limit exhausted after retries: {e}")
-            print(f"  Checkpointing {len(results)} results and stopping.")
-            _save_checkpoint(results, checkpoint_path)
-            raise
 
         except Exception as e:
             print(f"  Pipeline failed: {e}")
@@ -133,7 +104,7 @@ def run_pipeline_on_dataset(
 
         _save_checkpoint(results, checkpoint_path)
 
-        if i < len(remaining) - 1:
+        if i < len(remaining) - 1 and sleep_between > 0:
             time.sleep(sleep_between)
 
     Path(output_path).parent.mkdir(exist_ok=True)

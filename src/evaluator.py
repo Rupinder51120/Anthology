@@ -3,46 +3,95 @@ src/evaluator.py
 
 Migrated from Groq-as-judge to Ollama-as-judge.
 - No API key needed
-- No rate limits  
+- No rate limits
 - No sleep needed between calls
 - Retrieval metrics unchanged (no LLM needed)
 """
 
 import json
-import time
 from pathlib import Path
 
 import numpy as np
 import requests
 
-OLLAMA_URL   = "http://localhost:11434/api/generate"
-JUDGE_MODEL  = "qwen2.5:7b"
+OLLAMA_URL  = "http://localhost:11434/api/generate"
+JUDGE_MODEL = "qwen2.5:7b"
+
+
+# ─── source normalisation ─────────────────────────────────────
+
+def _norm(s: str) -> str:
+    """Normalise a source path to its bare filename stem.
+
+    Handles every variant produced by the pipeline:
+        "data/papers/Foo.pdf"  →  "Foo"
+        "Foo.pdf"              →  "Foo"
+        "Foo"                  →  "Foo"
+    Using stem comparison means path-prefix differences and the presence or
+    absence of the .pdf extension never cause a false negative.
+    """
+    return Path(s).stem if s else ""
 
 
 # ─── retrieval metrics ────────────────────────────────────────
 
 def _hit_at_k(sources: list[str], expected_source: str, k: int) -> int:
-    return int(any(expected_source in s for s in sources[:k]))
+    """1 if the expected source appears in the top-k retrieved sources, else 0.
+
+    Fix: old code used `expected_source in s` (substring match), which fails
+    when one side has a path prefix or .pdf extension and the other doesn't.
+    Now compares normalised stems so all path variants match correctly.
+    """
+    if not sources or not expected_source:
+        return 0
+    exp = _norm(expected_source)
+    return int(any(_norm(s) == exp for s in sources[:k]))
 
 
 def _reciprocal_rank(sources: list[str], expected_source: str) -> float:
+    """1/rank of the first hit, or 0.0 if no hit.
+
+    Fix: same substring-vs-stem issue as _hit_at_k.
+    """
+    if not sources or not expected_source:
+        return 0.0
+    exp = _norm(expected_source)
     for i, s in enumerate(sources):
-        if expected_source in s:
+        if _norm(s) == exp:
             return 1.0 / (i + 1)
     return 0.0
 
 
 def _ndcg_at_k(sources: list[str], expected_source: str, k: int = 5) -> float:
-    relevance = [1 if expected_source in s else 0 for s in sources[:k]]
-    dcg  = sum(r / np.log2(i + 2) for i, r in enumerate(relevance))
-    idcg = 1.0
-    return dcg / idcg if idcg > 0 else 0.0
+    """Normalised Discounted Cumulative Gain for a single-relevant-doc query.
+
+    Fixes vs original:
+    1. Stem-based source comparison (path-prefix / extension agnostic).
+    2. IDCG computed explicitly instead of hardcoded to 1.0 — correct today,
+       safe to extend to graded relevance later.
+    3. Guards for empty inputs and zero IDCG (no crash, returns 0.0).
+    4. k clamped to len(sources) so callers don't need to pre-check.
+    """
+    if not sources or not expected_source:
+        return 0.0
+
+    k   = min(k, len(sources))
+    exp = _norm(expected_source)
+
+    relevance = [1 if _norm(s) == exp else 0 for s in sources[:k]]
+
+    dcg  = sum(rel / np.log2(i + 2) for i, rel in enumerate(relevance))
+    idcg = sum(rel / np.log2(i + 2) for i, rel in enumerate(sorted(relevance, reverse=True)))
+
+    return (dcg / idcg) if idcg > 0.0 else 0.0
 
 
 def compute_retrieval_metrics(results: list[dict], k_values: list[int] = [1, 3, 5]) -> dict:
     valid = [
         r for r in results
-        if r.get("source_chunk") and r.get("sources") and r["answer"] != "ERROR"
+        if r.get("source_chunk")
+        and r.get("sources")
+        and r["answer"] != "ERROR"
         and "Generation failed" not in r.get("answer", "")
     ]
 
@@ -69,7 +118,7 @@ def compute_retrieval_metrics(results: list[dict], k_values: list[int] = [1, 3, 
     return metrics
 
 
-# ─── Ollama-as-judge ─────────────────────────────────────────
+# ─── Ollama-as-judge ──────────────────────────────────────────
 
 JUDGE_PROMPT = """You are evaluating a RAG system answer. Respond ONLY with a JSON object.
 
@@ -96,17 +145,20 @@ def _call_judge(question: str, ground_truth: str, context: str, answer: str) -> 
     )
     resp = requests.post(
         OLLAMA_URL,
-        json={"model": JUDGE_MODEL, "prompt": prompt, "stream": False,
-              "options": {"temperature": 0.0, "num_predict": 80}},
+        json={
+            "model":   JUDGE_MODEL,
+            "prompt":  prompt,
+            "stream":  False,
+            "options": {"temperature": 0.0, "num_predict": 80},
+        },
         timeout=60,
     )
     resp.raise_for_status()
-    raw = resp.json()["response"].strip()
-    # extract JSON from response
+    raw   = resp.json()["response"].strip()
     start = raw.find("{")
     end   = raw.rfind("}") + 1
     if start == -1 or end == 0:
-        raise ValueError(f"No JSON found in: {raw}")
+        raise ValueError(f"No JSON found in judge response: {raw!r}")
     return json.loads(raw[start:end])
 
 
@@ -148,14 +200,16 @@ def compute_judge_metrics(results: list[dict]) -> dict:
         return {}
 
     result = {
-        "faithfulness":  round(float(np.mean(scores["faithfulness"])), 4),
-        "relevance":     round(float(np.mean(scores["relevance"])), 4),
-        "completeness":  round(float(np.mean(scores["completeness"])), 4),
-        "n_eval":        len(valid),
-        "n_failed":      failed,
+        "faithfulness": round(float(np.mean(scores["faithfulness"])), 4),
+        "relevance":    round(float(np.mean(scores["relevance"])),    4),
+        "completeness": round(float(np.mean(scores["completeness"])), 4),
+        "n_eval":       len(valid),
+        "n_failed":     failed,
     }
     result["mean_score"] = round(
-        float(np.mean([result["faithfulness"], result["relevance"], result["completeness"]])), 4
+        float(np.mean([result["faithfulness"],
+                       result["relevance"],
+                       result["completeness"]])), 4
     )
     return result
 
@@ -163,8 +217,8 @@ def compute_judge_metrics(results: list[dict]) -> dict:
 # ─── combined eval ────────────────────────────────────────────
 
 def evaluate_results(
-    results: list[dict],
-    label: str = "pipeline",
+    results:   list[dict],
+    label:     str  = "pipeline",
     run_judge: bool = True,
 ) -> dict:
     print(f"\n{'='*50}")
@@ -177,9 +231,9 @@ def evaluate_results(
     retrieval = compute_retrieval_metrics(results)
     output["retrieval"] = retrieval
     if retrieval:
-        print(f"  Hit@1={retrieval.get('hit@1'):.4f}  Hit@3={retrieval.get('hit@3'):.4f}  "
-              f"Hit@5={retrieval.get('hit@5'):.4f}  MRR={retrieval.get('mrr'):.4f}  "
-              f"nDCG@5={retrieval.get('ndcg@5'):.4f}  (n={retrieval.get('n_eval')})")
+        print(f"  Hit@1={retrieval['hit@1']:.4f}  Hit@3={retrieval['hit@3']:.4f}  "
+              f"Hit@5={retrieval['hit@5']:.4f}  MRR={retrieval['mrr']:.4f}  "
+              f"nDCG@5={retrieval['ndcg@5']:.4f}  (n={retrieval['n_eval']})")
 
     if run_judge:
         print("  Running Ollama-as-judge...")
@@ -212,8 +266,7 @@ def compare_configs(results_paths: dict, run_judge: bool = True) -> dict:
     for label, path in results_paths.items():
         with open(path) as f:
             results = json.load(f)
-        scores = evaluate_results(results, label=label, run_judge=run_judge)
-        all_scores[label] = scores
+        all_scores[label] = evaluate_results(results, label=label, run_judge=run_judge)
 
     print(f"\n{'='*75}")
     print("RETRIEVAL METRICS")
@@ -224,7 +277,8 @@ def compare_configs(results_paths: dict, run_judge: bool = True) -> dict:
         r = s.get("retrieval", {})
         if r:
             print(f"{label:<28} {r.get('hit@1',0):>6.4f} {r.get('hit@3',0):>6.4f} "
-                  f"{r.get('hit@5',0):>6.4f} {r.get('mrr',0):>7.4f} {r.get('ndcg@5',0):>8.4f}")
+                  f"{r.get('hit@5',0):>6.4f} {r.get('mrr',0):>7.4f} "
+                  f"{r.get('ndcg@5',0):>8.4f}")
 
     if run_judge:
         print(f"\n{'='*75}")
@@ -235,8 +289,10 @@ def compare_configs(results_paths: dict, run_judge: bool = True) -> dict:
         for label, s in all_scores.items():
             j = s.get("judge", {})
             if j:
-                print(f"{label:<28} {j.get('faithfulness',0):>7.4f} {j.get('relevance',0):>7.4f} "
-                      f"{j.get('completeness',0):>7.4f} {j.get('mean_score',0):>7.4f}")
+                print(f"{label:<28} {j.get('faithfulness',0):>7.4f} "
+                      f"{j.get('relevance',0):>7.4f} "
+                      f"{j.get('completeness',0):>7.4f} "
+                      f"{j.get('mean_score',0):>7.4f}")
 
     configs = list(all_scores.values())
     if len(configs) >= 2:
@@ -245,10 +301,9 @@ def compare_configs(results_paths: dict, run_judge: bool = True) -> dict:
         b_score  = baseline.get("mean_score", 0)
         t_score  = best.get("mean_score", 0)
         if b_score > 0:
-            improvement = ((t_score - b_score) / b_score) * 100
-            direction   = "+" if improvement >= 0 else ""
+            pct = ((t_score - b_score) / b_score) * 100
             print(f"\nImprovement {baseline['label']} → {best['label']}: "
-                  f"{direction}{improvement:.1f}% mean score")
+                  f"{'+' if pct >= 0 else ''}{pct:.1f}% mean score")
         else:
             print("\nBaseline mean_score is 0 — improvement not computed.")
 
