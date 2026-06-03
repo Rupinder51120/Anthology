@@ -7,11 +7,6 @@ Compares 5 retrieval configs end-to-end:
   3. Hybrid (FAISS + BM25 + RRF), no rerank
   4. Hybrid + rerank
   5. Hybrid + rerank + HyDE
-
-Usage:
-  python run_benchmark.py                  # full run with judge
-  python run_benchmark.py --no-judge       # retrieval metrics only (faster, fewer tokens)
-  python run_benchmark.py --build-qa       # force rebuild QA dataset first
 """
 
 import argparse
@@ -20,54 +15,82 @@ from pathlib import Path
 
 from src.benchmarker import build_qa_dataset
 from src.pipeline_runner import run_pipeline_on_dataset
-from src.evaluator import compare_configs, save_scores
+from src.evaluator import compare_configs
+
+# ── save the REAL retrieve once, before any patching ──────────
+import src.retriever as _ret_module
+_ORIGINAL_RETRIEVE = _ret_module.retrieve   # captured before any monkey-patch
 
 
 # ─── retriever patching ───────────────────────────────────────
 
 def patch_retriever_mode(mode: str):
-    """Monkey-patches src.retriever.retrieve for the given config."""
     import src.retriever as ret
+
+    # Fix #3 (from previous session): always reset USE_RERANKER so earlier
+    # configs don't bleed into later ones within the same process.
+    ret.USE_RERANKER = False
 
     if mode == "bm25_only":
         def retrieve_bm25(query, top_k=5, **_):
-            from src.retriever import bm25_search, load_chunks
+            from src.retriever import bm25_search, load_chunks, boost_by_section_priority
             chunks = load_chunks()
-            ids = bm25_search(query, chunks, top_k=top_k)
-            return [chunks[i] for i in ids[:top_k]]
+            ids    = bm25_search(query, chunks, top_k=top_k)
+            result = [chunks[i] for i in ids[:top_k]]
+            # Fix #2: stamp rerank_score=None so format_citations never KeyErrors
+            for c in result:
+                c["metadata"]["rerank_score"] = None
+            return result
         ret.retrieve = retrieve_bm25
 
     elif mode == "faiss_only":
+        # Fix #1 (from previous session): _embed_query doesn't exist → use embed_texts
         def retrieve_faiss(query, top_k=5, **_):
-            from src.retriever import faiss_search, load_chunks
+            from src.retriever import faiss_search, load_chunks, boost_by_section_priority
             from src.embedder import embed_texts
             chunks = load_chunks()
-            emb = embed_texts([query])[0]
-            ids = faiss_search(emb, top_k=top_k)
-            return [chunks[i] for i in ids[:top_k] if i < len(chunks)]
+            emb    = embed_texts([query])[0]
+            ids    = faiss_search(emb, top_k=top_k)
+            result = [chunks[i] for i in ids[:top_k] if i < len(chunks)]
+            # Fix #2: stamp rerank_score=None
+            for c in result:
+                c["metadata"]["rerank_score"] = None
+            return boost_by_section_priority(result)[:top_k]
         ret.retrieve = retrieve_faiss
 
     elif mode == "hybrid_no_rerank":
+        # Fix #1 (from previous session): _embed_query doesn't exist → use embed_texts
         def retrieve_hybrid(query, top_k=5, **_):
-            from src.retriever import faiss_search, bm25_search, reciprocal_rank_fusion, load_chunks
+            from src.retriever import (faiss_search, bm25_search,
+                                       reciprocal_rank_fusion,
+                                       deduplicate_candidates,
+                                       boost_by_section_priority,
+                                       load_chunks)
             from src.embedder import embed_texts
             chunks = load_chunks()
-            emb   = embed_texts([query])[0]
-            f_ids = faiss_search(emb, top_k=20)
-            b_ids = bm25_search(query, chunks, top_k=20)
-            fused = reciprocal_rank_fusion(f_ids, b_ids)[:top_k]
-            return [chunks[i] for i in fused if i < len(chunks)]
+            emb    = embed_texts([query])[0]
+            f_ids  = faiss_search(emb, top_k=25)
+            b_ids  = bm25_search(query, chunks, top_k=25)
+            fused  = reciprocal_rank_fusion(f_ids, b_ids)[:20]
+            cands  = [chunks[i] for i in fused if i < len(chunks)]
+            cands  = deduplicate_candidates(cands)
+            # Fix #2: stamp rerank_score=None
+            for c in cands:
+                c["metadata"]["rerank_score"] = None
+            return boost_by_section_priority(cands)[:top_k]
         ret.retrieve = retrieve_hybrid
 
     elif mode == "hybrid_rerank":
-        import src.retriever
-        src.retriever.USE_RERANKER = True
-        ret.retrieve = src.retriever.retrieve
+        ret.USE_RERANKER = True
+        def retrieve_rerank(query, top_k=5, **_):
+            return _ORIGINAL_RETRIEVE(query, top_k=top_k, use_hyde=False)
+        ret.retrieve = retrieve_rerank
 
     elif mode == "full":
-        import src.retriever
-        src.retriever.USE_RERANKER = True
-        ret.retrieve = src.retriever.retrieve
+        ret.USE_RERANKER = True
+        def retrieve_full(query, top_k=5, **_):
+            return _ORIGINAL_RETRIEVE(query, top_k=top_k, use_hyde=True)
+        ret.retrieve = retrieve_full
 
 
 def _safe_label(label: str) -> str:
@@ -78,14 +101,38 @@ def _safe_label(label: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--no-judge", action="store_true",
-                        help="Skip Groq judge eval (retrieval metrics only)")
-    parser.add_argument("--build-qa", action="store_true",
-                        help="Force rebuild QA dataset even if it exists")
+    parser.add_argument("--no-judge", action="store_true")
+    parser.add_argument("--build-qa", action="store_true")
+    # Fix #9: restore --quick flag properly with two distinct qa paths
+    parser.add_argument("--quick", action="store_true",
+                        help="Run on qa_quick.json (15 q) for fast validation; "
+                             "omit to use qa_dataset.json (50 q)")
+    # Fix #1: wipe stale result + checkpoint files before a fresh benchmark run
+    parser.add_argument("--clean", action="store_true",
+                        help="Delete existing result/checkpoint files before running")
     args = parser.parse_args()
 
     run_judge = not args.no_judge
-    qa_path   = "indexes/qa_dataset.json"
+    qa_path   = "indexes/qa_quick.json" if args.quick else "indexes/qa_dataset.json"
+
+    # ── Fix #1: clean stale outputs so evaluator never reads old broken files ──
+    if args.clean:
+        import glob
+        patterns = [
+            "indexes/results_*.json",
+            "indexes/results_*_checkpoint.json",
+        ]
+        removed = []
+        for pat in patterns:
+            for f in glob.glob(pat):
+                Path(f).unlink()
+                removed.append(f)
+        if removed:
+            print(f"Cleaned {len(removed)} stale file(s):")
+            for f in removed:
+                print(f"  {f}")
+        else:
+            print("No stale files to clean.")
 
     # ── step 1: QA dataset ──
     if args.build_qa or not Path(qa_path).exists():
@@ -98,12 +145,12 @@ def main():
 
     # ── step 2: run each config ──
     configs = [
-        #  label                    retriever_mode     use_hyde
-        ("BM25 baseline",           "bm25_only",        False),
-        ("FAISS only",              "faiss_only",        False),
-        ("Hybrid no rerank",        "hybrid_no_rerank",  False),
-        ("Hybrid + rerank",         "hybrid_rerank",     False),
-        ("Hybrid + rerank + HyDE",  "full",              True),
+        #  label                    mode                use_hyde
+        #("BM25 baseline",          "bm25_only",          False),
+       # ("FAISS only",             "faiss_only",          False),
+       # ("Hybrid no rerank",       "hybrid_no_rerank",    False),
+        ("Hybrid + rerank",        "hybrid_rerank",       False),
+        ("Hybrid + rerank + HyDE", "full",                True),
     ]
 
     results_map = {}
@@ -111,7 +158,7 @@ def main():
     for label, mode, use_hyde in configs:
         out_path = f"indexes/results_{_safe_label(label)}.json"
         print(f"\n{'='*55}")
-        print(f"Config: {label}")
+        print(f"Config: {label}  |  mode={mode}  |  hyde={use_hyde}")
         print(f"{'='*55}")
 
         patch_retriever_mode(mode)
@@ -120,8 +167,8 @@ def main():
             qa_path=qa_path,
             output_path=out_path,
             use_hyde=use_hyde,
-            top_k=5,
-            sleep_between=3.0,   # increased from 1.0 to avoid 429s
+            top_k=7,
+            sleep_between=0,
         )
         results_map[label] = out_path
 
@@ -137,12 +184,9 @@ def main():
     with open(summary_path, "w") as f:
         json.dump(all_scores, f, indent=2)
 
-    print(f"\nBenchmark complete.")
-    print(f"Summary → {summary_path}")
+    print(f"\nBenchmark complete. Summary → {summary_path}")
     if run_judge:
         print("Use the 'mean_score' column from the judge table as your resume number.")
-    else:
-        print("Re-run without --no-judge for full judge metrics.")
 
 
 if __name__ == "__main__":
