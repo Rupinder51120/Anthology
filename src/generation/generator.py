@@ -1,54 +1,54 @@
 """
-src/generator.py
+src/generation/generator.py
 
 Migrated from Groq to Ollama (local LLM).
-- No API key needed
-- No rate limits
-- No token limits
+- No API key needed, no rate limits
 - Model: qwen2.5:7b (runs on 16GB Mac)
-- Streaming still works via Ollama stream API
+- Streaming works via Ollama stream API
 """
 
 import json
 import requests
 
-OLLAMA_URL  = "http://localhost:11434/api/chat"
+OLLAMA_URL   = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "qwen2.5:7b"
 
 SYSTEM_PROMPT = """You are an expert AI research assistant helping a student deeply understand research papers.
 
-Your response must follow this structure:
+Given context excerpts from research papers, write a COMPLETE and THOROUGH answer.
+
+Structure your response as:
 
 **EXPLANATION**
-Explain the concept clearly, step by step. Break down every technical term.
-Use analogies when helpful. Teach, don't just recite.
+Explain the concept fully. Cover all key points from the context — do not stop early.
+Break down technical terms. Use analogies where helpful.
+If multiple papers address the question, synthesize all of them.
 
 **KEY INSIGHT**
-One sentence capturing the core idea the student must remember.
+One sentence capturing the single most important idea.
 
-**FROM THE PAPERS**
-Quote or closely paraphrase the most relevant passage from the context.
-Always mention which paper it came from.
+**EVIDENCE FROM PAPERS**
+For EACH source used, write 2-3 sentences summarizing what that specific paper contributes.
+Format: "Paper Title (Year): ..."
+Cover every source that is relevant — do not skip any.
 
 Rules:
 - ONLY use information from the provided context
-- If context is insufficient, say exactly what's missing
+- A complete answer covers ALL relevant points in the context, not just the first one
+- If context is insufficient, state exactly what is missing
 - Never hallucinate citations or results
 - Use markdown formatting"""
 
 
 def format_context(chunks: list[dict]) -> str:
+    """Format chunks into a numbered context block for the LLM."""
     parts = []
     for i, chunk in enumerate(chunks, 1):
         meta = chunk["metadata"]
-        score = meta.get("rerank_score", "")
-        score_str = f" [score: {score}]" if score else ""
         parts.append(
-            f"[Source {i}]{score_str}\n"
+            f"[Source {i}]\n"
             f"Paper: {meta['title']} ({meta['year']})\n"
-            f"Authors: {meta['authors']}\n"
             f"Section: {meta['section']}\n"
-            f"Type: {meta.get('chunk_type', 'general')}\n"
             f"---\n{chunk['text']}"
         )
     return "\n\n".join(parts)
@@ -69,7 +69,7 @@ def format_citations(chunks: list[dict]) -> list[dict]:
                 "section":  meta["section"],
                 "filename": meta["source"],
                 "doi":      meta.get("doi"),
-                "score":    meta.get("rerank_score")
+                "score":    meta.get("rerank_score"),
             })
     citations.sort(key=lambda x: x.get("score") or 0, reverse=True)
     return citations
@@ -88,19 +88,23 @@ def _call_ollama(messages: list[dict], stream: bool = False) -> requests.Respons
     return requests.post(
         OLLAMA_URL,
         json={
-            "model":    OLLAMA_MODEL,
+            "model":   OLLAMA_MODEL,
             "messages": messages,
-            "stream":   stream,
-            "options":  {"temperature": 0.2, "num_predict": 1500},
+            "stream":  stream,
+            "options": {
+                "temperature": 0.2,
+                "num_predict": 2500,   # raised from 1500 — fixes cutoff answers
+                "num_ctx":     8192,   # explicit context window
+            },
         },
         stream=stream,
-        timeout=120,
+        timeout=180,       # raised from 120 — longer answers need more time
     )
 
 
 def generate_answer(
-    query: str,
-    chunks: list[dict],
+    query:        str,
+    chunks:       list[dict],
     chat_history: list[dict] = None,
 ) -> dict:
     if not chunks:
@@ -117,22 +121,24 @@ def generate_answer(
     response_type = detect_response_type(query)
 
     user_message = (
-        f"Context from research papers:\n{context}\n\n"
-        f"---\nStudent question: {query}\n\n"
-        f"Answer the question thoroughly using the context above. "
-        f"Always mention which paper (title + year) each piece of information comes from."
+        f"Context from research papers:\n\n{context}\n\n"
+        f"---\n"
+        f"Question: {query}\n\n"
+        f"Write a thorough, complete answer using ALL relevant sources above. "
+        f"Do not stop after covering just one source — synthesize everything relevant. "
+        f"Cite each paper by title and year."
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if chat_history:
-        messages.extend(chat_history[-6:])
+        messages.extend(chat_history[-4:])   # reduced from 6 to free context space
     messages.append({"role": "user", "content": user_message})
 
     try:
-        resp   = _call_ollama(messages, stream=False)
+        resp = _call_ollama(messages, stream=False)
         resp.raise_for_status()
-        data   = resp.json()
-        answer = data["message"]["content"].strip()
+        data        = resp.json()
+        answer      = data["message"]["content"].strip()
         tokens_used = data.get("eval_count", 0)
     except Exception as e:
         answer      = f"Generation failed: {e}"
@@ -148,8 +154,8 @@ def generate_answer(
 
 
 def generate_answer_streaming(
-    query: str,
-    chunks: list[dict],
+    query:        str,
+    chunks:       list[dict],
     chat_history: list[dict] = None,
 ):
     """Yields answer tokens one by one. Use with st.write_stream() in Streamlit."""
@@ -159,15 +165,17 @@ def generate_answer_streaming(
 
     context = format_context(chunks)
     user_message = (
-        f"Context from research papers:\n{context}\n\n"
-        f"---\nStudent question: {query}\n\n"
-        f"Answer the question thoroughly using the context above. "
-        f"Always mention which paper (title + year) each piece of information comes from."
+        f"Context from research papers:\n\n{context}\n\n"
+        f"---\n"
+        f"Question: {query}\n\n"
+        f"Write a thorough, complete answer using ALL relevant sources above. "
+        f"Do not stop after covering just one source — synthesize everything relevant. "
+        f"Cite each paper by title and year."
     )
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if chat_history:
-        messages.extend(chat_history[-6:])
+        messages.extend(chat_history[-4:])
     messages.append({"role": "user", "content": user_message})
 
     try:
@@ -175,11 +183,11 @@ def generate_answer_streaming(
         resp.raise_for_status()
         for line in resp.iter_lines():
             if line:
-                chunk = json.loads(line)
-                delta = chunk.get("message", {}).get("content", "")
+                data  = json.loads(line)
+                delta = data.get("message", {}).get("content", "")
                 if delta:
                     yield delta
-                if chunk.get("done"):
+                if data.get("done"):
                     break
     except Exception as e:
         yield f"Generation failed: {e}"
