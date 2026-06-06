@@ -440,5 +440,138 @@
     "url": "http://arxiv.org/abs/2305.11403v5",
     "arxiv_id": "2305.11403v5",
     "downloaded_at": "2026-05-30T22:07:25.325510"
+  },
+  "2103.04668v2": {
+    "title": "The distance backbone of complex networks",
+    "filename": "The_distance_backbone_of_complex_networks.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2021,
+    "authors": [
+      "Tiago Simas",
+      "Rion Brattig Correia",
+      "Luis M. Rocha"
+    ],
+    "abstract": "Redundancy needs more precise characterization as it is a major factor in the evolution and robustness of networks of multivariate interactions. We investigate the complexity of such interactions by inferring a connection transitivity that includes all possible measures of path length for weighted g",
+    "url": "http://arxiv.org/abs/2103.04668v2",
+    "arxiv_id": "2103.04668v2",
+    "downloaded_at": "2026-06-06T21:29:51.869587"
+  },
+  "2109.03378v3": {
+    "title": "Rethinking Multidimensional Discriminator Output for Generative Adversarial Networks",
+    "filename": "Rethinking_Multidimensional_Discriminator_Output_for_Generat.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2021,
+    "authors": [
+      "Mengyu Dai",
+      "Haibin Hang",
+      "Anuj Srivastava"
+    ],
+    "abstract": "The study of multidimensional discriminator (critic) output for Generative Adversarial Networks has been underexplored in the literature. In this paper, we generalize the Wasserstein GAN framework to take advantage of multidimensional critic output and explore its properties. We also introduce a squ",
+    "url": "http://arxiv.org/abs/2109.03378v3",
+    "arxiv_id": "2109.03378v3",
+    "downloaded_at": "2026-06-06T21:29:55.732928"
+  },
+  "2409.06548v1": {
+    "title": "Three-dimensional generative adversarial networks for turbulent flow estimation from wall measurements",
+    "filename": "Three-dimensional_generative_adversarial_networks_for_turbul.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2024,
+    "authors": [
+      "Antonio Cu\u00e9llar",
+      "Alejandro G\u00fcemes",
+      "Andrea Ianiro"
+    ],
+    "abstract": "Different types of neural networks have been used to solve the flow sensing problem in turbulent flows, namely to estimate velocity in wall-parallel planes from wall measurements. Generative adversarial networks (GANs) are among the most promising methodologies, due to their more accurate estimation",
+    "url": "http://arxiv.org/abs/2409.06548v1",
+    "arxiv_id": "2409.06548v1",
+    "downloaded_at": "2026-06-06T21:30:12.595965"
+  },
+  "2401.05295v1": {
+    "title": "Synthesis of pulses from particle detectors with a Generative Adversarial Network (GAN)",
+    "filename": "Synthesis_of_pulses_from_particle_detectors_with_a_Generativ.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2024,
+    "authors": [
+      "Alberto Regad\u00edo",
+      "Luis Esteban",
+      "Sebasti\u00e1n S\u00e1nchez-Prieto"
+    ],
+    "abstract": "To address the possible lack or total absence of pulses from particle detectors during the development of its associate electronics, we propose a model that can generate them without losing the features of the real ones. This model is based on artificial neural networks, namely Generative Adversaria",
+    "url": "http://arxiv.org/abs/2401.05295v1",
+    "arxiv_id": "2401.05295v1",
+    "downloaded_at": "2026-06-06T21:30:14.753812"
+  },
+  "2006.02951v3": {
+    "title": "CiwGAN and fiwGAN: Encoding information in acoustic data to model lexical learning with Generative Adversarial Networks",
+    "filename": "CiwGAN_and_fiwGAN_Encoding_information_in_acoustic_data_to_m.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2020,
+    "authors": [
+      "Ga\u0161per Begu\u0161"
+    ],
+    "abstract": "How can deep neural networks encode information that corresponds to words in human speech into raw acoustic data? This paper proposes two neural network architectures for modeling unsupervised lexical learning from raw acoustic inputs, ciwGAN (Categorical InfoWaveGAN) and fiwGAN (Featural InfoWaveGA",
+    "url": "http://arxiv.org/abs/2006.02951v3",
+    "arxiv_id": "2006.02951v3",
+    "downloaded_at": "2026-06-06T21:31:59.119277"
+  },
+  "1910.08108v2": {
+    "title": "Enforcing Linearity in DNN succours Robustness and Adversarial Image Generation",
+    "filename": "Enforcing_Linearity_in_DNN_succours_Robustness_and_Adversari.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2019,
+    "authors": [
+      "Anindya Sarkar",
+      "Nikhil Kumar Gupta",
+      "Raghu Iyengar"
+    ],
+    "abstract": "Recent studies on the adversarial vulnerability of neural networks have shown that models trained with the objective of minimizing an upper bound on the worst-case loss over all possible adversarial perturbations improve robustness against adversarial attacks. Beside exploiting adversarial training ",
+    "url": "http://arxiv.org/abs/1910.08108v2",
+    "arxiv_id": "1910.08108v2",
+    "downloaded_at": "2026-06-06T21:32:03.147507"
+  },
+  "1905.01907v2": {
+    "title": "Missing Data Imputation with Adversarially-trained Graph Convolutional Networks",
+    "filename": "Missing_Data_Imputation_with_Adversarially-trained_Graph_Con.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2019,
+    "authors": [
+      "Indro Spinelli",
+      "Simone Scardapane",
+      "Aurelio Uncini"
+    ],
+    "abstract": "Missing data imputation (MDI) is a fundamental problem in many scientific disciplines. Popular methods for MDI use global statistics computed from the entire data set (e.g., the feature-wise medians), or build predictive models operating independently on every instance. In this paper we propose a mo",
+    "url": "http://arxiv.org/abs/1905.01907v2",
+    "arxiv_id": "1905.01907v2",
+    "downloaded_at": "2026-06-06T21:32:20.688091"
+  },
+  "2303.01385v3": {
+    "title": "Hyperlink communities in higher-order networks",
+    "filename": "Hyperlink_communities_in_higher-order_networks.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2023,
+    "authors": [
+      "Quintino Francesco Lotito",
+      "Federico Musciotto",
+      "Alberto Montresor"
+    ],
+    "abstract": "Many networks can be characterised by the presence of communities, which are groups of units that are closely linked. Identifying these communities can be crucial for understanding the system's overall function. Recently, hypergraphs have emerged as a fundamental tool for modelling systems where int",
+    "url": "http://arxiv.org/abs/2303.01385v3",
+    "arxiv_id": "2303.01385v3",
+    "downloaded_at": "2026-06-06T21:32:26.455476"
+  },
+  "2209.02005v1": {
+    "title": "Classical and Quantum Random Walks to Identify Leaders in Criminal Networks",
+    "filename": "Classical_and_Quantum_Random_Walks_to_Identify_Leaders_in_Cr.pdf",
+    "topic": "Generative Adversarial Networks",
+    "year": 2022,
+    "authors": [
+      "Annamaria Ficara",
+      "Giacomo Fiumara",
+      "Pasquale De Meo"
+    ],
+    "abstract": "Random walks simulate the randomness of objects, and are key instruments in various fields such as computer science, biology and physics. The counter part of classical random walks in quantum mechanics are the quantum walks. Quantum walk algorithms provide an exponential speedup over classical algor",
+    "url": "http://arxiv.org/abs/2209.02005v1",
+    "arxiv_id": "2209.02005v1",
+    "downloaded_at": "2026-06-06T21:32:30.303421"
   }
 }
