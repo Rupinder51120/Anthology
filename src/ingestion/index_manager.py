@@ -2,26 +2,17 @@ import json
 from pathlib import Path
 import numpy as np
 
-# Import helper functions from build_index.py (in workspace root)
-import sys
-sys.path.append(str(Path(__file__).parent.parent))
+from src.ingestion.utils import load_checkpoint, save_checkpoint, filter_chunks, preserve_math
 
-from build_index import (
-    load_checkpoint,
-    save_checkpoint,
-    filter_chunks,
-    preserve_math
-)
-
-from src.ingest import load_paper, save_metadata
-from src.chunker import chunk_paper, save_chunks
-from src.embedder import (
+from src.ingestion.ingest import load_paper, save_metadata
+from src.ingestion.chunker import chunk_paper, save_chunks
+from src.retrieval.embedder import (
     embed_chunks,
     embed_papers_for_recommendation,
     save_embeddings,
     load_embeddings
 )
-from src.indexer import (
+from src.retrieval.indexer import (
     build_faiss_index,
     save_faiss_index,
     build_bm25_index,

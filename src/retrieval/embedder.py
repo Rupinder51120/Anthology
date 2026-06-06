@@ -2,8 +2,7 @@ import numpy as np
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
-MODEL_NAME = "all-MiniLM-L6-v2"
-
+MODEL_NAME = "BAAI/bge-large-en-v1.5"
 
 def get_model() -> SentenceTransformer:
     if not hasattr(get_model, "_instance"):
@@ -81,8 +80,8 @@ def load_embeddings(path: str) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    from src.ingest import load_all_papers
-    from src.chunker import chunk_all_papers
+    from src.ingestion.ingest import load_all_papers
+    from src.ingestion.chunker import chunk_all_papers
 
     papers     = load_all_papers("data/papers")
     chunks     = chunk_all_papers(papers)

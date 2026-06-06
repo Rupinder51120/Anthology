@@ -6,8 +6,8 @@ import json
 import time
 from pathlib import Path
 
-import src.retriever as _retriever_module
-from src.generator import generate_answer
+import src.retrieval.retriever as _retriever_module
+from src.generation.generator import generate_answer
 
 
 # ─── checkpoint helpers ───────────────────────────────────────
