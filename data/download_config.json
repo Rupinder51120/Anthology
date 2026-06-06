@@ -2,9 +2,12 @@
   "topics": [
     "Generative Adversarial Networks",
     "Diffusion Models image generation",
-    "Transformer attention mechanism"
+    "Transformer attention mechanism",
+    "Large Language Models",
+    "Vision Transformers image recognition",
+    "Contrastive Learning self-supervised"
   ],
-  "max_per_topic": 10,
+  "max_per_topic": 20,
   "output_dir": "data/papers",
-  "min_year": 2018
+  "min_year": 2019
 }
