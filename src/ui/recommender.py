@@ -2,7 +2,7 @@ import numpy as np
 import json
 import arxiv
 from pathlib import Path
-from src.embedder import load_embeddings, embed_texts
+from src.retrieval.embedder import load_embeddings, embed_texts
 
 
 def load_paper_meta(path: str = "indexes/paper_meta.json") -> list[dict]:

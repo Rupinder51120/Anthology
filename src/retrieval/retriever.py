@@ -13,8 +13,8 @@ import json
 import re
 import time
 from sentence_transformers import CrossEncoder
-from src.embedder import embed_texts
-from src.indexer import load_faiss_index, load_bm25_index
+from src.retrieval.embedder import embed_texts
+from src.retrieval.indexer import load_faiss_index, load_bm25_index
 
 _cross_encoder = None
 _chunks_cache  = None
@@ -197,7 +197,7 @@ def retrieve(
     t = time.time()
     if use_hyde:
         try:
-            from src.hyde import expand_query_with_hyde
+            from src.retrieval.hyde import expand_query_with_hyde
             _, hyde_docs, bm25_extra_terms = expand_query_with_hyde(query, n_docs=3)
             # FIX: average embedding of N hyde docs (true HyDE)
             query_embedding = _hyde_embedding(hyde_docs)

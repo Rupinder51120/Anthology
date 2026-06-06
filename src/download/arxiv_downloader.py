@@ -87,7 +87,7 @@ def download_topic(
 
     client = arxiv.Client(
         page_size=max_papers + 10,  # fetch extra to account for year filtering
-        delay_seconds=1.0,
+        delay_seconds=4.0,
         num_retries=3
     )
 
