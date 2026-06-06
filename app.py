@@ -29,59 +29,63 @@ from src.ui.flowchart import generate_flowchart
 
 # ── page config ──────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Scholar — Research Assistant",
-    page_icon="◎",
+    page_title="Anthology — The Story Behind Every Discovery",
+    page_icon="📖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ══════════════════════════════════════════════════════════════════════
-# DESIGN SYSTEM — Matches reference UI (Mac app aesthetic)
+# DESIGN SYSTEM — Anthology: TTPD + Red era × Apple iOS × literary journal
 # ══════════════════════════════════════════════════════════════════════
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg:           #f5f4f0;
-  --surface:      #ffffff;
-  --surface2:     #f9f8f6;
-  --surface3:     #f0ede8;
-  --sidebar-bg:   #faf9f7;
+  /* ── Palette ── */
+  --bg:            #f7f4ef;
+  --surface:       #ffffff;
+  --surface2:      #faf8f5;
+  --surface3:      #f2ede6;
+  --sidebar-bg:    #f5f1ea;
 
-  --border:       rgba(0,0,0,0.07);
-  --border2:      rgba(0,0,0,0.11);
-  --border3:      rgba(0,0,0,0.18);
+  --border:        #e8e4de;
+  --border2:       #ddd8d0;
+  --border3:       #cec8be;
 
-  --text:         #1a1a1a;
-  --text2:        #4a4a4a;
-  --text3:        #8a8a8a;
-  --text4:        #b8b4ae;
+  --text:          #1c1917;
+  --text2:         #44403c;
+  --text3:         #78716c;
+  --text4:         #a8a29e;
+  --text5:         #c7bfb5;
 
-  --accent:       #c0392b;
-  --accent-dark:  #a93226;
-  --accent-soft:  rgba(192,57,43,0.07);
-  --accent-mid:   rgba(192,57,43,0.14);
+  --accent:        #8b1a1a;
+  --accent-dark:   #6d1414;
+  --accent-soft:   rgba(139,26,26,0.07);
+  --accent-mid:    rgba(139,26,26,0.13);
+  --accent-light:  #fdf0f0;
 
-  --green:        #2d7d52;
-  --green-soft:   rgba(45,125,82,0.08);
-  --blue:         #2563a8;
-  --blue-soft:    rgba(37,99,168,0.08);
-  --amber:        #a06020;
-  --amber-soft:   rgba(160,96,32,0.08);
-  --purple:       #6b46c1;
-  --purple-soft:  rgba(107,70,193,0.08);
+  --gold:          #c4a882;
+  --gold-dark:     #a8895e;
+  --gold-soft:     rgba(196,168,130,0.12);
+  --gold-mid:      rgba(196,168,130,0.22);
 
-  --shadow-xs:    0 1px 2px rgba(0,0,0,0.05);
-  --shadow-sm:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md:    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg:    0 8px 24px rgba(0,0,0,0.09), 0 4px 8px rgba(0,0,0,0.04);
+  --green:         #3d6b4f;
+  --green-soft:    rgba(61,107,79,0.08);
+  --blue:          #2c5282;
+  --blue-soft:     rgba(44,82,130,0.08);
 
-  --radius-xs:    4px;
-  --radius-sm:    6px;
-  --radius:       10px;
-  --radius-lg:    14px;
-  --radius-xl:    18px;
+  --shadow-xs:  0 1px 3px rgba(28,25,23,0.05);
+  --shadow-sm:  0 2px 8px rgba(28,25,23,0.06);
+  --shadow-md:  0 4px 16px rgba(28,25,23,0.08);
+  --shadow-lg:  0 8px 28px rgba(28,25,23,0.10);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
 }
 
 * { box-sizing: border-box; }
@@ -89,7 +93,7 @@ CSS = """
 /* ── Base ── */
 .stApp {
   background: var(--bg) !important;
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
   color: var(--text) !important;
 }
 #MainMenu, footer, header { visibility: hidden; }
@@ -98,18 +102,14 @@ CSS = """
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
   background: var(--sidebar-bg) !important;
-  border-right: 1px solid var(--border2) !important;
-  width: 220px !important;
-  min-width: 220px !important;
+  border-right: 1px solid var(--border) !important;
+  width: 230px !important;
+  min-width: 230px !important;
 }
-section[data-testid="stSidebar"] > div {
-  padding: 0 !important;
-}
-section[data-testid="stSidebar"] .block-container {
-  padding: 0 !important;
-}
+section[data-testid="stSidebar"] > div { padding: 0 !important; }
+section[data-testid="stSidebar"] .block-container { padding: 0 !important; }
 
-/* ── Main content ── */
+/* ── Main ── */
 .main .block-container {
   padding: 0 !important;
   max-width: 100% !important;
@@ -117,73 +117,74 @@ section[data-testid="stSidebar"] .block-container {
 
 /* ── Typography ── */
 h1, h2, h3 {
-  font-family: 'Instrument Serif', Georgia, serif !important;
+  font-family: 'Playfair Display', Georgia, serif !important;
   letter-spacing: -0.01em !important;
   color: var(--text) !important;
 }
-p { font-family: 'Geist', sans-serif !important; }
+p { font-family: 'Inter', sans-serif !important; }
 
-/* ── Tabs — pill filter style ── */
+/* ── Tabs ── */
 div[data-baseweb="tab-list"] {
   background: transparent !important;
-  gap: 4px !important;
-  border-bottom: none !important;
+  gap: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
   padding: 0 !important;
 }
 button[data-baseweb="tab"] {
-  font-family: 'Geist', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-size: 0.82rem !important;
   font-weight: 500 !important;
-  padding: 5px 14px !important;
-  border-radius: 20px !important;
+  padding: 10px 18px !important;
+  border-radius: 0 !important;
   color: var(--text3) !important;
   background: transparent !important;
-  border: 1px solid transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -1px !important;
   transition: all 0.15s ease !important;
+  letter-spacing: 0.01em !important;
 }
 button[data-baseweb="tab"]:hover {
   color: var(--text2) !important;
-  background: var(--surface3) !important;
+  background: transparent !important;
 }
 button[data-baseweb="tab"][aria-selected="true"] {
-  color: var(--surface) !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: transparent !important;
+  border-bottom: 2px solid var(--accent) !important;
   font-weight: 600 !important;
 }
-div[data-testid="stTabPanel"] {
-  padding-top: 1.25rem !important;
-}
+div[data-testid="stTabPanel"] { padding-top: 1.5rem !important; }
 
 /* ── Chat messages ── */
 div[data-testid="stChatMessage"] {
   background: transparent !important;
   border: none !important;
-  padding: 0.15rem 0 !important;
+  padding: 0.2rem 0 !important;
   max-width: 100% !important;
 }
 
 /* ── Chat input ── */
 div[data-testid="stChatInput"] {
   background: var(--surface) !important;
-  border: 1px solid var(--border2) !important;
+  border: 1px solid var(--border) !important;
   border-radius: var(--radius-xl) !important;
   box-shadow: var(--shadow-sm) !important;
-  transition: border-color 0.15s, box-shadow 0.15s !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
 }
 div[data-testid="stChatInput"]:focus-within {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-sm) !important;
 }
 div[data-testid="stChatInput"] textarea {
-  font-family: 'Geist', sans-serif !important;
-  font-size: 0.88rem !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.9rem !important;
   color: var(--text) !important;
 }
 div[data-testid="stChatInput"] textarea::placeholder {
-  color: var(--text4) !important;
+  color: var(--text5) !important;
+  font-style: italic !important;
 }
-/* Send button inside chat input — accent colored */
 div[data-testid="stChatInput"] button {
   background: var(--accent) !important;
   border-radius: 50% !important;
@@ -192,34 +193,31 @@ div[data-testid="stChatInput"] button {
 
 /* ── Buttons ── */
 .stButton > button {
-  font-family: 'Geist', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-weight: 500 !important;
   font-size: 0.82rem !important;
   border-radius: var(--radius-sm) !important;
   border: 1px solid var(--border2) !important;
   background: var(--surface) !important;
   color: var(--text2) !important;
-  transition: all 0.15s ease !important;
-  padding: 6px 14px !important;
+  transition: all 0.18s ease !important;
+  padding: 7px 16px !important;
   box-shadow: var(--shadow-xs) !important;
+  letter-spacing: 0.01em !important;
 }
 .stButton > button:hover {
-  border-color: var(--border3) !important;
-  color: var(--text) !important;
-  background: var(--surface2) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-light) !important;
   box-shadow: var(--shadow-sm) !important;
 }
 .stButton > button:active { transform: scale(0.98) !important; }
 
-/* Primary accent button */
-.btn-primary > button,
 .stButton > button[kind="primary"] {
   background: var(--accent) !important;
   color: white !important;
   border-color: var(--accent) !important;
-  border-radius: var(--radius-sm) !important;
 }
-.btn-primary > button:hover,
 .stButton > button[kind="primary"]:hover {
   background: var(--accent-dark) !important;
   border-color: var(--accent-dark) !important;
@@ -233,27 +231,27 @@ div[data-testid="stExpander"] {
   border-radius: var(--radius) !important;
   overflow: hidden !important;
   box-shadow: var(--shadow-xs) !important;
-  margin-bottom: 6px !important;
+  margin-bottom: 8px !important;
 }
 div[data-testid="stExpander"] summary {
-  font-family: 'Geist', sans-serif !important;
-  font-size: 0.82rem !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.84rem !important;
   font-weight: 500 !important;
   color: var(--text2) !important;
-  padding: 10px 14px !important;
+  padding: 12px 16px !important;
   background: var(--surface2) !important;
 }
 
 /* ── Metrics ── */
 div[data-testid="stMetricValue"] {
-  font-family: 'Instrument Serif', serif !important;
-  font-size: 2.2rem !important;
+  font-family: 'Playfair Display', serif !important;
+  font-size: 2.4rem !important;
   color: var(--text) !important;
 }
 div[data-testid="stMetricLabel"] {
-  font-size: 0.68rem !important;
+  font-size: 0.65rem !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.07em !important;
+  letter-spacing: 0.09em !important;
   color: var(--text3) !important;
   font-weight: 600 !important;
 }
@@ -265,9 +263,9 @@ div[data-baseweb="input"] input {
   border: 1px solid var(--border2) !important;
   border-radius: var(--radius-sm) !important;
   color: var(--text) !important;
-  font-family: 'Geist', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-size: 0.88rem !important;
-  transition: border-color 0.15s, box-shadow 0.15s !important;
+  transition: border-color 0.18s, box-shadow 0.18s !important;
 }
 div[data-testid="stTextInput"] input:focus {
   border-color: var(--accent) !important;
@@ -289,7 +287,7 @@ div[data-testid="stSlider"] [data-testid="stSliderTrackFill"] {
 label[data-testid="stToggleLabel"] {
   font-size: 0.84rem !important;
   color: var(--text2) !important;
-  font-family: 'Geist', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
 }
 input[data-testid="stToggle"]:checked + div {
   background-color: var(--accent) !important;
@@ -299,14 +297,14 @@ input[data-testid="stToggle"]:checked + div {
 hr {
   border: none !important;
   border-top: 1px solid var(--border) !important;
-  margin: 0.75rem 0 !important;
+  margin: 1rem 0 !important;
 }
 
 /* ── Alerts ── */
 div[data-testid="stAlert"] {
   border-radius: var(--radius) !important;
   border-left-width: 3px !important;
-  font-family: 'Geist', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-size: 0.85rem !important;
 }
 
@@ -315,7 +313,7 @@ div[data-testid="stFileUploaderDropzone"] {
   background: var(--surface2) !important;
   border: 1.5px dashed var(--border2) !important;
   border-radius: var(--radius) !important;
-  transition: all 0.15s !important;
+  transition: all 0.18s !important;
 }
 div[data-testid="stFileUploaderDropzone"]:hover {
   border-color: var(--accent) !important;
@@ -332,7 +330,7 @@ div[data-baseweb="select"] > div {
   background: var(--surface) !important;
   border: 1px solid var(--border2) !important;
   border-radius: var(--radius-sm) !important;
-  font-family: 'Geist', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-size: 0.84rem !important;
 }
 
@@ -351,29 +349,31 @@ div[data-testid="stDataFrame"] {
   flex-direction: column;
   height: 100vh;
   padding: 0;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Wordmark */
 .sb-logo {
-  padding: 18px 16px 14px;
+  padding: 22px 18px 16px;
   border-bottom: 1px solid var(--border);
 }
 .sb-logo-text {
-  font-family: 'Instrument Serif', serif;
-  font-size: 1.25rem;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.45rem;
   color: var(--text);
   letter-spacing: -0.01em;
-  line-height: 1;
+  line-height: 1.1;
 }
 .sb-logo-text span { color: var(--accent); }
 .sb-logo-sub {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   color: var(--text4);
-  letter-spacing: 0.07em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin-top: 2px;
+  margin-top: 4px;
   font-weight: 500;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Nav items */
@@ -382,33 +382,33 @@ div[data-testid="stDataFrame"] {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   font-size: 0.84rem;
   font-weight: 500;
-  color: var(--text2);
+  color: var(--text3);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.14s;
   margin-bottom: 1px;
   text-decoration: none;
+  font-family: 'Inter', sans-serif;
 }
-.sb-nav-item:hover { background: var(--surface3); color: var(--text); }
+.sb-nav-item:hover { background: var(--surface3); color: var(--text2); }
 .sb-nav-item.active {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 600;
 }
-.sb-nav-item svg { opacity: 0.7; flex-shrink: 0; }
-.sb-nav-item.active svg { opacity: 1; }
 
 /* Section labels */
 .sb-section {
-  padding: 14px 16px 4px;
-  font-size: 0.62rem;
+  padding: 16px 18px 4px;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text4);
+  font-family: 'Inter', sans-serif;
 }
 
 /* Collection row */
@@ -416,18 +416,22 @@ div[data-testid="stDataFrame"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 16px;
+  padding: 6px 18px;
   font-size: 0.82rem;
   color: var(--text2);
   cursor: pointer;
   transition: color 0.12s;
+  font-family: 'Inter', sans-serif;
 }
 .sb-collection:hover { color: var(--text); }
-.sb-collection-name { display: flex; align-items: center; gap: 7px; }
+.sb-collection-name { display: flex; align-items: center; gap: 8px; }
 .sb-collection-count {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text4);
   font-weight: 500;
+  background: var(--surface3);
+  padding: 1px 7px;
+  border-radius: 10px;
 }
 
 /* Tools section */
@@ -435,154 +439,98 @@ div[data-testid="stDataFrame"] {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 5px 16px;
+  padding: 6px 18px;
   font-size: 0.82rem;
   color: var(--text3);
   cursor: pointer;
-  transition: color 0.12s;
+  transition: color 0.14s;
+  font-family: 'Inter', sans-serif;
 }
 .sb-tool:hover { color: var(--text2); }
 
 /* User profile */
 .sb-user {
   margin-top: auto;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 10px;
 }
 .sb-avatar {
-  width: 30px; height: 30px;
+  width: 32px; height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent) 0%, #e67e5a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 100%);
   display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 0.72rem; font-weight: 700;
+  color: white; font-size: 0.7rem; font-weight: 700;
   flex-shrink: 0;
+  font-family: 'Inter', sans-serif;
 }
-.sb-user-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
-.sb-user-plan { font-size: 0.68rem; color: var(--text4); }
+.sb-user-name { font-size: 0.82rem; font-weight: 600; color: var(--text); font-family: 'Inter', sans-serif; }
+.sb-user-plan { font-size: 0.65rem; color: var(--gold-dark); font-style: italic; font-family: 'Playfair Display', serif; }
 
 /* ══════════════════════════════════════════
    LIBRARY HEADER
 ══════════════════════════════════════════ */
 .lib-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 24px 28px 0;
+  padding: 28px 32px 0;
 }
 .lib-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 2rem;
-  font-weight: 400;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 2.2rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);
   margin: 0;
+  line-height: 1.1;
 }
 .lib-meta {
-  font-size: 0.78rem;
-  color: var(--text3);
-  margin-top: 2px;
-  font-family: 'Geist', sans-serif;
-}
-.lib-search-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  max-width: 420px;
-  margin: 0 24px;
-}
-.lib-search {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-sm);
-  padding: 7px 12px 7px 32px;
-  font-size: 0.84rem;
-  font-family: 'Geist', sans-serif;
-  color: var(--text);
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  position: relative;
-}
-.lib-search:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.lib-search-icon {
-  position: absolute;
-  left: 10px;
+  font-size: 0.76rem;
   color: var(--text4);
+  margin-top: 4px;
+  font-family: 'Inter', sans-serif;
+  font-style: italic;
 }
-.search-container {
-  position: relative;
-  flex: 1;
-}
-.lib-add-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 7px 14px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  font-family: 'Geist', sans-serif;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-.lib-add-btn:hover { background: var(--accent-dark); }
 
-/* ── Filter tabs (pill) ── */
-.filter-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 16px 28px 0;
-  align-items: center;
-}
+/* ── Filter pills ── */
 .filter-tab {
   padding: 5px 14px;
   border-radius: 20px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
   color: var(--text3);
-  border: 1px solid transparent;
+  border: 1px solid var(--border2);
+  background: var(--surface);
   transition: all 0.15s;
-  background: transparent;
 }
-.filter-tab:hover { background: var(--surface3); color: var(--text2); }
+.filter-tab:hover { background: var(--surface3); color: var(--text2); border-color: var(--border2); }
 .filter-tab.active {
   background: var(--accent);
   color: white;
   border-color: var(--accent);
   font-weight: 600;
 }
-.filter-tab-trash { color: var(--text4); }
 
 /* ── Section label ── */
 .section-label {
-  padding: 20px 28px 10px;
-  font-size: 0.75rem;
+  padding: 24px 32px 10px;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text3);
-  font-family: 'Geist', sans-serif;
+  color: var(--text4);
+  font-family: 'Inter', sans-serif;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.section-nav {
-  display: flex;
-  gap: 4px;
-}
+.section-nav { display: flex; gap: 4px; }
 .section-nav-btn {
   width: 26px; height: 26px;
   border-radius: var(--radius-xs);
@@ -595,11 +543,11 @@ div[data-testid="stDataFrame"] {
 }
 .section-nav-btn:hover { background: var(--surface3); color: var(--text2); }
 
-/* ── Recent cards horizontal scroll ── */
+/* ── Index card style for recent papers ── */
 .recent-scroll {
   display: flex;
-  gap: 12px;
-  padding: 0 28px 20px;
+  gap: 14px;
+  padding: 0 32px 24px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -608,77 +556,80 @@ div[data-testid="stDataFrame"] {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px;
-  min-width: 220px;
-  max-width: 240px;
+  padding: 16px;
+  min-width: 230px;
+  max-width: 250px;
   flex-shrink: 0;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+  transition: box-shadow 0.18s, border-color 0.18s, transform 0.18s;
   position: relative;
+  border-top: 3px solid var(--gold);
 }
 .recent-card:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--border2);
-  transform: translateY(-1px);
+  border-top-color: var(--accent);
+  transform: translateY(-2px);
 }
-.recent-card-star {
-  position: absolute;
-  top: 10px; left: 14px;
-  color: #f59e0b;
-  font-size: 0.9rem;
+.recent-card-year {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-mid);
+  border-radius: 4px;
+  padding: 1px 7px;
+  margin-bottom: 8px;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
 }
 .recent-card-title {
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-family: 'Playfair Display', serif;
+  font-size: 0.92rem;
+  font-weight: 500;
   color: var(--text);
-  line-height: 1.35;
-  margin-top: 2px;
-  margin-bottom: 6px;
+  line-height: 1.4;
+  margin-bottom: 7px;
 }
 .recent-card-authors {
   font-size: 0.72rem;
   color: var(--text3);
   margin-bottom: 2px;
+  font-style: italic;
+  font-family: 'Inter', sans-serif;
 }
 .recent-card-venue {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text4);
   margin-bottom: 10px;
+  font-family: 'Inter', sans-serif;
 }
-.recent-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
+.recent-card-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .recent-card-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
-.rc-icon {
-  color: var(--text4);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: color 0.12s;
-}
-.rc-icon:hover { color: var(--text2); }
+.rc-icon { color: var(--text4); font-size: 0.8rem; cursor: pointer; transition: color 0.12s; }
+.rc-icon:hover { color: var(--accent); }
 
-/* ── Papers table ── */
-.papers-table-wrap {
-  padding: 0 28px 32px;
-}
+/* ── Papers table (journal log style) ── */
+.papers-table-wrap { padding: 0 32px 36px; }
 .papers-table {
   width: 100%;
   border-collapse: collapse;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 .papers-table thead th {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text4);
   padding: 8px 12px;
@@ -693,69 +644,71 @@ div[data-testid="stDataFrame"] {
 .papers-table tbody tr:hover { background: var(--surface2); }
 .papers-table tbody tr:last-child { border-bottom: none; }
 .papers-table td {
-  padding: 10px 12px;
+  padding: 11px 12px;
   font-size: 0.83rem;
   color: var(--text2);
   vertical-align: middle;
 }
-.papers-table td:first-child { color: var(--text); font-weight: 500; }
+.papers-table td:first-child {
+  color: var(--text);
+  font-weight: 500;
+  font-family: 'Playfair Display', serif;
+  font-size: 0.86rem;
+}
 .papers-table td .star-btn {
-  color: var(--text4);
+  color: var(--text5);
   margin-right: 8px;
   font-size: 0.8rem;
   cursor: pointer;
 }
-.papers-table td .star-btn:hover { color: #f59e0b; }
-.more-btn {
-  color: var(--text4);
-  cursor: pointer;
-  font-size: 1.1rem;
-  letter-spacing: 1px;
-}
+.papers-table td .star-btn:hover { color: var(--gold-dark); }
+.more-btn { color: var(--text4); cursor: pointer; font-size: 1.1rem; letter-spacing: 1px; }
 .more-btn:hover { color: var(--text2); }
 
-/* ── Tag styles ── */
+/* ── Tags ── */
 .tag {
   display: inline-block;
   background: var(--surface3);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 1px 8px;
-  font-size: 0.66rem;
-  font-family: 'Geist', sans-serif;
+  font-size: 0.65rem;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
-  color: var(--text2);
+  color: var(--text3);
 }
-.tag-accent { background: var(--accent-soft); border-color: var(--accent-mid); color: var(--accent); }
-.tag-green  { background: var(--green-soft); border-color: rgba(45,125,82,0.15); color: var(--green); }
-.tag-blue   { background: var(--blue-soft); border-color: rgba(37,99,168,0.15); color: var(--blue); }
-.tag-amber  { background: var(--amber-soft); border-color: rgba(160,96,32,0.15); color: var(--amber); }
-.tag-purple { background: var(--purple-soft); border-color: rgba(107,70,193,0.15); color: var(--purple); }
+.tag-accent { background: var(--accent-soft);  border-color: var(--accent-mid); color: var(--accent); }
+.tag-green  { background: var(--green-soft);   border-color: rgba(61,107,79,0.15);  color: var(--green); }
+.tag-blue   { background: var(--blue-soft);    border-color: rgba(44,82,130,0.15);  color: var(--blue); }
+.tag-amber  { background: var(--gold-soft);    border-color: var(--gold-mid);       color: var(--gold-dark); }
+.tag-purple { background: rgba(107,70,193,0.07); border-color: rgba(107,70,193,0.15); color: #5b3fa6; }
 
 /* ══════════════════════════════════════════
    PAPER DETAIL PANEL
 ══════════════════════════════════════════ */
 .detail-panel {
   background: var(--surface);
-  border-left: 1px solid var(--border2);
+  border-left: 1px solid var(--border);
   padding: 0;
   height: 100%;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 .detail-back {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 14px 20px 12px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text3);
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  font-style: italic;
 }
-.detail-back:hover { color: var(--text2); }
+.detail-back:hover { color: var(--accent); }
 .detail-header {
-  padding: 16px 20px 14px;
+  padding: 18px 20px 16px;
   border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--accent-light) 0%, var(--surface) 100%);
 }
 .detail-pdf-icon {
   width: 44px; height: 52px;
@@ -763,38 +716,41 @@ div[data-testid="stDataFrame"] {
   border: 1px solid var(--accent-mid);
   border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.6rem; font-weight: 700;
+  font-size: 0.55rem; font-weight: 700;
   color: var(--accent);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   margin-bottom: 10px;
   flex-shrink: 0;
+  font-family: 'Inter', sans-serif;
 }
 .detail-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 1.15rem;
-  font-weight: 400;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  font-weight: 500;
   color: var(--text);
-  line-height: 1.3;
-  margin-bottom: 4px;
+  line-height: 1.35;
+  margin-bottom: 5px;
 }
-.detail-authors { font-size: 0.78rem; color: var(--text3); margin-bottom: 2px; }
-.detail-venue   { font-size: 0.75rem; color: var(--text4); margin-bottom: 10px; }
+.detail-authors { font-size: 0.76rem; color: var(--text3); margin-bottom: 2px; font-style: italic; }
+.detail-venue   { font-size: 0.72rem; color: var(--text4); margin-bottom: 10px; }
 .detail-tags    { display: flex; gap: 5px; flex-wrap: wrap; }
 .detail-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border2);
+  border-bottom: 1px solid var(--border);
   padding: 0 20px;
 }
 .detail-tab {
   padding: 10px 0;
   margin-right: 20px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: var(--text3);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: all 0.12s;
+  transition: all 0.14s;
+  font-family: 'Inter', sans-serif;
 }
 .detail-tab:hover { color: var(--text2); }
 .detail-tab.active {
@@ -802,35 +758,37 @@ div[data-testid="stDataFrame"] {
   border-bottom-color: var(--accent);
   font-weight: 600;
 }
-.detail-body { padding: 16px 20px; }
+.detail-body { padding: 18px 20px; }
 .detail-section-title {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-family: 'Playfair Display', serif;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: var(--text);
   margin-bottom: 8px;
 }
 .detail-abstract {
   font-size: 0.8rem;
   color: var(--text2);
-  line-height: 1.65;
+  line-height: 1.7;
+  font-style: italic;
 }
 .detail-show-more {
   color: var(--accent);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 500;
   cursor: pointer;
   margin-top: 6px;
   display: inline-block;
+  font-family: 'Inter', sans-serif;
 }
 .detail-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 16px 0;
+  gap: 12px;
+  margin: 18px 0;
 }
-.detail-stat-item { }
-.detail-stat-label { font-size: 0.66rem; color: var(--text4); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
-.detail-stat-value { font-size: 0.9rem; font-weight: 600; color: var(--text); margin-top: 1px; }
+.detail-stat-label { font-size: 0.62rem; color: var(--text4); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.detail-stat-value { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600; color: var(--text); margin-top: 2px; }
 .detail-stat-value.high { color: var(--green); }
 .detail-quick-actions {
   margin-top: 16px;
@@ -841,158 +799,127 @@ div[data-testid="stDataFrame"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .quick-action-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  padding: 10px 8px;
+  padding: 11px 8px;
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text2);
   cursor: pointer;
   text-align: center;
-  transition: all 0.12s;
-  font-family: 'Geist', sans-serif;
+  transition: all 0.14s;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
 }
 .quick-action-btn:hover {
-  background: var(--surface3);
-  border-color: var(--border2);
-  color: var(--text);
+  background: var(--accent-light);
+  border-color: var(--accent-mid);
+  color: var(--accent);
 }
 .quick-action-icon { font-size: 1rem; }
 
 /* ══════════════════════════════════════════
    CHAT LAYOUT
 ══════════════════════════════════════════ */
-.chat-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  height: calc(100vh - 60px);
-  gap: 0;
-}
-.chat-main {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-}
 .chat-header {
-  padding: 16px 24px 12px;
+  padding: 20px 28px 14px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .chat-header-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 1.2rem;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.4rem;
   color: var(--text);
 }
 .chat-header-sub {
   font-size: 0.72rem;
-  color: var(--text3);
-  margin-top: 1px;
+  color: var(--text4);
+  margin-top: 2px;
+  font-style: italic;
 }
-.chat-new-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-sm);
-  padding: 5px 12px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  font-family: 'Geist', sans-serif;
-  color: var(--text2);
-  cursor: pointer;
-  transition: all 0.12s;
+
+/* Tracklist-style suggestion chips */
+.tracklist-wrap {
+  padding: 36px 28px 20px;
+  max-width: 680px;
 }
-.chat-new-btn:hover { background: var(--surface3); color: var(--text); }
-.chat-messages { flex: 1; overflow-y: auto; padding: 16px 24px; }
-.chat-input-wrap { padding: 12px 24px 20px; }
+.tracklist-heading {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.5rem;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.tracklist-sub {
+  font-size: 0.8rem;
+  color: var(--text4);
+  margin-bottom: 24px;
+  font-style: italic;
+}
 
 /* Sources panel */
-.sources-panel {
-  border-left: 1px solid var(--border2);
-  background: var(--surface2);
-  overflow-y: auto;
-  padding: 16px;
-}
 .sources-panel-title {
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text3);
   margin-bottom: 12px;
+  font-family: 'Inter', sans-serif;
 }
+/* Footnote-style source cards */
 .source-card {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
   border-radius: var(--radius-sm);
-  padding: 10px 11px;
+  padding: 10px 12px;
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.14s;
 }
-.source-card:hover { border-color: var(--border2); box-shadow: var(--shadow-sm); }
+.source-card:hover { border-left-color: var(--accent); box-shadow: var(--shadow-sm); }
 .source-card-title {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--text);
-  line-height: 1.3;
+  line-height: 1.35;
   margin-bottom: 4px;
+  font-family: 'Playfair Display', serif;
 }
-.source-card-meta { font-size: 0.68rem; color: var(--text3); }
+.source-card-meta { font-size: 0.67rem; color: var(--text3); font-style: italic; }
 .source-score {
   float: right;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--green);
   background: var(--green-soft);
   padding: 1px 6px;
   border-radius: 10px;
   margin-left: 6px;
+  font-family: 'Inter', sans-serif;
 }
 
 /* ══════════════════════════════════════════
-   BENCHMARK TAB
+   BENCHMARK TAB — album credits aesthetic
 ══════════════════════════════════════════ */
-.bench-header {
-  padding: 20px 28px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 .bench-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 1.5rem;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.8rem;
   color: var(--text);
 }
-.bench-sub { font-size: 0.78rem; color: var(--text3); margin-top: 2px; font-family: 'Geist', sans-serif; }
-.export-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  font-family: 'Geist', sans-serif;
-  color: var(--text2);
-  cursor: pointer;
-  box-shadow: var(--shadow-xs);
-}
-.export-btn:hover { background: var(--surface3); color: var(--text); }
+.bench-sub { font-size: 0.78rem; color: var(--text3); margin-top: 3px; font-family: 'Inter', sans-serif; font-style: italic; }
 
 /* Performance ring */
 .perf-ring-wrap {
@@ -1000,84 +927,83 @@ div[data-testid="stDataFrame"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 28px 24px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+  border-top: 3px solid var(--accent);
 }
-.perf-ring-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); font-weight: 600; margin-bottom: 12px; }
-.perf-ring-pct {
-  font-family: 'Instrument Serif', serif;
-  font-size: 3rem;
-  color: var(--text);
-  line-height: 1;
+.perf-ring-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text4);
+  font-weight: 700;
+  margin-bottom: 14px;
+  font-family: 'Inter', sans-serif;
 }
-.perf-ring-sub { font-size: 0.72rem; color: var(--text3); margin-top: 4px; }
+.perf-ring-sub { font-size: 0.72rem; color: var(--text3); margin-top: 6px; font-style: italic; font-family: 'Playfair Display', serif; }
 
 .bench-metric-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 18px 16px;
   box-shadow: var(--shadow-xs);
   text-align: center;
+  border-top: 2px solid var(--gold);
 }
 .bench-metric-num {
-  font-family: 'Instrument Serif', serif;
-  font-size: 2rem;
+  font-family: 'Playfair Display', serif;
+  font-size: 2.1rem;
   line-height: 1;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 .bench-metric-label {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   color: var(--text3);
-  font-weight: 600;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
 }
 
-/* Top configurations */
+/* Config rows */
 .config-row {
   display: flex;
   align-items: center;
-  padding: 11px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
   background: var(--surface);
   transition: background 0.1s;
   cursor: pointer;
 }
 .config-row:hover { background: var(--surface2); }
 .config-row:last-child { border-bottom: none; }
-.config-rank {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--text4);
-  width: 22px;
-  flex-shrink: 0;
-}
-.config-name { flex: 1; font-size: 0.84rem; font-weight: 500; color: var(--text); }
-.config-score-bar-wrap { width: 140px; margin: 0 12px; }
-.config-score-bar-bg { background: var(--surface3); border-radius: 3px; height: 5px; overflow: hidden; }
-.config-score-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+.config-rank { font-size: 0.75rem; font-weight: 700; color: var(--text4); width: 24px; flex-shrink: 0; }
+.config-name { flex: 1; font-size: 0.84rem; font-weight: 500; color: var(--text); font-family: 'Playfair Display', serif; font-style: italic; }
+.config-score-bar-wrap { width: 140px; margin: 0 14px; }
+.config-score-bar-bg { background: var(--surface3); border-radius: 3px; height: 4px; overflow: hidden; }
+.config-score-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
 .config-pct { font-size: 0.82rem; font-weight: 600; color: var(--text2); width: 36px; text-align: right; }
 
-/* Perf bar helper */
+/* Perf bar */
 .bar-bg { background: var(--surface3); border-radius: 3px; height: 4px; overflow: hidden; margin-top: 5px; }
 .bar-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
 .bar-fill-green { background: var(--green); }
 .bar-fill-blue  { background: var(--blue); }
 
 /* ══════════════════════════════════════════
-   RETRIEVAL SETTINGS PANEL
+   RETRIEVAL SETTINGS
 ══════════════════════════════════════════ */
 .settings-panel {
   background: var(--surface);
-  border-left: 1px solid var(--border2);
+  border-left: 1px solid var(--border);
   height: 100%;
   overflow-y: auto;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 .settings-header {
   display: flex;
@@ -1086,26 +1012,22 @@ div[data-testid="stDataFrame"] {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
-.settings-title { font-size: 0.92rem; font-weight: 600; color: var(--text); }
-.settings-close {
-  color: var(--text3);
-  cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
-  transition: color 0.12s;
+.settings-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: var(--text);
 }
-.settings-close:hover { color: var(--text); }
-.settings-section {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-}
+.settings-close { color: var(--text3); cursor: pointer; font-size: 1.1rem; line-height: 1; transition: color 0.14s; }
+.settings-close:hover { color: var(--accent); }
+.settings-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .settings-section-label {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text4);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .settings-row {
   display: flex;
@@ -1117,25 +1039,21 @@ div[data-testid="stDataFrame"] {
 .settings-row:last-child { margin-bottom: 0; }
 .settings-row-info { flex: 1; }
 .settings-row-name { font-size: 0.84rem; font-weight: 500; color: var(--text); margin-bottom: 2px; }
-.settings-row-desc { font-size: 0.72rem; color: var(--text3); line-height: 1.4; }
-.settings-footer {
-  display: flex;
-  gap: 8px;
-  padding: 14px 20px;
-}
+.settings-row-desc { font-size: 0.72rem; color: var(--text3); line-height: 1.4; font-style: italic; }
+.settings-footer { display: flex; gap: 8px; padding: 14px 20px; }
 .settings-reset-btn {
   flex: 1;
   background: var(--surface);
   border: 1px solid var(--border2);
   border-radius: var(--radius-sm);
-  padding: 8px;
+  padding: 9px;
   font-size: 0.8rem;
   font-weight: 500;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
   color: var(--text2);
   cursor: pointer;
   text-align: center;
-  transition: all 0.12s;
+  transition: all 0.14s;
 }
 .settings-reset-btn:hover { background: var(--surface3); }
 .settings-save-btn {
@@ -1143,45 +1061,51 @@ div[data-testid="stDataFrame"] {
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  padding: 8px;
+  padding: 9px;
   font-size: 0.8rem;
   font-weight: 600;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
   color: white;
   cursor: pointer;
   text-align: center;
-  transition: background 0.12s;
+  transition: background 0.14s;
 }
 .settings-save-btn:hover { background: var(--accent-dark); }
 
 /* ── Misc helpers ── */
 .label {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text3);
-  margin-bottom: 0.6rem;
-  font-family: 'Geist', sans-serif;
+  margin-bottom: 0.65rem;
+  font-family: 'Inter', sans-serif;
 }
 .audio-hint {
   font-size: 0.72rem;
   color: var(--text4);
   font-style: italic;
   padding: 6px 0;
-  font-family: 'Geist', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 .empty-state {
   text-align: center;
-  padding: 3rem 2rem;
+  padding: 3.5rem 2rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
-.empty-icon  { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.4; }
-.empty-title { font-family: 'Instrument Serif', serif; font-size: 1.1rem; color: var(--text2); margin-bottom: 0.4rem; }
-.empty-sub   { font-size: 0.82rem; color: var(--text3); line-height: 1.5; }
+.empty-icon  { font-size: 2rem; margin-bottom: 0.9rem; opacity: 0.3; }
+.empty-title {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--text2);
+  margin-bottom: 0.5rem;
+}
+.empty-sub { font-size: 0.82rem; color: var(--text3); line-height: 1.6; font-style: italic; }
 code {
   background: var(--surface3);
   border: 1px solid var(--border);
@@ -1191,43 +1115,10 @@ code {
   color: var(--accent);
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
-.cit-row {
-  padding: 9px 0;
-  border-bottom: 1px solid var(--border);
-  font-family: 'Geist', sans-serif;
-}
+.cit-row { padding: 10px 0; border-bottom: 1px solid var(--border); font-family: 'Inter', sans-serif; }
 .cit-row:last-child { border-bottom: none; }
-.cit-title { font-size: 0.84rem; font-weight: 500; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
-.cit-meta  { font-size: 0.72rem; color: var(--text3); }
-
-/* Upload area in tab */
-.upload-section {
-  padding: 0 28px;
-}
-.add-papers-tabs {
-  display: flex;
-  gap: 8px;
-  padding: 20px 28px 0;
-}
-.add-papers-tab {
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  font-family: 'Geist', sans-serif;
-  cursor: pointer;
-  color: var(--text3);
-  border: 1px solid var(--border2);
-  background: var(--surface);
-  transition: all 0.15s;
-}
-.add-papers-tab:hover { background: var(--surface3); color: var(--text2); }
-.add-papers-tab.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  font-weight: 600;
-}
+.cit-title { font-family: 'Playfair Display', serif; font-size: 0.86rem; font-weight: 500; color: var(--text); margin-bottom: 3px; line-height: 1.35; font-style: italic; }
+.cit-meta  { font-size: 0.7rem; color: var(--text3); }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -1241,14 +1132,14 @@ def render_mermaid(diagram_code: str, height: int = 360):
     match = re.search(r'```mermaid\s*([\s\S]*?)\s*```', diagram_code)
     raw = match.group(1).strip() if match else diagram_code.strip()
     html = f"""
-    <div style="background:#fff; border-radius:10px; padding:16px; border:1px solid #e5e5e3;">
+    <div style="background:#fff; border-radius:12px; padding:16px; border:1px solid #e8e4de;">
       <div class="mermaid">{raw}</div>
     </div>
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
       mermaid.initialize({{startOnLoad:true,theme:'default',themeVariables:{{
-        primaryColor:'#f5f0eb',primaryTextColor:'#1a1a1a',primaryBorderColor:'#c0392b',
-        lineColor:'#8a8a8a',fontFamily:'Geist,sans-serif'
+        primaryColor:'#fdf0f0',primaryTextColor:'#1c1917',primaryBorderColor:'#8b1a1a',
+        lineColor:'#a8a29e',fontFamily:'Inter,sans-serif'
       }}}});
     </script>"""
     components.html(html, height=height, scrolling=True)
@@ -1350,7 +1241,6 @@ except Exception:
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════
 
-# Collection config (static + dynamic from papers)
 COLLECTIONS = [
     ("LLMs", 12, "🟤"),
     ("Diffusion Models", 7, "🔵"),
@@ -1372,18 +1262,17 @@ nav_icons = {
 }
 
 with st.sidebar:
-    # Logo
+    # Wordmark
     st.markdown("""
     <div class="sb-logo">
-      <div class="sb-logo-text">Scholar<span>.</span></div>
-      <div class="sb-logo-sub">Research Assistant</div>
+      <div class="sb-logo-text"><em>Anthology<span style="color:#8b1a1a;">.</span></em></div>
+      <div class="sb-logo-sub">The Story Behind Every Discovery</div>
     </div>
     """, unsafe_allow_html=True)
 
     # Main nav
     for nav_name, icon in nav_icons.items():
         is_active = st.session_state.active_nav == nav_name
-        cls = "sb-nav-item active" if is_active else "sb-nav-item"
         if st.button(
             f"{icon}  {nav_name}",
             key=f"nav_{nav_name}",
@@ -1400,13 +1289,13 @@ with st.sidebar:
         st.markdown(f"""
         <div class="sb-collection">
           <span class="sb-collection-name">
-            <span style="font-size:0.55rem; color:var(--text4);">◉</span>
+            <span style="font-size:0.5rem; color:var(--gold);">◉</span>
             {cname}
           </span>
           <span class="sb-collection-count">{ccount}</span>
         </div>
         """, unsafe_allow_html=True)
-    st.markdown('<div style="padding:4px 16px;"><span style="font-size:0.76rem; color:var(--accent); font-weight:500; cursor:pointer;">View all</span></div>', unsafe_allow_html=True)
+    st.markdown('<div style="padding:5px 18px;"><span style="font-size:0.76rem; color:var(--accent); font-weight:500; cursor:pointer; font-style:italic;">View all chapters →</span></div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -1417,6 +1306,16 @@ with st.sidebar:
             if tname == "Retrieval Settings":
                 st.session_state.retrieval_settings_open = not st.session_state.retrieval_settings_open
             st.rerun()
+
+    # Index stats — literary framing
+    st.markdown(f"""
+    <div style="padding:14px 18px 8px; border-top:1px solid var(--border); margin-top:8px;">
+      <div style="font-size:0.72rem; color:var(--text3); font-style:italic; font-family:'Playfair Display',serif; line-height:1.6;">
+        <span style="color:var(--accent); font-weight:600;">{papers_count}</span> stories indexed<br>
+        <span style="color:var(--gold-dark); font-weight:600;">{chunks_count}</span> passages catalogued
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # User profile
     st.markdown("""
@@ -1429,12 +1328,11 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Turn counter
     turns = len(st.session_state.chat) // 2
     st.markdown(
-        f'<div style="font-size:0.65rem; color:var(--text4); text-align:center; '
-        f'padding:6px; font-family:Geist,sans-serif;">'
-        f'{turns} turns · {st.session_state.query_count} queries</div>',
+        f'<div style="font-size:0.62rem; color:var(--text5); text-align:center; '
+        f'padding:6px 0 10px; font-family:Inter,sans-serif; font-style:italic;">'
+        f'{turns} chapters · {st.session_state.query_count} queries</div>',
         unsafe_allow_html=True
     )
 
@@ -1450,7 +1348,6 @@ active = st.session_state.active_nav
 # ──────────────────────────────────────────────────────────────────────
 if active == "Library":
 
-    # Layout: main area + optional detail panel
     if st.session_state.selected_paper is not None:
         main_col, detail_col = st.columns([3, 1.4], gap="small")
     else:
@@ -1462,8 +1359,8 @@ if active == "Library":
         st.markdown(f"""
         <div class="lib-header">
           <div>
-            <div class="lib-title">Library</div>
-            <div class="lib-meta">{papers_count} papers · {chunks_count} chunks indexed</div>
+            <div class="lib-title">The Collection</div>
+            <div class="lib-meta">{papers_count} papers indexed · {chunks_count} passages catalogued</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1473,12 +1370,12 @@ if active == "Library":
         with h1:
             search_query = st.text_input(
                 "Search papers",
-                placeholder="Search papers, authors, topics…",
+                placeholder="Search titles, authors, ideas…",
                 label_visibility="collapsed",
                 key="lib_search"
             )
         with h3:
-            if st.button("＋  Add Papers", type="primary", use_container_width=True):
+            if st.button("＋  Add to Collection", type="primary", use_container_width=True):
                 st.session_state["show_add_papers"] = not st.session_state.get("show_add_papers", False)
 
         # ── Filter pills ──
@@ -1502,27 +1399,28 @@ if active == "Library":
 
         # ── Add papers panel ──
         if st.session_state.get("show_add_papers", False):
-            with st.expander("Add Papers", expanded=True):
-                add_t1, add_t2 = st.tabs(["Upload PDF", "Import from arXiv"])
+            with st.expander("Add to the Collection", expanded=True):
+                add_t1, add_t2 = st.tabs(["Upload PDF", "Discover from the Archive"])
                 with add_t1:
                     uploaded_file = st.file_uploader(
-                        "Drop a research paper", type=["pdf"],
+                        "Drop a paper into the collection",
+                        type=["pdf"],
                         label_visibility="collapsed"
                     )
                     mc1, mc2 = st.columns(2)
                     if mc1.button("Scan new papers", use_container_width=True):
-                        with st.spinner("Scanning…"):
+                        with st.spinner("Scanning the shelves…"):
                             try:
                                 add_new_papers("data/papers")
                                 st.session_state.suggestions = load_chunks_for_suggestions(6)
-                                st.success("Done"); st.rerun()
+                                st.success("Collection updated"); st.rerun()
                             except Exception as e: st.error(str(e))
                     if mc2.button("Full rebuild", use_container_width=True):
-                        with st.spinner("Rebuilding…"):
+                        with st.spinner("Rebuilding the anthology…"):
                             try:
                                 full_rebuild("data/papers")
                                 st.session_state.suggestions = load_chunks_for_suggestions(6)
-                                st.success("Done"); st.rerun()
+                                st.success("Rebuilt"); st.rerun()
                             except Exception as e: st.error(str(e))
 
                     if uploaded_file is not None:
@@ -1532,16 +1430,16 @@ if active == "Library":
                             pdf_path = papers_dir / uploaded_file.name
                             with open(pdf_path, "wb") as fh:
                                 fh.write(uploaded_file.getbuffer())
-                            with st.spinner(f"Indexing…"):
+                            with st.spinner(f"Adding to the collection…"):
                                 try:
                                     add_paper(pdf_path)
                                     st.session_state["last_uploaded"] = uploaded_file.name
                                     st.session_state.suggestions = load_chunks_for_suggestions(6)
-                                    st.success(f"Indexed: {uploaded_file.name[:50]}")
+                                    st.success(f"Catalogued: {uploaded_file.name[:50]}")
                                     time.sleep(0.8); st.rerun()
                                 except Exception as e: st.error(f"Error: {e}")
                         else:
-                            st.success(f"Already indexed: {uploaded_file.name[:50]}")
+                            st.success(f"Already in the collection: {uploaded_file.name[:50]}")
 
                 with add_t2:
                     arxiv_input = st.text_input(
@@ -1552,23 +1450,23 @@ if active == "Library":
                     ac1, ac2 = st.columns(2)
                     max_papers = ac1.slider("Max per topic", 1, 10, 3)
                     min_year   = ac2.slider("Min year", 2010, 2026, 2020)
-                    if st.button("Download & index", use_container_width=True, type="primary"):
+                    if st.button("Discover & add to collection", use_container_width=True, type="primary"):
                         if not arxiv_input:
-                            st.warning("Enter at least one topic.")
+                            st.warning("Enter at least one topic to discover.")
                         else:
                             topics = [t.strip() for t in arxiv_input.split(",") if t.strip()]
                             config = {"topics": topics, "max_per_topic": max_papers,
                                       "output_dir": "data/papers", "min_year": min_year}
-                            with st.spinner("Downloading from arXiv…"):
+                            with st.spinner("Searching the archive…"):
                                 try:
                                     new_dl = download_all(config)
                                     if new_dl:
-                                        st.success(f"Downloaded {len(new_dl)} papers")
-                                        with st.spinner("Indexing…"): add_new_papers("data/papers")
+                                        st.success(f"Found {len(new_dl)} new papers")
+                                        with st.spinner("Cataloguing…"): add_new_papers("data/papers")
                                         st.session_state.suggestions = load_chunks_for_suggestions(6)
                                         st.rerun()
                                     else:
-                                        st.info("No new papers (already downloaded).")
+                                        st.info("Nothing new — your collection is up to date.")
                                 except Exception as e: st.error(str(e))
 
         # ── Recently Added ──
@@ -1597,9 +1495,7 @@ if active == "Library":
                 authors = strip_md(p.get("authors", ""))
                 year    = p.get("year", "")
                 venue   = p.get("venue", "")
-                star_icon = "⭐ " if i == 0 else ""
 
-                # Pick tags from title keywords
                 detected_tags = []
                 title_lower = title.lower()
                 for kw, cls in TAG_COLOR_MAP.items():
@@ -1612,17 +1508,19 @@ if active == "Library":
                     for t in detected_tags[:2]
                 )
                 if len(detected_tags) > 2:
-                    tags_html += f'<span style="font-size:0.68rem; color:var(--text4);">+{len(detected_tags)-2}</span>'
+                    tags_html += f'<span style="font-size:0.66rem; color:var(--text4);">+{len(detected_tags)-2}</span>'
+
+                year_badge = f'<div class="recent-card-year">{year}</div>' if year else ''
 
                 recent_cards_html += f"""
                 <div class="recent-card">
-                  {"<div class='recent-card-star'>⭐</div>" if i == 0 else ""}
+                  {year_badge}
                   <div class="recent-card-title">{title[:60]}{"…" if len(title)>60 else ""}</div>
-                  <div class="recent-card-authors">{authors[:35]}{"…" if len(authors)>35 else ""} et al.</div>
-                  <div class="recent-card-venue">{venue} {year}</div>
+                  <div class="recent-card-authors">{authors[:35]}{"…" if len(authors)>35 else ""}</div>
+                  <div class="recent-card-venue">{venue}</div>
                   <div class="recent-card-tags">{tags_html}</div>
                   <div class="recent-card-foot">
-                    <span></span>
+                    <span style="font-size:0.65rem; color:var(--gold-dark); font-style:italic; font-family:'Playfair Display',serif;">{"★ Featured" if i == 0 else ""}</span>
                     <span class="rc-icon">📄</span>
                   </div>
                 </div>"""
@@ -1633,7 +1531,6 @@ if active == "Library":
         st.markdown('<div class="section-label">All Papers</div>', unsafe_allow_html=True)
 
         if papers_list:
-            # Filter
             filtered = papers_list
             if search_query:
                 q = search_query.lower()
@@ -1665,7 +1562,6 @@ if active == "Library":
                 venue   = p.get("venue", "—")
                 added   = ADDED_STUBS[i % len(ADDED_STUBS)]
 
-                # Tags
                 detected_tags = []
                 title_lower = title.lower()
                 for kw in ["Transformer","RAG","Diffusion","Vision","NLP","GNN","LLM","PEFT","CLIP"]:
@@ -1683,17 +1579,16 @@ if active == "Library":
                     <span class="star-btn">☆</span>
                     {title[:65]}{"…" if len(title)>65 else ""}
                   </td>
-                  <td>{authors[:30]}{"…" if len(authors)>30 else ""}</td>
-                  <td>{year}</td>
+                  <td style="font-style:italic;">{authors[:30]}{"…" if len(authors)>30 else ""}</td>
+                  <td><span style="color:var(--accent); font-weight:600; font-size:0.78rem;">{year}</span></td>
                   <td>{venue[:12] if venue and venue != "—" else "—"}</td>
                   <td>{tags_html}</td>
-                  <td style="color:var(--text4); font-size:0.78rem;">{added}</td>
+                  <td style="color:var(--text4); font-size:0.76rem; font-style:italic;">{added}</td>
                   <td><span class="more-btn">···</span></td>
                 </tr>"""
             table_html += "</tbody></table></div>"
             st.markdown(table_html, unsafe_allow_html=True)
 
-            # Clickable selector for detail panel (streamlit-compatible)
             if papers_list:
                 paper_titles = [strip_md(p.get("title", p["source"]))[:60] for p in papers_list[:10]]
                 selected_idx = st.selectbox(
@@ -1705,19 +1600,19 @@ if active == "Library":
                     label_visibility="collapsed"
                 )
                 c1, c2 = st.columns(2)
-                if c1.button("View Details →", use_container_width=True):
+                if c1.button("Open entry →", use_container_width=True):
                     st.session_state.selected_paper = selected_idx
                     st.rerun()
                 if st.session_state.selected_paper is not None:
-                    if c2.button("Close Panel ✕", use_container_width=True):
+                    if c2.button("Close ✕", use_container_width=True):
                         st.session_state.selected_paper = None
                         st.rerun()
         else:
             st.markdown("""
-            <div class="empty-state" style="margin:0 28px;">
-              <div class="empty-icon">◎</div>
-              <div class="empty-title">No papers yet</div>
-              <div class="empty-sub">Upload a PDF or import from arXiv to get started.</div>
+            <div class="empty-state" style="margin:0 32px;">
+              <div class="empty-icon">📖</div>
+              <div class="empty-title">No papers yet.</div>
+              <div class="empty-sub">Every anthology begins with a first page.<br>Upload a PDF or discover from the arXiv archive to begin.</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1732,7 +1627,6 @@ if active == "Library":
                 year    = p.get("year", "")
                 venue   = p.get("venue", "")
 
-                # Tags
                 detected_tags = []
                 title_lower = title.lower()
                 TAG_COLOR_MAP_D = {
@@ -1752,7 +1646,6 @@ if active == "Library":
                 if not tags_html:
                     tags_html = '<span class="tag">Research</span>'
 
-                # Mock abstract (real app would read from chunk metadata)
                 abstract = p.get("abstract",
                     "The dominant sequence transduction models are based on recurrent or convolutional "
                     "layers. We propose a simple new architecture based solely on attention mechanisms, "
@@ -1761,7 +1654,7 @@ if active == "Library":
 
                 st.markdown(f"""
                 <div class="detail-panel">
-                  <div class="detail-back">← Back to Library</div>
+                  <div class="detail-back">← Back to the collection</div>
                   <div class="detail-header">
                     <div style="display:flex; gap:12px; align-items:flex-start;">
                       <div class="detail-pdf-icon">PDF</div>
@@ -1784,7 +1677,7 @@ if active == "Library":
                   <div class="detail-body">
                     <div class="detail-section-title">Abstract</div>
                     <div class="detail-abstract">{abstract[:300]}{"…" if len(abstract)>300 else ""}</div>
-                    <div class="detail-show-more">Show more</div>
+                    <div class="detail-show-more">Read more</div>
 
                     <div class="detail-stats">
                       <div class="detail-stat-item">
@@ -1808,7 +1701,7 @@ if active == "Library":
                     <div class="detail-quick-actions">
                       <div class="detail-section-title">Quick Actions</div>
                       <div class="quick-actions-grid">
-                        <div class="quick-action-btn"><span class="quick-action-icon">📝</span>Summarize this paper</div>
+                        <div class="quick-action-btn"><span class="quick-action-icon">📝</span>Summarise this paper</div>
                         <div class="quick-action-btn"><span class="quick-action-icon">💡</span>Explain key concepts</div>
                         <div class="quick-action-btn"><span class="quick-action-icon">🔍</span>Find related papers</div>
                         <div class="quick-action-btn"><span class="quick-action-icon">🔄</span>Generate citations</div>
@@ -1824,31 +1717,27 @@ if active == "Library":
 # ──────────────────────────────────────────────────────────────────────
 elif active == "Chat":
 
-    # Retrieval settings (sidebar-injected)
     use_hyde = False
     top_k = 5
     if st.session_state.get("retrieval_settings_open", False):
         use_hyde = st.session_state.get("use_hyde", False)
         top_k    = st.session_state.get("top_k", 5)
 
-    # Two-column chat layout
     chat_col, sources_col = st.columns([3, 1.2], gap="small")
 
     with chat_col:
-        # Header
         st.markdown(f"""
         <div class="chat-header">
           <div>
-            <div class="chat-header-title">Chat</div>
-            <div class="chat-header-sub">Ask anything across your {papers_count} papers</div>
+            <div class="chat-header-title">Ask the Collection</div>
+            <div class="chat-header-sub">Across {papers_count} papers — what would you like to understand?</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Clear / New chat button
         ch1, ch2 = st.columns([5,1])
         with ch2:
-            if st.button("+ New", use_container_width=True):
+            if st.button("+ New chapter", use_container_width=True):
                 st.session_state.memory.clear()
                 st.session_state.chat = []
                 st.session_state.tts_audio = {}
@@ -1856,22 +1745,20 @@ elif active == "Chat":
                 st.session_state.suggestions = load_chunks_for_suggestions(6)
                 st.rerun()
 
-        # Suggestions (empty state)
+        # Tracklist-style suggestions (empty state)
         if not st.session_state.chat and st.session_state.suggestions:
             st.markdown("""
-            <div style="padding: 32px 0 16px; text-align:center;">
-              <div style="font-family:'Instrument Serif',serif; font-size:1.35rem; color:var(--text); margin-bottom:6px;">
-                What would you like to know?
-              </div>
-              <div style="font-size:0.82rem; color:var(--text3); margin-bottom:20px;">
-                Ask a question or describe what you want to research…
-              </div>
+            <div class="tracklist-wrap">
+              <div class="tracklist-heading">What would you like to understand?</div>
+              <div class="tracklist-sub">Choose a question or write your own…</div>
             </div>
             """, unsafe_allow_html=True)
             sg_cols = st.columns(2)
             for i, sug in enumerate(st.session_state.suggestions[:6]):
                 with sg_cols[i % 2]:
-                    if st.button(sug, key=f"sug_{i}", use_container_width=True):
+                    # Tracklist number prefix
+                    label = f"{i+1:02d}.  {sug}"
+                    if st.button(label, key=f"sug_{i}", use_container_width=True):
                         st.session_state["_pending_query"] = sug
                         st.rerun()
 
@@ -1886,7 +1773,7 @@ elif active == "Chat":
                             st.audio(st.session_state.tts_audio[idx], format="audio/wav")
                         else:
                             if st.button("🔊 Listen", key=f"tts_{idx}", use_container_width=True):
-                                with st.spinner("Synthesising…"):
+                                with st.spinner("Composing audio…"):
                                     audio = text_to_speech(msg["content"])
                                     if audio:
                                         st.session_state.tts_audio[idx] = audio
@@ -1899,14 +1786,14 @@ elif active == "Chat":
                             if idx > 0 and st.session_state.chat[idx-1]["role"] == "user":
                                 user_q = st.session_state.chat[idx-1]["content"]
                             if st.button("📊 Flow diagram", key=f"flow_{idx}", use_container_width=True):
-                                with st.spinner("Generating…"):
+                                with st.spinner("Drafting diagram…"):
                                     fc = generate_flowchart(user_q, msg["content"])
                                     if fc:
                                         st.session_state.flowcharts[idx] = fc
                                         st.rerun()
 
         # Chat input
-        query = st.chat_input("Ask a follow-up question…")
+        query = st.chat_input("What would you like to understand?")
         if "_pending_query" in st.session_state:
             query = st.session_state.pop("_pending_query")
 
@@ -1917,7 +1804,7 @@ elif active == "Chat":
             with st.chat_message("user"):
                 st.markdown(query)
 
-            with st.spinner("Searching…"):
+            with st.spinner("Searching the collection…"):
                 chunks    = retrieve(query, top_k=top_k, use_hyde=use_hyde)
                 citations = format_citations(chunks)
 
@@ -1939,10 +1826,10 @@ elif active == "Chat":
             })
             st.rerun()
 
-        # Recent conversations (when empty)
+        # Recent conversations (empty state)
         if not st.session_state.chat:
             st.markdown("""
-            <div style="margin-top:24px;">
+            <div style="margin-top:28px;">
               <div class="label">Recent Conversations</div>
             </div>
             """, unsafe_allow_html=True)
@@ -1953,18 +1840,18 @@ elif active == "Chat":
             ]
             for title, when, msgs in RECENT_CONVOS:
                 st.markdown(f"""
-                <div style="padding:10px 0; border-bottom:1px solid var(--border);
-                            cursor:pointer; font-family:'Geist',sans-serif;">
+                <div style="padding:11px 0; border-bottom:1px solid var(--border);
+                            cursor:pointer; font-family:'Inter',sans-serif;">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div style="font-size:0.84rem; font-weight:500; color:var(--text);">○ {title}</div>
-                    <span style="font-size:0.7rem; color:var(--text4);">{when}</span>
+                    <div style="font-family:'Playfair Display',serif; font-style:italic; font-size:0.86rem; font-weight:500; color:var(--text);">{title}</div>
+                    <span style="font-size:0.68rem; color:var(--text4); font-style:italic;">{when}</span>
                   </div>
-                  <div style="font-size:0.72rem; color:var(--text3); margin-top:2px;">{msgs} messages</div>
+                  <div style="font-size:0.72rem; color:var(--text3); margin-top:2px;">{msgs} exchanges</div>
                 </div>
                 """, unsafe_allow_html=True)
-            st.markdown('<div style="margin-top:10px;"><span style="font-size:0.78rem; color:var(--accent); font-weight:500; cursor:pointer;">View all conversations →</span></div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-top:12px;"><span style="font-size:0.78rem; color:var(--accent); font-weight:500; cursor:pointer; font-style:italic;">View all conversations →</span></div>', unsafe_allow_html=True)
 
-    # ── Sources panel ──
+    # ── Sources panel (footnote style) ──
     with sources_col:
         latest_citations = []
         latest_arxiv = []
@@ -1978,11 +1865,10 @@ elif active == "Chat":
             src_count = len(latest_citations) + len(latest_arxiv)
             st.markdown(f"""
             <div style="display:flex; align-items:center; justify-content:space-between;
-                        margin-bottom:12px; padding-top:8px;">
-              <div class="sources-panel-title" style="margin-bottom:0;">Sources</div>
-              <span style="font-size:0.72rem; color:var(--text3);">
-                {src_count} sources
-                <span style="margin-left:8px; cursor:pointer; color:var(--text4);">⬆</span>
+                        margin-bottom:14px; padding-top:8px;">
+              <div class="sources-panel-title" style="margin-bottom:0;">References</div>
+              <span style="font-size:0.7rem; color:var(--text3); font-style:italic;">
+                {src_count} sources cited
               </span>
             </div>
             """, unsafe_allow_html=True)
@@ -2020,13 +1906,13 @@ elif active == "Chat":
                 """, unsafe_allow_html=True)
 
             if latest_arxiv:
-                st.markdown(f'<div style="text-align:center; margin-top:8px;"><span style="font-size:0.78rem; color:var(--accent); font-weight:500; cursor:pointer;">View all {src_count} sources →</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="text-align:center; margin-top:10px;"><span style="font-size:0.76rem; color:var(--accent); font-weight:500; cursor:pointer; font-style:italic;">View all {src_count} references →</span></div>', unsafe_allow_html=True)
         else:
             st.markdown("""
-            <div style="padding-top:48px; text-align:center;">
-              <div style="font-size:1.5rem; opacity:0.25; margin-bottom:8px;">◎</div>
-              <div style="font-size:0.8rem; color:var(--text3); line-height:1.5;">
-                Sources will appear here once you ask a question.
+            <div style="padding-top:52px; text-align:center;">
+              <div style="font-size:1.6rem; opacity:0.2; margin-bottom:10px;">📖</div>
+              <div style="font-size:0.8rem; color:var(--text3); line-height:1.65; font-style:italic; font-family:'Playfair Display',serif;">
+                References will appear here<br>once you ask a question.
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -2036,12 +1922,17 @@ elif active == "Chat":
 # SEARCH
 # ──────────────────────────────────────────────────────────────────────
 elif active == "Search":
-    st.markdown('<div style="padding:28px;"><div class="lib-title">Search</div><div class="lib-meta">Full-text semantic search across your library</div></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="padding:32px 32px 0;">
+      <div style="font-family:'Playfair Display',serif; font-style:italic; font-size:2rem; font-weight:600; color:var(--text); letter-spacing:-0.01em;">Search the Archive</div>
+      <div style="font-size:0.76rem; color:var(--text4); margin-top:4px; font-style:italic; font-family:'Inter',sans-serif;">Semantic search across every passage in your collection</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.container():
         search_q = st.text_input(
             "Search",
-            placeholder="Search papers, concepts, methods, authors…",
+            placeholder="Search ideas, methods, authors, findings…",
             label_visibility="collapsed",
             key="global_search"
         )
@@ -2050,11 +1941,11 @@ elif active == "Search":
         top_k_s = st.slider("Results", 3, 15, 8)
 
         if search_q:
-            with st.spinner("Searching…"):
+            with st.spinner("Searching the passages…"):
                 chunks    = retrieve(search_q, top_k=top_k_s, use_hyde=use_hyde_s)
                 citations = format_citations(chunks)
 
-            st.markdown(f'<div class="label" style="margin:16px 0 8px;">Found {len(citations)} results</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="label" style="margin:18px 0 10px;">Found {len(citations)} passages</div>', unsafe_allow_html=True)
 
             for i, c in enumerate(citations, 1):
                 title   = strip_md(c["title"])
@@ -2062,17 +1953,19 @@ elif active == "Search":
                 year    = c.get("year", "")
                 section = c.get("section", "")
                 score   = c.get("score", 0)
-                doi_link = f' · <a href="{c["doi"]}" style="color:var(--blue);">DOI↗</a>' if c.get("doi") else ""
+                doi_link = f' · <a href="{c["doi"]}" style="color:var(--blue); font-style:normal;">DOI↗</a>' if c.get("doi") else ""
                 st.markdown(f"""
-                <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-                            padding:12px 14px; margin-bottom:8px; box-shadow:var(--shadow-xs);">
+                <div style="background:var(--surface); border:1px solid var(--border);
+                            border-left:3px solid var(--gold);
+                            border-radius:var(--radius);
+                            padding:14px 16px; margin-bottom:10px; box-shadow:var(--shadow-xs);">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div style="font-size:0.88rem; font-weight:500; color:var(--text); line-height:1.35; flex:1;">
+                    <div style="font-family:'Playfair Display',serif; font-style:italic; font-size:0.9rem; font-weight:500; color:var(--text); line-height:1.35; flex:1;">
                       {i}. {title[:80]}{"…" if len(title)>80 else ""}
                     </div>
-                    <span class="tag tag-green" style="margin-left:10px; flex-shrink:0;">{int(score*100)}%</span>
+                    <span class="tag tag-green" style="margin-left:12px; flex-shrink:0;">{int(score*100)}%</span>
                   </div>
-                  <div style="font-size:0.72rem; color:var(--text3); margin-top:4px;">
+                  <div style="font-size:0.72rem; color:var(--text3); margin-top:5px; font-style:italic;">
                     {authors[:50]} · {year} · <span class="tag">{section}</span>{doi_link}
                   </div>
                 </div>
@@ -2084,22 +1977,18 @@ elif active == "Search":
 # ──────────────────────────────────────────────────────────────────────
 elif active == "Benchmark":
 
-    # Header
     bench_h1, bench_h2 = st.columns([4, 1])
     with bench_h1:
         st.markdown("""
-        <div class="bench-header">
-          <div>
-            <div class="bench-title">Benchmark</div>
-            <div class="bench-sub">Evaluate your retrieval system</div>
-          </div>
+        <div style="padding:28px 32px 0;">
+          <div class="bench-title">Performance Records</div>
+          <div class="bench-sub">Evaluation metrics for your retrieval pipeline</div>
         </div>
         """, unsafe_allow_html=True)
     with bench_h2:
-        st.markdown('<div style="padding-top:20px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="padding-top:28px;"></div>', unsafe_allow_html=True)
         st.button("⬆ Export Report", use_container_width=True)
 
-    # Sub-tabs
     bt1, bt2, bt3 = st.tabs(["Overview", "Configurations", "History"])
 
     summary_path = Path("indexes/benchmark_summary.json")
@@ -2125,46 +2014,38 @@ elif active == "Benchmark":
                 df = pd.DataFrame(records)
                 best = df.loc[df["Mean Score"].idxmax()]
 
-                # Overall performance ring + metric cards
                 ring_col, metrics_col = st.columns([1, 2.5], gap="large")
                 with ring_col:
                     overall_pct = int(best["Mean Score"] * 100)
-                    # SVG ring
                     circumference = 2 * 3.14159 * 40
                     dash = circumference * (overall_pct / 100)
                     st.markdown(f"""
                     <div class="perf-ring-wrap">
-                      <div class="perf-ring-label">Overall Performance</div>
+                      <div class="perf-ring-label">Overall Score</div>
                       <svg width="110" height="110" viewBox="0 0 110 110">
                         <circle cx="55" cy="55" r="40" fill="none"
-                                stroke="var(--surface3)" stroke-width="10"/>
+                                stroke="var(--surface3)" stroke-width="9"/>
                         <circle cx="55" cy="55" r="40" fill="none"
-                                stroke="var(--accent)" stroke-width="10"
+                                stroke="var(--accent)" stroke-width="9"
                                 stroke-dasharray="{dash:.1f} {circumference:.1f}"
                                 stroke-dashoffset="{circumference/4:.1f}"
                                 stroke-linecap="round"/>
-                        <text x="55" y="62" text-anchor="middle"
-                              font-family="Instrument Serif,serif"
-                              font-size="22" fill="var(--text)">{overall_pct}%</text>
+                        <text x="55" y="60" text-anchor="middle"
+                              font-family="Playfair Display,serif"
+                              font-style="italic"
+                              font-size="20" fill="var(--text)">{overall_pct}%</text>
                       </svg>
-                      <div class="perf-ring-sub">Retrieval Quality Score</div>
+                      <div class="perf-ring-sub">Retrieval Quality</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 with metrics_col:
                     mc1, mc2, mc3, mc4 = st.columns(4)
-                    metric_data = [
-                        (mc1, "MRR",    best["MRR"],         "var(--accent)"),
-                        (mc2, "MRR",    best["MRR"],         "var(--blue)"),
-                        (mc3, "nDCG@5", best["nDCG@5"],      "var(--green)"),
-                        (mc4, "Hit@1",  best["Hit@1"],       "var(--amber)"),
-                    ]
-                    # Use actual metric names
                     metrics_display = [
-                        (mc1, "MRR",        best["MRR"],        "var(--accent)"),
-                        (mc2, "Hit@1",       best["Hit@1"],      "var(--blue)"),
-                        (mc3, "nDCG@5",     best["nDCG@5"],     "var(--green)"),
-                        (mc4, "Faithfulness",best["Faithfulness"],"var(--amber)"),
+                        (mc1, "MRR",         best["MRR"],         "var(--accent)"),
+                        (mc2, "Hit@1",        best["Hit@1"],       "var(--blue)"),
+                        (mc3, "nDCG@5",      best["nDCG@5"],      "var(--green)"),
+                        (mc4, "Faithfulness", best["Faithfulness"],"var(--gold-dark)"),
                     ]
                     for col, label, val, color in metrics_display:
                         col.markdown(f"""
@@ -2174,8 +2055,7 @@ elif active == "Benchmark":
                         </div>
                         """, unsafe_allow_html=True)
 
-                # Top Configurations
-                st.markdown('<div class="label" style="margin:20px 0 8px;">Top Configurations</div>', unsafe_allow_html=True)
+                st.markdown('<div class="label" style="margin:24px 0 10px; padding:0 4px;">Top Configurations</div>', unsafe_allow_html=True)
                 top_configs_html = '<div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;">'
                 for rank, (_, row) in enumerate(df.nlargest(5, "Mean Score").iterrows(), 1):
                     pct = int(row["Mean Score"] * 100)
@@ -2198,12 +2078,12 @@ elif active == "Benchmark":
                 st.error(f"Failed to load benchmark data: {e}")
         else:
             st.markdown("""
-            <div class="empty-state" style="margin:20px 28px;">
-              <div class="empty-icon">◎</div>
-              <div class="empty-title">No benchmark data yet</div>
+            <div class="empty-state" style="margin:24px 32px;">
+              <div class="empty-icon">📊</div>
+              <div class="empty-title">No records yet.</div>
               <div class="empty-sub">
                 Run <code>python run_benchmark.py</code> to evaluate your retrieval pipeline.<br>
-                Results will appear here automatically once generated.
+                Results will appear here like liner notes — every detail recorded.
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -2224,13 +2104,14 @@ elif active == "Benchmark":
                     ndcg  = ret.get("ndcg@5", 0.0)
                     st.markdown(f"""
                     <div style="background:var(--surface); border:1px solid var(--border);
-                                border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; box-shadow:var(--shadow-xs);">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <span style="font-size:0.88rem; font-weight:600; color:var(--text);">{label}</span>
+                                border-left:3px solid var(--gold);
+                                border-radius:var(--radius); padding:16px 18px; margin-bottom:12px; box-shadow:var(--shadow-xs);">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <span style="font-family:'Playfair Display',serif; font-style:italic; font-size:0.9rem; font-weight:600; color:var(--text);">{label}</span>
                         <span class="tag tag-accent">{int(mean*100)}% mean</span>
                       </div>
                       <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px;
-                                  font-size:0.72rem; color:var(--text3); font-family:'Geist',sans-serif;">
+                                  font-size:0.72rem; color:var(--text3); font-family:'Inter',sans-serif;">
                         <div>Hit@1 <strong style="color:var(--green);">{int(hit*100)}%</strong>{perf_bar(hit,'bar-fill-green')}</div>
                         <div>MRR <strong style="color:var(--blue);">{mrr:.3f}</strong>{perf_bar(mrr,'bar-fill-blue')}</div>
                         <div>nDCG@5 <strong style="color:var(--accent);">{ndcg:.3f}</strong>{perf_bar(ndcg)}</div>
@@ -2258,12 +2139,12 @@ elif active == "Benchmark":
 
 
 # ══════════════════════════════════════════════════════════════════════
-# RETRIEVAL SETTINGS SLIDE-OVER (shown at bottom of any active tab)
+# RETRIEVAL SETTINGS SLIDE-OVER
 # ══════════════════════════════════════════════════════════════════════
 if st.session_state.get("retrieval_settings_open", False):
     st.divider()
     st.markdown("""
-    <div class="settings-header" style="background:var(--surface); border:1px solid var(--border2);
+    <div class="settings-header" style="background:var(--surface); border:1px solid var(--border);
          border-radius:var(--radius) var(--radius) 0 0; margin-top:16px;">
       <div class="settings-title">Retrieval Settings</div>
     </div>
@@ -2312,11 +2193,11 @@ if st.session_state.get("retrieval_settings_open", False):
             st.session_state["top_k"]      = 5
             st.rerun()
     with col_save:
-        if st.button("Save Changes", use_container_width=True, type="primary"):
+        if st.button("Bookmark Changes", use_container_width=True, type="primary"):
             st.session_state["use_hyde"]        = use_hyde_cfg
             st.session_state["use_hybrid"]      = use_hybrid
             st.session_state["use_rerank"]      = use_rerank
             st.session_state["top_k"]           = top_k_cfg
             st.session_state["retrieval_settings_open"] = False
-            st.success("Settings saved")
+            st.success("Settings bookmarked")
             st.rerun()
