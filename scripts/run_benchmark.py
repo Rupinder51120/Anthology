@@ -23,6 +23,25 @@ from src.evaluation.pipeline_runner import run_pipeline_on_dataset
 from src.evaluation.evaluator import compare_configs
 from src.evaluation.retrieval_metrics import RetrievalMetrics
 _metrics = RetrievalMetrics()
+def lexical_overlap(question: str, answer_text: str) -> float:
+    """Jaccard overlap of content words between question and answer chunk."""
+    import re as _re
+    STOP = {
+        "the","a","an","is","are","was","were","be","been","have","has",
+        "had","do","does","did","will","would","could","should","of","in",
+        "on","at","to","for","with","by","from","and","or","but","not",
+        "this","that","it","what","how","why","which","used","using","paper",
+    }
+    def tokens(t):
+        return {w for w in _re.findall(r'\b[a-z]{3,}\b', t.lower())
+                if w not in STOP}
+    q, a = tokens(question), tokens(answer_text)
+    if not q:
+        return 0.0
+    union = q | a
+    return len(q & a) / len(union) if union else 0.0
+
+
 from src.evaluation.retrieval_metrics import RetrievalMetrics
 
 # ── save the REAL retrieve once, before any patching ──────────
