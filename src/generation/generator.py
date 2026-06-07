@@ -37,7 +37,13 @@ Rules:
 - A complete answer covers ALL relevant points in the context, not just the first one
 - If context is insufficient, state exactly what is missing
 - Never hallucinate citations or results
-- Use markdown formatting"""
+- Use markdown formatting
+
+MANDATORY FINAL SECTION — always end with:
+## Sources Used
+For every source in the context write exactly one bullet:
+- [Paper Title (Year)]: [one sentence on what it contributes to this answer]
+Cover EVERY source. Do not skip any."""
 
 
 def format_context(chunks: list[dict]) -> str:
@@ -45,8 +51,9 @@ def format_context(chunks: list[dict]) -> str:
     parts = []
     for i, chunk in enumerate(chunks, 1):
         meta = chunk["metadata"]
+        chunk_type = meta.get("chunk_type", "general").upper()
         parts.append(
-            f"[Source {i}]\n"
+            f"[Source {i}] [{chunk_type}]\n"
             f"Paper: {meta['title']} ({meta['year']})\n"
             f"Section: {meta['section']}\n"
             f"---\n{chunk['text']}"
@@ -93,8 +100,8 @@ def _call_ollama(messages: list[dict], stream: bool = False) -> requests.Respons
             "stream":  stream,
             "options": {
                 "temperature": 0.2,
-                "num_predict": 2500,   # raised from 1500 — fixes cutoff answers
-                "num_ctx":     8192,   # explicit context window
+                "num_predict": 3000,
+                "num_ctx":     16384,  # raised — prevents context truncation
             },
         },
         stream=stream,

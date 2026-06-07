@@ -1128,6 +1128,15 @@ st.markdown(CSS, unsafe_allow_html=True)
 def strip_md(text: str) -> str:
     return re.sub(r'\*{1,2}|_{1,2}', '', str(text)).strip()
 
+def esc(text: str) -> str:
+    """HTML-escape dynamic content before injecting into unsafe_allow_html strings."""
+    return (str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;"))
+
 def render_mermaid(diagram_code: str, height: int = 360):
     match = re.search(r'```mermaid\s*([\s\S]*?)\s*```', diagram_code)
     raw = match.group(1).strip() if match else diagram_code.strip()
@@ -1698,15 +1707,26 @@ if active == "Library":
                       </div>
                     </div>
 
-                    <div class="detail-quick-actions">
-                      <div class="detail-section-title">Quick Actions</div>
-                      <div class="quick-actions-grid">
-                        <div class="quick-action-btn"><span class="quick-action-icon">📝</span>Summarise this paper</div>
-                        <div class="quick-action-btn"><span class="quick-action-icon">💡</span>Explain key concepts</div>
-                        <div class="quick-action-btn"><span class="quick-action-icon">🔍</span>Find related papers</div>
-                        <div class="quick-action-btn"><span class="quick-action-icon">🔄</span>Generate citations</div>
-                      </div>
-                    </div>
+                    st.markdown('<div class="detail-quick-actions"><div class="detail-section-title">Quick Actions</div></div>', unsafe_allow_html=True)
+                    qa1, qa2 = st.columns(2)
+                    with qa1:
+                        if st.button("📝  Summarise this paper", key=f"qa_sum_{idx}", use_container_width=True):
+                            st.session_state["_pending_query"] = f"Summarise the paper: {title}"
+                            st.session_state.active_nav = "Chat"
+                            st.rerun()
+                        if st.button("🔍  Find related papers", key=f"qa_rel_{idx}", use_container_width=True):
+                            st.session_state["_pending_query"] = f"Find papers related to: {title}"
+                            st.session_state.active_nav = "Chat"
+                            st.rerun()
+                    with qa2:
+                        if st.button("💡  Explain key concepts", key=f"qa_exp_{idx}", use_container_width=True):
+                            st.session_state["_pending_query"] = f"Explain the key concepts in: {title}"
+                            st.session_state.active_nav = "Chat"
+                            st.rerun()
+                        if st.button("🔄  Generate citations", key=f"qa_cit_{idx}", use_container_width=True):
+                            st.session_state["_pending_query"] = f"Generate a citation for: {title}"
+                            st.session_state.active_nav = "Chat"
+                            st.rerun()
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -2143,12 +2163,7 @@ elif active == "Benchmark":
 # ══════════════════════════════════════════════════════════════════════
 if st.session_state.get("retrieval_settings_open", False):
     st.divider()
-    st.markdown("""
-    <div class="settings-header" style="background:var(--surface); border:1px solid var(--border);
-         border-radius:var(--radius) var(--radius) 0 0; margin-top:16px;">
-      <div class="settings-title">Retrieval Settings</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div style="font-family:Inter,sans-serif; font-size:0.9rem; font-weight:600; color:var(--text); padding:4px 0 12px;">⚙ Retrieval Settings</div>', unsafe_allow_html=True)
 
     cfg_col1, cfg_col2 = st.columns(2)
 
