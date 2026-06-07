@@ -21,6 +21,9 @@ from pathlib import Path
 from src.evaluation.benchmarker import build_qa_dataset
 from src.evaluation.pipeline_runner import run_pipeline_on_dataset
 from src.evaluation.evaluator import compare_configs
+from src.evaluation.retrieval_metrics import RetrievalMetrics
+_metrics = RetrievalMetrics()
+from src.evaluation.retrieval_metrics import RetrievalMetrics
 
 # ── save the REAL retrieve once, before any patching ──────────
 import src.retrieval.retriever as _ret_module
@@ -335,40 +338,8 @@ def make_retriever_fn(mode: str, top_k: int = 10):
 # METRICS  (self-contained, no extra files needed)
 # ─────────────────────────────────────────────────────────────
 
-def recall_at_k(retrieved: list[str], gold: set[str], k: int) -> float:
-    if not gold:
-        return 1.0
-    return len(set(retrieved[:k]) & gold) / len(gold)
 
 
-def hit_at_k(retrieved: list[str], gold: set[str], k: int) -> float:
-    return 1.0 if set(retrieved[:k]) & gold else 0.0
-
-
-def mrr(retrieved: list[str], gold: set[str]) -> float:
-    for rank, item in enumerate(retrieved, 1):
-        if item in gold:
-            return 1.0 / rank
-    return 0.0
-
-
-def lexical_overlap(question: str, answer_text: str) -> float:
-    """Jaccard overlap of content words between question and answer chunk."""
-    import re as _re
-    STOP = {
-        "the","a","an","is","are","was","were","be","been","have","has",
-        "had","do","does","did","will","would","could","should","of","in",
-        "on","at","to","for","with","by","from","and","or","but","not",
-        "this","that","it","what","how","why","which","used","using","paper",
-    }
-    def tokens(t):
-        return {w for w in _re.findall(r'\b[a-z]{3,}\b', t.lower())
-                if w not in STOP}
-    q, a = tokens(question), tokens(answer_text)
-    if not q:
-        return 0.0
-    union = q | a
-    return len(q & a) / len(union) if union else 0.0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -460,10 +431,10 @@ def run_qasper_eval(
 
                 retrieved = retriever_fn(question)
 
-                mrr_sum += mrr(retrieved, gold)
+                mrr_sum += _metrics.mrr(retrieved, gold)
                 for k in k_values:
-                    recall_sums[k] += recall_at_k(retrieved, gold, k)
-                    hit_sums[k]    += hit_at_k(retrieved, gold, k)
+                    recall_sums[k] += _metrics.recall_at_k(retrieved, gold, k)
+                    hit_sums[k]    += _metrics.hit_at_k(retrieved, gold, k)
 
             n = len(qa_pairs)
             results[bm_name][method_name] = {

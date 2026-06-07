@@ -1,459 +1,1201 @@
 {
-  "run_at": "2026-05-30T22:07:25.834473",
+  "run_at": "2026-06-07T11:34:39.078983",
   "config": {
     "topics": [
       "Generative Adversarial Networks",
       "Diffusion Models image generation",
-      "Transformer attention mechanism"
+      "Transformer attention mechanism",
+      "Large Language Models",
+      "Vision Transformers image recognition",
+      "Contrastive Learning self-supervised"
     ],
-    "max_per_topic": 10,
+    "max_per_topic": 20,
     "output_dir": "data/papers",
-    "min_year": 2018
+    "min_year": 2019
   },
   "new_downloads": [
     {
-      "title": "Quaternion Generative Adversarial Networks",
-      "filename": "Quaternion_Generative_Adversarial_Networks.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2021,
-      "authors": [
-        "Eleonora Grassucci",
-        "Edoardo Cicero",
-        "Danilo Comminiello"
-      ],
-      "abstract": "Latest Generative Adversarial Networks (GANs) are gathering outstanding results through a large-scale training, thus employing models composed of millions of parameters requiring extensive computational capabilities. Building such huge models undermines their replicability and increases the training",
-      "url": "http://arxiv.org/abs/2104.09630v2",
-      "arxiv_id": "2104.09630v2",
-      "downloaded_at": "2026-05-30T22:02:12.685395"
-    },
-    {
-      "title": "Line Art Colorization of Fakemon using Generative Adversarial Neural Networks",
-      "filename": "Line_Art_Colorization_of_Fakemon_using_Generative_Adversaria.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2023,
-      "authors": [
-        "Erick Oliveira Rodrigues",
-        "Esteban Clua",
-        "Giovani Bernardes Vitor"
-      ],
-      "abstract": "This work proposes a complete methodology to colorize images of Fakemon, anime-style monster-like creatures. In addition, we propose algorithms to extract the line art from colorized images as well as to extract color hints. Our work is the first in the literature to use automatic color hint extract",
-      "url": "http://arxiv.org/abs/2307.05760v1",
-      "arxiv_id": "2307.05760v1",
-      "downloaded_at": "2026-05-30T22:02:15.178115"
-    },
-    {
-      "title": "Paired 3D Model Generation with Conditional Generative Adversarial Networks",
-      "filename": "Paired_3D_Model_Generation_with_Conditional_Generative_Adver.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2018,
-      "authors": [
-        "Cihan \u00d6ng\u00fcn",
-        "Alptekin Temizel"
-      ],
-      "abstract": "Generative Adversarial Networks (GANs) are shown to be successful at generating new and realistic samples including 3D object models. Conditional GAN, a variant of GANs, allows generating samples in given conditions. However, objects generated for each condition are different and it does not allow g",
-      "url": "http://arxiv.org/abs/1808.03082v2",
-      "arxiv_id": "1808.03082v2",
-      "downloaded_at": "2026-05-30T22:02:18.447757"
-    },
-    {
-      "title": "Towards Imperceptible and Robust Adversarial Example Attacks against Neural Networks",
-      "filename": "Towards_Imperceptible_and_Robust_Adversarial_Example_Attacks.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2018,
-      "authors": [
-        "Bo Luo",
-        "Yannan Liu",
-        "Lingxiao Wei"
-      ],
-      "abstract": "Machine learning systems based on deep neural networks, being able to produce state-of-the-art results on various perception tasks, have gained mainstream adoption in many applications. However, they are shown to be vulnerable to adversarial example attack, which generates malicious output by adding",
-      "url": "http://arxiv.org/abs/1801.04693v1",
-      "arxiv_id": "1801.04693v1",
-      "downloaded_at": "2026-05-30T22:02:19.641564"
-    },
-    {
-      "title": "Patterns of Multiplex Layer Entanglement across Real and Synthetic Networks",
-      "filename": "Patterns_of_Multiplex_Layer_Entanglement_across_Real_and_Syn.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2019,
-      "authors": [
-        "Bla\u017e \u0160krlj",
-        "Benjamin Renoust"
-      ],
-      "abstract": "Real world complex networks often exhibit multiplex structure, connecting entities from different aspects of physical systems such as social, transportation and biological networks. Little is known about general properties of such networks across disciplines. In this work, we first investigate how c",
-      "url": "http://arxiv.org/abs/1910.05300v1",
-      "arxiv_id": "1910.05300v1",
-      "downloaded_at": "2026-05-30T22:02:23.831479"
-    },
-    {
-      "title": "Generative Adversarial Networks (GAN) Powered Fast Magnetic Resonance Imaging -- Mini Review, Comparison and Perspectives",
-      "filename": "Generative_Adversarial_Networks_GAN_Powered_Fast_Magnetic_Re.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2021,
-      "authors": [
-        "Guang Yang",
-        "Jun Lv",
-        "Yutong Chen"
-      ],
-      "abstract": "Magnetic Resonance Imaging (MRI) is a vital component of medical imaging. When compared to other image modalities, it has advantages such as the absence of radiation, superior soft tissue contrast, and complementary multiple sequence information. However, one drawback of MRI is its comparatively slo",
-      "url": "http://arxiv.org/abs/2105.01800v1",
-      "arxiv_id": "2105.01800v1",
-      "downloaded_at": "2026-05-30T22:02:41.875012"
-    },
-    {
-      "title": "On the Extrapolation of Generative Adversarial Networks for downscaling precipitation extremes in warmer climates",
-      "filename": "On_the_Extrapolation_of_Generative_Adversarial_Networks_for_.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2024,
-      "authors": [
-        "Neelesh Rampal",
-        "Peter B. Gibson",
-        "Steven Sherwood"
-      ],
-      "abstract": "While deep-learning downscaling algorithms can generate fine-scale climate projections cost-effectively, it is still unclear how well they will extrapolate to unobserved climates. We assess the extrapolation capabilities of a deterministic Convolutional Neural Network baseline and a Generative Adver",
-      "url": "http://arxiv.org/abs/2409.13934v1",
-      "arxiv_id": "2409.13934v1",
-      "downloaded_at": "2026-05-30T22:02:45.025150"
-    },
-    {
-      "title": "GAT: Generative Adversarial Training for Adversarial Example Detection and Robust Classification",
-      "filename": "GAT_Generative_Adversarial_Training_for_Adversarial_Example_.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2019,
-      "authors": [
-        "Xuwang Yin",
-        "Soheil Kolouri",
-        "Gustavo K. Rohde"
-      ],
-      "abstract": "The vulnerabilities of deep neural networks against adversarial examples have become a significant concern for deploying these models in sensitive domains. Devising a definitive defense against such attacks is proven to be challenging, and the methods relying on detecting adversarial samples are onl",
-      "url": "http://arxiv.org/abs/1905.11475v4",
-      "arxiv_id": "1905.11475v4",
-      "downloaded_at": "2026-05-30T22:02:50.413976"
-    },
-    {
-      "title": "mFI-PSO: A Flexible and Effective Method in Adversarial Image Generation for Deep Neural Networks",
-      "filename": "mFI-PSO_A_Flexible_and_Effective_Method_in_Adversarial_Image.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2020,
-      "authors": [
-        "Hai Shu",
-        "Ronghua Shi",
-        "Qiran Jia"
-      ],
-      "abstract": "Deep neural networks (DNNs) have achieved great success in image classification, but can be very vulnerable to adversarial attacks with small perturbations to images. To improve adversarial image generation for DNNs, we develop a novel method, called mFI-PSO, which utilizes a Manifold-based First-or",
-      "url": "http://arxiv.org/abs/2006.03243v3",
-      "arxiv_id": "2006.03243v3",
-      "downloaded_at": "2026-05-30T22:02:53.976235"
-    },
-    {
-      "title": "3DFaceGAN: Adversarial Nets for 3D Face Representation, Generation, and Translation",
-      "filename": "3DFaceGAN_Adversarial_Nets_for_3D_Face_Representation_Genera.pdf",
-      "topic": "Generative Adversarial Networks",
-      "year": 2019,
-      "authors": [
-        "Stylianos Moschoglou",
-        "Stylianos Ploumpis",
-        "Mihalis Nicolaou"
-      ],
-      "abstract": "Over the past few years, Generative Adversarial Networks (GANs) have garnered increased interest among researchers in Computer Vision, with applications including, but not limited to, image generation, translation, imputation, and super-resolution. Nevertheless, no GAN-based method has been proposed",
-      "url": "http://arxiv.org/abs/1905.00307v2",
-      "arxiv_id": "1905.00307v2",
-      "downloaded_at": "2026-05-30T22:03:03.873791"
-    },
-    {
-      "title": "Controllable Generation with Text-to-Image Diffusion Models: A Survey",
-      "filename": "Controllable_Generation_with_Text-to-Image_Diffusion_Models_.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2024,
-      "authors": [
-        "Pu Cao",
-        "Feng Zhou",
-        "Qing Song"
-      ],
-      "abstract": "In the rapidly advancing realm of visual generation, diffusion models have revolutionized the landscape, marking a significant shift in capabilities with their impressive text-guided generative functions. However, relying solely on text for conditioning these models does not fully cater to the varie",
-      "url": "http://arxiv.org/abs/2403.04279v2",
-      "arxiv_id": "2403.04279v2",
-      "downloaded_at": "2026-05-30T22:04:10.213158"
-    },
-    {
-      "title": "Text-to-image Diffusion Models in Generative AI: A Survey",
-      "filename": "Text-to-image_Diffusion_Models_in_Generative_AI_A_Survey.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2023,
-      "authors": [
-        "Chenshuang Zhang",
-        "Chaoning Zhang",
-        "Mengchun Zhang"
-      ],
-      "abstract": "This survey reviews the progress of diffusion models in generating images from text, ~\\textit{i.e.} text-to-image diffusion models. As a self-contained work, this survey starts with a brief introduction of how diffusion models work for image synthesis, followed by the background for text-conditioned",
-      "url": "http://arxiv.org/abs/2303.07909v3",
-      "arxiv_id": "2303.07909v3",
-      "downloaded_at": "2026-05-30T22:04:24.271549"
-    },
-    {
-      "title": "DIRE for Diffusion-Generated Image Detection",
-      "filename": "DIRE_for_Diffusion-Generated_Image_Detection.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2023,
-      "authors": [
-        "Zhendong Wang",
-        "Jianmin Bao",
-        "Wengang Zhou"
-      ],
-      "abstract": "Diffusion models have shown remarkable success in visual synthesis, but have also raised concerns about potential abuse for malicious purposes. In this paper, we seek to build a detector for telling apart real images from diffusion-generated images. We find that existing detectors struggle to detect",
-      "url": "http://arxiv.org/abs/2303.09295v1",
-      "arxiv_id": "2303.09295v1",
-      "downloaded_at": "2026-05-30T22:04:28.616658"
-    },
-    {
-      "title": "A Flow-based Truncated Denoising Diffusion Model for Super-resolution Magnetic Resonance Spectroscopic Imaging",
-      "filename": "A_Flow-based_Truncated_Denoising_Diffusion_Model_for_Super-r.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2024,
-      "authors": [
-        "Siyuan Dong",
-        "Zhuotong Cai",
-        "Gilbert Hangel"
-      ],
-      "abstract": "Magnetic Resonance Spectroscopic Imaging (MRSI) is a non-invasive imaging technique for studying metabolism and has become a crucial tool for understanding neurological diseases, cancers and diabetes. High spatial resolution MRSI is needed to characterize lesions, but in practice MRSI is acquired at",
-      "url": "http://arxiv.org/abs/2410.19288v1",
-      "arxiv_id": "2410.19288v1",
-      "downloaded_at": "2026-05-30T22:04:34.333740"
-    },
-    {
-      "title": "Alleviating Distortion in Image Generation via Multi-Resolution Diffusion Models and Time-Dependent Layer Normalization",
-      "filename": "Alleviating_Distortion_in_Image_Generation_via_Multi-Resolut.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2024,
-      "authors": [
-        "Qihao Liu",
-        "Zhanpeng Zeng",
-        "Ju He"
-      ],
-      "abstract": "This paper presents innovative enhancements to diffusion models by integrating a novel multi-resolution network and time-dependent layer normalization. Diffusion models have gained prominence for their effectiveness in high-fidelity image generation. While conventional approaches rely on convolution",
-      "url": "http://arxiv.org/abs/2406.09416v2",
-      "arxiv_id": "2406.09416v2",
-      "downloaded_at": "2026-05-30T22:04:43.428460"
-    },
-    {
-      "title": "Compositional Visual Generation with Composable Diffusion Models",
-      "filename": "Compositional_Visual_Generation_with_Composable_Diffusion_Mo.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2022,
-      "authors": [
-        "Nan Liu",
-        "Shuang Li",
-        "Yilun Du"
-      ],
-      "abstract": "Large text-guided diffusion models, such as DALLE-2, are able to generate stunning photorealistic images given natural language descriptions. While such models are highly flexible, they struggle to understand the composition of certain concepts, such as confusing the attributes of different objects ",
-      "url": "http://arxiv.org/abs/2206.01714v6",
-      "arxiv_id": "2206.01714v6",
-      "downloaded_at": "2026-05-30T22:04:49.101424"
-    },
-    {
-      "title": "Image is All You Need to Empower Large-scale Diffusion Models for In-Domain Generation",
-      "filename": "Image_is_All_You_Need_to_Empower_Large-scale_Diffusion_Model.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2023,
-      "authors": [
-        "Pu Cao",
-        "Feng Zhou",
-        "Lu Yang"
-      ],
-      "abstract": "In-domain generation aims to perform a variety of tasks within a specific domain, such as unconditional generation, text-to-image, image editing, 3D generation, and more. Early research typically required training specialized generators for each unique task and domain, often relying on fully-labeled",
-      "url": "http://arxiv.org/abs/2312.08195v2",
-      "arxiv_id": "2312.08195v2",
-      "downloaded_at": "2026-05-30T22:05:08.750050"
-    },
-    {
-      "title": "Diffusion Models Generate Images Like Painters: an Analytical Theory of Outline First, Details Later",
-      "filename": "Diffusion_Models_Generate_Images_Like_Painters_an_Analytical.pdf",
-      "topic": "Diffusion Models image generation",
-      "year": 2023,
-      "authors": [
-        "Binxu Wang",
-        "John J. Vastola"
-      ],
-      "abstract": "How do diffusion generative models convert pure noise into meaningful images? In a variety of pretrained diffusion models (including conditional latent space models like Stable Diffusion), we observe that the reverse diffusion process that underlies image generation has the following properties: (i)",
-      "url": "http://arxiv.org/abs/2303.02490v2",
-      "arxiv_id": "2303.02490v2",
-      "downloaded_at": "2026-05-30T22:05:52.796394"
-    },
-    {
-      "title": "Can We Generate Images with CoT? Let's Verify and Reinforce Image Generation Step by Step",
-      "filename": "Can_We_Generate_Images_with_CoT_Lets_Verify_and_Reinforce_Im.pdf",
+      "title": "Pisces: An Auto-regressive Foundation Model for Image Understanding and Generation",
+      "filename": "Pisces_An_Auto-regressive_Foundation_Model_for_Image_Underst.pdf",
       "topic": "Diffusion Models image generation",
       "year": 2025,
       "authors": [
-        "Ziyu Guo",
-        "Renrui Zhang",
-        "Chengzhuo Tong"
+        "Zhiyang Xu",
+        "Jiuhai Chen",
+        "Zhaojiang Lin"
       ],
-      "abstract": "Chain-of-Thought (CoT) reasoning has been extensively explored in large models to tackle complex understanding tasks. However, it still remains an open question whether such strategies can be applied to verifying and reinforcing image generation scenarios. In this paper, we provide the first compreh",
-      "url": "http://arxiv.org/abs/2501.13926v2",
-      "arxiv_id": "2501.13926v2",
-      "downloaded_at": "2026-05-30T22:06:01.011674"
+      "abstract": "Recent advances in large language models (LLMs) have enabled multimodal foundation models to tackle both image understanding and generation within a unified framework. Despite these gains, unified models often underperform compared to specialized models in either task. A key challenge in developing ",
+      "url": "http://arxiv.org/abs/2506.10395v2",
+      "arxiv_id": "2506.10395v2",
+      "downloaded_at": "2026-06-07T11:25:29.253865"
     },
     {
-      "title": "Diffusion models meet image counter-forensics",
-      "filename": "Diffusion_models_meet_image_counter-forensics.pdf",
+      "title": "Anatomically-Controllable Medical Image Generation with Segmentation-Guided Diffusion Models",
+      "filename": "Anatomically-Controllable_Medical_Image_Generation_with_Segm.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2024,
+      "authors": [
+        "Nicholas Konz",
+        "Yuwen Chen",
+        "Haoyu Dong"
+      ],
+      "abstract": "Diffusion models have enabled remarkably high-quality medical image generation, yet it is challenging to enforce anatomical constraints in generated images. To this end, we propose a diffusion model-based method that supports anatomically-controllable medical image generation, by following a multi-c",
+      "url": "http://arxiv.org/abs/2402.05210v4",
+      "arxiv_id": "2402.05210v4",
+      "downloaded_at": "2026-06-07T11:26:01.994176"
+    },
+    {
+      "title": "MirrorDiffusion: Stabilizing Diffusion Process in Zero-shot Image Translation by Prompts Redescription and Beyond",
+      "filename": "MirrorDiffusion_Stabilizing_Diffusion_Process_in_Zero-shot_I.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2024,
+      "authors": [
+        "Yupei Lin",
+        "Xiaoyu Xian",
+        "Yukai Shi"
+      ],
+      "abstract": "Recently, text-to-image diffusion models become a new paradigm in image processing fields, including content generation, image restoration and image-to-image translation. Given a target prompt, Denoising Diffusion Probabilistic Models (DDPM) are able to generate realistic yet eligible images. With t",
+      "url": "http://arxiv.org/abs/2401.03221v1",
+      "arxiv_id": "2401.03221v1",
+      "downloaded_at": "2026-06-07T11:26:08.771654"
+    },
+    {
+      "title": "BINet: a binary inpainting network for deep patch-based image compression",
+      "filename": "BINet_a_binary_inpainting_network_for_deep_patch-based_image.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2019,
+      "authors": [
+        "Andr\u00e9 Nortje",
+        "Willie Brink",
+        "Herman A. Engelbrecht"
+      ],
+      "abstract": "Recent deep learning models outperform standard lossy image compression codecs. However, applying these models on a patch-by-patch basis requires that each image patch be encoded and decoded independently. The influence from adjacent patches is therefore lost, leading to block artefacts at low bitra",
+      "url": "http://arxiv.org/abs/1912.05189v2",
+      "arxiv_id": "1912.05189v2",
+      "downloaded_at": "2026-06-07T11:26:11.645015"
+    },
+    {
+      "title": "Deformation-Recovery Diffusion Model (DRDM): Instance Deformation for Image Manipulation and Synthesis",
+      "filename": "Deformation-Recovery_Diffusion_Model_DRDM_Instance_Deformati.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2024,
+      "authors": [
+        "Jian-Qing Zheng",
+        "Yuanhan Mo",
+        "Yang Sun"
+      ],
+      "abstract": "In medical imaging, the diffusion models have shown great potential for synthetic image generation tasks. However, these approaches often lack the interpretable connections between the generated and real images and can create anatomically implausible structures or illusions. To address these limitat",
+      "url": "http://arxiv.org/abs/2407.07295v3",
+      "arxiv_id": "2407.07295v3",
+      "downloaded_at": "2026-06-07T11:26:19.154913"
+    },
+    {
+      "title": "A Generic Fundus Image Enhancement Network Boosted by Frequency Self-supervised Representation Learning",
+      "filename": "A_Generic_Fundus_Image_Enhancement_Network_Boosted_by_Freque.pdf",
       "topic": "Diffusion Models image generation",
       "year": 2023,
       "authors": [
-        "Mat\u00edas Tailanian",
-        "Marina Gardella",
-        "\u00c1lvaro Pardo"
+        "Heng Li",
+        "Haofeng Liu",
+        "Huazhu Fu"
       ],
-      "abstract": "From its acquisition in the camera sensors to its storage, different operations are performed to generate the final image. This pipeline imprints specific traces into the image to form a natural watermark. Tampering with an image disturbs these traces; these disruptions are clues that are used by mo",
-      "url": "http://arxiv.org/abs/2311.13629v2",
-      "arxiv_id": "2311.13629v2",
-      "downloaded_at": "2026-05-30T22:06:28.206406"
+      "abstract": "Fundus photography is prone to suffer from image quality degradation that impacts clinical examination performed by ophthalmologists or intelligent systems. Though enhancement algorithms have been developed to promote fundus observation on degraded images, high data demands and limited applicability",
+      "url": "http://arxiv.org/abs/2309.00885v1",
+      "arxiv_id": "2309.00885v1",
+      "downloaded_at": "2026-06-07T11:26:38.178164"
     },
     {
-      "title": "Transformer-based Personalized Attention Mechanism for Medical Images with Clinical Records",
-      "filename": "Transformer-based_Personalized_Attention_Mechanism_for_Medic.pdf",
-      "topic": "Transformer attention mechanism",
+      "title": "FlexHDR: Modelling Alignment and Exposure Uncertainties for Flexible HDR Imaging",
+      "filename": "FlexHDR_Modelling_Alignment_and_Exposure_Uncertainties_for_F.pdf",
+      "topic": "Diffusion Models image generation",
       "year": 2022,
       "authors": [
-        "Yusuke Takagi",
-        "Noriaki Hashimoto",
-        "Hiroki Masuda"
+        "Sibi Catley-Chandar",
+        "Thomas Tanay",
+        "Lucas Vandroux"
       ],
-      "abstract": "In medical image diagnosis, identifying the attention region, i.e., the region of interest for which the diagnosis is made, is an important task. Various methods have been developed to automatically identify target regions from given medical images. However, in actual medical practice, the diagnosis",
-      "url": "http://arxiv.org/abs/2206.03003v2",
-      "arxiv_id": "2206.03003v2",
-      "downloaded_at": "2026-05-30T22:06:38.955546"
+      "abstract": "High dynamic range (HDR) imaging is of fundamental importance in modern digital photography pipelines and used to produce a high-quality photograph with well exposed regions despite varying illumination across the image. This is typically achieved by merging multiple low dynamic range (LDR) images t",
+      "url": "http://arxiv.org/abs/2201.02625v3",
+      "arxiv_id": "2201.02625v3",
+      "downloaded_at": "2026-06-07T11:26:44.640356"
     },
     {
-      "title": "Dilated Neighborhood Attention Transformer",
-      "filename": "Dilated_Neighborhood_Attention_Transformer.pdf",
-      "topic": "Transformer attention mechanism",
-      "year": 2022,
+      "title": "AR-RAG: Autoregressive Retrieval Augmentation for Image Generation",
+      "filename": "AR-RAG_Autoregressive_Retrieval_Augmentation_for_Image_Gener.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2025,
       "authors": [
-        "Ali Hassani",
-        "Humphrey Shi"
+        "Jingyuan Qi",
+        "Zhiyang Xu",
+        "Qifan Wang"
       ],
-      "abstract": "Transformers are quickly becoming one of the most heavily applied deep learning architectures across modalities, domains, and tasks. In vision, on top of ongoing efforts into plain transformers, hierarchical transformers have also gained significant attention, thanks to their performance and easy in",
-      "url": "http://arxiv.org/abs/2209.15001v3",
-      "arxiv_id": "2209.15001v3",
-      "downloaded_at": "2026-05-30T22:06:41.413325"
+      "abstract": "We introduce Autoregressive Retrieval Augmentation (AR-RAG), a novel paradigm that enhances image generation by autoregressively incorporating knearest neighbor retrievals at the patch level. Unlike prior methods that perform a single, static retrieval before generation and condition the entire gene",
+      "url": "http://arxiv.org/abs/2506.06962v3",
+      "arxiv_id": "2506.06962v3",
+      "downloaded_at": "2026-06-07T11:26:52.455650"
     },
     {
-      "title": "Music Transformer",
-      "filename": "Music_Transformer.pdf",
-      "topic": "Transformer attention mechanism",
-      "year": 2018,
+      "title": "Generalized Contrastive Divergence: Joint Training of Energy-Based Model and Diffusion Model through Inverse Reinforcement Learning",
+      "filename": "Generalized_Contrastive_Divergence_Joint_Training_of_Energy-.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2023,
       "authors": [
-        "Cheng-Zhi Anna Huang",
-        "Ashish Vaswani",
-        "Jakob Uszkoreit"
+        "Sangwoong Yoon",
+        "Dohyun Kwon",
+        "Himchan Hwang"
       ],
-      "abstract": "Music relies heavily on repetition to build structure and meaning. Self-reference occurs on multiple timescales, from motifs to phrases to reusing of entire sections of music, such as in pieces with ABA structure. The Transformer (Vaswani et al., 2017), a sequence model based on self-attention, has ",
-      "url": "http://arxiv.org/abs/1809.04281v3",
-      "arxiv_id": "1809.04281v3",
-      "downloaded_at": "2026-05-30T22:06:42.497556"
+      "abstract": "We present Generalized Contrastive Divergence (GCD), a novel objective function for training an energy-based model (EBM) and a sampler simultaneously. GCD generalizes Contrastive Divergence (Hinton, 2002), a celebrated algorithm for training EBM, by replacing Markov Chain Monte Carlo (MCMC) distribu",
+      "url": "http://arxiv.org/abs/2312.03397v1",
+      "arxiv_id": "2312.03397v1",
+      "downloaded_at": "2026-06-07T11:26:54.231752"
     },
     {
-      "title": "D\u00e9j\u00e0 vu: A Contextualized Temporal Attention Mechanism for Sequential Recommendation",
-      "filename": "D\u00e9j\u00e0_vu_A_Contextualized_Temporal_Attention_Mechanism_for_Se.pdf",
-      "topic": "Transformer attention mechanism",
-      "year": 2020,
+      "title": "Fixed Point Diffusion Models",
+      "filename": "Fixed_Point_Diffusion_Models.pdf",
+      "topic": "Diffusion Models image generation",
+      "year": 2024,
       "authors": [
-        "Jibang Wu",
-        "Renqin Cai",
-        "Hongning Wang"
+        "Xingjian Bai",
+        "Luke Melas-Kyriazi"
       ],
-      "abstract": "Predicting users' preferences based on their sequential behaviors in history is challenging and crucial for modern recommender systems. Most existing sequential recommendation algorithms focus on transitional structure among the sequential actions, but largely ignore the temporal and context informa",
-      "url": "http://arxiv.org/abs/2002.00741v1",
-      "arxiv_id": "2002.00741v1",
-      "downloaded_at": "2026-05-30T22:06:44.312382"
+      "abstract": "We introduce the Fixed Point Diffusion Model (FPDM), a novel approach to image generation that integrates the concept of fixed point solving into the framework of diffusion-based generative modeling. Our approach embeds an implicit fixed point solving layer into the denoising network of a diffusion ",
+      "url": "http://arxiv.org/abs/2401.08741v1",
+      "arxiv_id": "2401.08741v1",
+      "downloaded_at": "2026-06-07T11:27:36.615901"
     },
     {
-      "title": "Energy-Gated Attention and Wavelet Positional Encoding: Complementary Inductive Biases for Transformer Attention",
-      "filename": "Energy-Gated_Attention_and_Wavelet_Positional_Encoding_Compl.pdf",
+      "title": "Pay Attention to What You Need",
+      "filename": "Pay_Attention_to_What_You_Need.pdf",
+      "topic": "Transformer attention mechanism",
+      "year": 2023,
+      "authors": [
+        "Yifei Gao",
+        "Shaohong Chen",
+        "Lei Wang"
+      ],
+      "abstract": "Although large language models (LLMs) have achieved significant success in natural language processing, they still struggle with long-context comprehension. Traditional approaches to mitigating this issue typically rely on fine-tuning or retraining, which is both resource-intensive and challenging t",
+      "url": "http://arxiv.org/abs/2307.13365v3",
+      "arxiv_id": "2307.13365v3",
+      "downloaded_at": "2026-06-07T11:27:43.258736"
+    },
+    {
+      "title": "Gated Sparse Attention: Combining Computational Efficiency with Training Stability for Long-Context Language Models",
+      "filename": "Gated_Sparse_Attention_Combining_Computational_Efficiency_wi.pdf",
       "topic": "Transformer attention mechanism",
       "year": 2026,
       "authors": [
-        "Athanasios Zeris"
+        "Alfred Shen",
+        "Aaron Shen"
       ],
-      "abstract": "Standard transformer attention computes pairwise token similarity but treats all tokens as equally salient and all positions as equally local, regardless of the informational structure of the input. We identify two complementary inductive biases that standard attention lacks: energy salience (which ",
-      "url": "http://arxiv.org/abs/2605.26355v1",
-      "arxiv_id": "2605.26355v1",
-      "downloaded_at": "2026-05-30T22:06:44.974844"
+      "abstract": "The computational burden of attention in long-context language models has motivated two largely independent lines of work: sparse attention mechanisms that reduce complexity by attending to selected tokens, and gated attention variants that improve training sta-bility while mitigating the attention ",
+      "url": "http://arxiv.org/abs/2601.15305v1",
+      "arxiv_id": "2601.15305v1",
+      "downloaded_at": "2026-06-07T11:27:45.436549"
     },
     {
-      "title": "Mask-Attention-Free Transformer for 3D Instance Segmentation",
-      "filename": "Mask-Attention-Free_Transformer_for_3D_Instance_Segmentation.pdf",
-      "topic": "Transformer attention mechanism",
-      "year": 2023,
-      "authors": [
-        "Xin Lai",
-        "Yuhui Yuan",
-        "Ruihang Chu"
-      ],
-      "abstract": "Recently, transformer-based methods have dominated 3D instance segmentation, where mask attention is commonly involved. Specifically, object queries are guided by the initial instance masks in the first cross-attention, and then iteratively refine themselves in a similar manner. However, we observe ",
-      "url": "http://arxiv.org/abs/2309.01692v1",
-      "arxiv_id": "2309.01692v1",
-      "downloaded_at": "2026-05-30T22:06:52.604090"
-    },
-    {
-      "title": "Attention Guided CAM: Visual Explanations of Vision Transformer Guided by Self-Attention",
-      "filename": "Attention_Guided_CAM_Visual_Explanations_of_Vision_Transform.pdf",
+      "title": "MLP Can Be A Good Transformer Learner",
+      "filename": "MLP_Can_Be_A_Good_Transformer_Learner.pdf",
       "topic": "Transformer attention mechanism",
       "year": 2024,
       "authors": [
-        "Saebom Leem",
-        "Hyunseok Seo"
+        "Sihao Lin",
+        "Pumeng Lyu",
+        "Dongrui Liu"
       ],
-      "abstract": "Vision Transformer(ViT) is one of the most widely used models in the computer vision field with its great performance on various tasks. In order to fully utilize the ViT-based architecture in various applications, proper visualization methods with a decent localization performance are necessary, but",
-      "url": "http://arxiv.org/abs/2402.04563v1",
-      "arxiv_id": "2402.04563v1",
-      "downloaded_at": "2026-05-30T22:07:10.726180"
+      "abstract": "Self-attention mechanism is the key of the Transformer but often criticized for its computation demands. Previous token pruning works motivate their methods from the view of computation redundancy but still need to load the full network and require same memory costs. This paper introduces a novel st",
+      "url": "http://arxiv.org/abs/2404.05657v1",
+      "arxiv_id": "2404.05657v1",
+      "downloaded_at": "2026-06-07T11:27:47.968260"
     },
     {
-      "title": "Forgetting Transformer: Softmax Attention with a Forget Gate",
-      "filename": "Forgetting_Transformer_Softmax_Attention_with_a_Forget_Gate.pdf",
+      "title": "Vision Transformer with Quadrangle Attention",
+      "filename": "Vision_Transformer_with_Quadrangle_Attention.pdf",
+      "topic": "Transformer attention mechanism",
+      "year": 2023,
+      "authors": [
+        "Qiming Zhang",
+        "Jing Zhang",
+        "Yufei Xu"
+      ],
+      "abstract": "Window-based attention has become a popular choice in vision transformers due to its superior performance, lower computational complexity, and less memory footprint. However, the design of hand-crafted windows, which is data-agnostic, constrains the flexibility of transformers to adapt to objects of",
+      "url": "http://arxiv.org/abs/2303.15105v1",
+      "arxiv_id": "2303.15105v1",
+      "downloaded_at": "2026-06-07T11:28:01.579192"
+    },
+    {
+      "title": "Design and Analysis of a Robotic Lizard using Five-Bar Mechanism",
+      "filename": "Design_and_Analysis_of_a_Robotic_Lizard_using_Five-Bar_Mecha.pdf",
+      "topic": "Transformer attention mechanism",
+      "year": 2021,
+      "authors": [
+        "Rajashekhar V S",
+        "Dinakar Raj C K",
+        "Vishwesh S"
+      ],
+      "abstract": "Legged robots are being used to explore rough terrains as they are capable of traversing gaps and obstacles. In this paper, a new mechanism is designed to replicate a robotic lizard using integrated five-bar mechanisms. There are two five bar mechanisms from which two more are formed by connecting t",
+      "url": "http://arxiv.org/abs/2107.12614v1",
+      "arxiv_id": "2107.12614v1",
+      "downloaded_at": "2026-06-07T11:28:05.977127"
+    },
+    {
+      "title": "SKGE-SWIN: End-To-End Autonomous Vehicle Waypoint Prediction and Navigation Using Skip Stage Swin Transformer",
+      "filename": "SKGE-SWIN_End-To-End_Autonomous_Vehicle_Waypoint_Prediction_.pdf",
       "topic": "Transformer attention mechanism",
       "year": 2025,
       "authors": [
-        "Zhixuan Lin",
-        "Evgenii Nikishin",
-        "Xu Owen He"
+        "Fachri Najm Noer Kartiman",
+        " Rasim",
+        "Yaya Wihardi"
       ],
-      "abstract": "An essential component of modern recurrent sequence models is the forget gate. While Transformers do not have an explicit recurrent form, we show that a forget gate can be naturally incorporated into Transformers by down-weighting the unnormalized attention scores in a data-dependent way. We name th",
-      "url": "http://arxiv.org/abs/2503.02130v2",
-      "arxiv_id": "2503.02130v2",
-      "downloaded_at": "2026-05-30T22:07:19.272919"
+      "abstract": "Focusing on the development of an end-to-end autonomous vehicle model with pixel-to-pixel context awareness, this research proposes the SKGE-Swin architecture. This architecture utilizes the Swin Transformer with a skip-stage mechanism to broaden feature representation globally and at various networ",
+      "url": "http://arxiv.org/abs/2508.20762v1",
+      "arxiv_id": "2508.20762v1",
+      "downloaded_at": "2026-06-07T11:28:22.623066"
     },
     {
-      "title": "Benign Overfitting in Token Selection of Attention Mechanism",
-      "filename": "Benign_Overfitting_in_Token_Selection_of_Attention_Mechanism.pdf",
+      "title": "Thermodynamic Isomorphism of Transformers: A Lagrangian Approach to Attention Dynamics",
+      "filename": "Thermodynamic_Isomorphism_of_Transformers_A_Lagrangian_Appro.pdf",
+      "topic": "Transformer attention mechanism",
+      "year": 2026,
+      "authors": [
+        "Gunn Kim"
+      ],
+      "abstract": "We propose an effective field-theoretic framework for analyzing Transformer attention through a thermodynamic lens. By constructing a Lagrangian on the information manifold equipped with the Fisher metric, we show that, within the Shannon--Boltzmann entropy framework, the Softmax function arises as ",
+      "url": "http://arxiv.org/abs/2602.08216v2",
+      "arxiv_id": "2602.08216v2",
+      "downloaded_at": "2026-06-07T11:28:24.856748"
+    },
+    {
+      "title": "Generalized Probabilistic Attention Mechanism in Transformers",
+      "filename": "Generalized_Probabilistic_Attention_Mechanism_in_Transformer.pdf",
       "topic": "Transformer attention mechanism",
       "year": 2024,
       "authors": [
-        "Keitaro Sakamoto",
-        "Issei Sato"
+        "DongNyeong Heo",
+        "Heeyoul Choi"
       ],
-      "abstract": "Attention mechanism is a fundamental component of the transformer model and plays a significant role in its success. However, the theoretical understanding of how attention learns to select tokens is still an emerging area of research. In this work, we study the training dynamics and generalization ",
-      "url": "http://arxiv.org/abs/2409.17625v3",
-      "arxiv_id": "2409.17625v3",
-      "downloaded_at": "2026-05-30T22:07:22.251136"
+      "abstract": "The Transformer architecture has become widely adopted due to its demonstrated success, attributed to the attention mechanism at its core. Despite these successes, the attention mechanism of Transformers is associated with two well-known issues: rank-collapse and gradient vanishing. In this paper, w",
+      "url": "http://arxiv.org/abs/2410.15578v1",
+      "arxiv_id": "2410.15578v1",
+      "downloaded_at": "2026-06-07T11:28:33.696562"
     },
     {
-      "title": "Efficient Mixed Transformer for Single Image Super-Resolution",
-      "filename": "Efficient_Mixed_Transformer_for_Single_Image_Super-Resolutio.pdf",
+      "title": "PyramidTNT: Improved Transformer-in-Transformer Baselines with Pyramid Architecture",
+      "filename": "PyramidTNT_Improved_Transformer-in-Transformer_Baselines_wit.pdf",
       "topic": "Transformer attention mechanism",
+      "year": 2022,
+      "authors": [
+        "Kai Han",
+        "Jianyuan Guo",
+        "Yehui Tang"
+      ],
+      "abstract": "Transformer networks have achieved great progress for computer vision tasks. Transformer-in-Transformer (TNT) architecture utilizes inner transformer and outer transformer to extract both local and global representations. In this work, we present new TNT baselines by introducing two advanced designs",
+      "url": "http://arxiv.org/abs/2201.00978v1",
+      "arxiv_id": "2201.00978v1",
+      "downloaded_at": "2026-06-07T11:28:35.565783"
+    },
+    {
+      "title": "On the Surprising Effectiveness of Attention Transfer for Vision Transformers",
+      "filename": "On_the_Surprising_Effectiveness_of_Attention_Transfer_for_Vi.pdf",
+      "topic": "Transformer attention mechanism",
+      "year": 2024,
+      "authors": [
+        "Alexander C. Li",
+        "Yuandong Tian",
+        "Beidi Chen"
+      ],
+      "abstract": "Conventional wisdom suggests that pre-training Vision Transformers (ViT) improves downstream performance by learning useful representations. Is this actually true? We investigate this question and find that the features and representations learned during pre-training are not essential. Surprisingly,",
+      "url": "http://arxiv.org/abs/2411.09702v1",
+      "arxiv_id": "2411.09702v1",
+      "downloaded_at": "2026-06-07T11:28:39.985971"
+    },
+    {
+      "title": "Efficient Content-Based Sparse Attention with Routing Transformers",
+      "filename": "Efficient_Content-Based_Sparse_Attention_with_Routing_Transf.pdf",
+      "topic": "Transformer attention mechanism",
+      "year": 2020,
+      "authors": [
+        "Aurko Roy",
+        "Mohammad Saffar",
+        "Ashish Vaswani"
+      ],
+      "abstract": "Self-attention has recently been adopted for a wide range of sequence modeling problems. Despite its effectiveness, self-attention suffers from quadratic compute and memory requirements with respect to sequence length. Successful approaches to reduce this complexity focused on attending to local sli",
+      "url": "http://arxiv.org/abs/2003.05997v5",
+      "arxiv_id": "2003.05997v5",
+      "downloaded_at": "2026-06-07T11:28:42.206440"
+    },
+    {
+      "title": "Enhancing Human-Like Responses in Large Language Models",
+      "filename": "Enhancing_Human-Like_Responses_in_Large_Language_Models.pdf",
+      "topic": "Large Language Models",
+      "year": 2025,
+      "authors": [
+        "Ethem Ya\u011f\u0131z \u00c7al\u0131k",
+        "Talha R\u00fczgar Akku\u015f"
+      ],
+      "abstract": "This paper explores the advancements in making large language models (LLMs) more human-like. We focus on techniques that enhance natural language understanding, conversational coherence, and emotional intelligence in AI systems. The study evaluates various approaches, including fine-tuning with dive",
+      "url": "http://arxiv.org/abs/2501.05032v2",
+      "arxiv_id": "2501.05032v2",
+      "downloaded_at": "2026-06-07T11:28:45.988592"
+    },
+    {
+      "title": "Is Self-knowledge and Action Consistent or Not: Investigating Large Language Model's Personality",
+      "filename": "Is_Self-knowledge_and_Action_Consistent_or_Not_Investigating.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Yiming Ai",
+        "Zhiwei He",
+        "Ziyin Zhang"
+      ],
+      "abstract": "In this study, we delve into the validity of conventional personality questionnaires in capturing the human-like personality traits of Large Language Models (LLMs). Our objective is to assess the congruence between the personality traits LLMs claim to possess and their demonstrated tendencies in rea",
+      "url": "http://arxiv.org/abs/2402.14679v2",
+      "arxiv_id": "2402.14679v2",
+      "downloaded_at": "2026-06-07T11:28:48.808839"
+    },
+    {
+      "title": "Large Language Models Lack Understanding of Character Composition of Words",
+      "filename": "Large_Language_Models_Lack_Understanding_of_Character_Compos.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Andrew Shin",
+        "Kunitake Kaneko"
+      ],
+      "abstract": "Large language models (LLMs) have demonstrated remarkable performances on a wide range of natural language tasks. Yet, LLMs' successes have been largely restricted to tasks concerning words, sentences, or documents, and it remains questionable how much they understand the minimal units of text, name",
+      "url": "http://arxiv.org/abs/2405.11357v3",
+      "arxiv_id": "2405.11357v3",
+      "downloaded_at": "2026-06-07T11:28:49.974949"
+    },
+    {
+      "title": "Unmasking the Shadows of AI: Investigating Deceptive Capabilities in Large Language Models",
+      "filename": "Unmasking_the_Shadows_of_AI_Investigating_Deceptive_Capabili.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Linge Guo"
+      ],
+      "abstract": "This research critically navigates the intricate landscape of AI deception, concentrating on deceptive behaviours of Large Language Models (LLMs). My objective is to elucidate this issue, examine the discourse surrounding it, and subsequently delve into its categorization and ramifications. The essa",
+      "url": "http://arxiv.org/abs/2403.09676v1",
+      "arxiv_id": "2403.09676v1",
+      "downloaded_at": "2026-06-07T11:28:51.135344"
+    },
+    {
+      "title": "Making Large Language Models Better Reasoners with Alignment",
+      "filename": "Making_Large_Language_Models_Better_Reasoners_with_Alignment.pdf",
+      "topic": "Large Language Models",
       "year": 2023,
       "authors": [
-        "Ling Zheng",
-        "Jinchen Zhu",
-        "Jinpeng Shi"
+        "Peiyi Wang",
+        "Lei Li",
+        "Liang Chen"
       ],
-      "abstract": "Recently, Transformer-based methods have achieved impressive results in single image super-resolution (SISR). However, the lack of locality mechanism and high complexity limit their application in the field of super-resolution (SR). To solve these problems, we propose a new method, Efficient Mixed T",
-      "url": "http://arxiv.org/abs/2305.11403v5",
-      "arxiv_id": "2305.11403v5",
-      "downloaded_at": "2026-05-30T22:07:25.325510"
+      "abstract": "Reasoning is a cognitive process of using evidence to reach a sound conclusion. The reasoning capability is essential for large language models (LLMs) to serve as the brain of the artificial general intelligence agent. Recent studies reveal that fine-tuning LLMs on data with the chain of thought (CO",
+      "url": "http://arxiv.org/abs/2309.02144v1",
+      "arxiv_id": "2309.02144v1",
+      "downloaded_at": "2026-06-07T11:28:52.325756"
+    },
+    {
+      "title": "Self-Cognition in Large Language Models: An Exploratory Study",
+      "filename": "Self-Cognition_in_Large_Language_Models_An_Exploratory_Study.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Dongping Chen",
+        "Jiawen Shi",
+        "Yao Wan"
+      ],
+      "abstract": "While Large Language Models (LLMs) have achieved remarkable success across various applications, they also raise concerns regarding self-cognition. In this paper, we perform a pioneering study to explore self-cognition in LLMs. Specifically, we first construct a pool of self-cognition instruction pr",
+      "url": "http://arxiv.org/abs/2407.01505v1",
+      "arxiv_id": "2407.01505v1",
+      "downloaded_at": "2026-06-07T11:28:53.984930"
+    },
+    {
+      "title": "All Languages Matter: On the Multilingual Safety of Large Language Models",
+      "filename": "All_Languages_Matter_On_the_Multilingual_Safety_of_Large_Lan.pdf",
+      "topic": "Large Language Models",
+      "year": 2023,
+      "authors": [
+        "Wenxuan Wang",
+        "Zhaopeng Tu",
+        "Chang Chen"
+      ],
+      "abstract": "Safety lies at the core of developing and deploying large language models (LLMs). However, previous safety benchmarks only concern the safety in one language, e.g. the majority language in the pretraining data such as English. In this work, we build the first multilingual safety benchmark for LLMs, ",
+      "url": "http://arxiv.org/abs/2310.00905v2",
+      "arxiv_id": "2310.00905v2",
+      "downloaded_at": "2026-06-07T11:28:55.488405"
+    },
+    {
+      "title": "Beneath the Surface: Unveiling Harmful Memes with Multimodal Reasoning Distilled from Large Language Models",
+      "filename": "Beneath_the_Surface_Unveiling_Harmful_Memes_with_Multimodal_.pdf",
+      "topic": "Large Language Models",
+      "year": 2023,
+      "authors": [
+        "Hongzhan Lin",
+        "Ziyang Luo",
+        "Jing Ma"
+      ],
+      "abstract": "The age of social media is rife with memes. Understanding and detecting harmful memes pose a significant challenge due to their implicit meaning that is not explicitly conveyed through the surface text and image. However, existing harmful meme detection approaches only recognize superficial harm-ind",
+      "url": "http://arxiv.org/abs/2312.05434v1",
+      "arxiv_id": "2312.05434v1",
+      "downloaded_at": "2026-06-07T11:28:59.933374"
+    },
+    {
+      "title": "A Critical Review of Causal Reasoning Benchmarks for Large Language Models",
+      "filename": "A_Critical_Review_of_Causal_Reasoning_Benchmarks_for_Large_L.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Linying Yang",
+        "Vik Shirvaikar",
+        "Oscar Clivio"
+      ],
+      "abstract": "Numerous benchmarks aim to evaluate the capabilities of Large Language Models (LLMs) for causal inference and reasoning. However, many of them can likely be solved through the retrieval of domain knowledge, questioning whether they achieve their purpose. In this review, we present a comprehensive ov",
+      "url": "http://arxiv.org/abs/2407.08029v1",
+      "arxiv_id": "2407.08029v1",
+      "downloaded_at": "2026-06-07T11:29:01.348709"
+    },
+    {
+      "title": "Classifying German Language Proficiency Levels Using Large Language Models",
+      "filename": "Classifying_German_Language_Proficiency_Levels_Using_Large_L.pdf",
+      "topic": "Large Language Models",
+      "year": 2025,
+      "authors": [
+        "Elias-Leander Ahlers",
+        "Witold Brunsmann",
+        "Malte Schilling"
+      ],
+      "abstract": "Assessing language proficiency is essential for education, as it enables instruction tailored to learners needs. This paper investigates the use of Large Language Models (LLMs) for automatically classifying German texts according to the Common European Framework of Reference for Languages (CEFR) int",
+      "url": "http://arxiv.org/abs/2512.06483v1",
+      "arxiv_id": "2512.06483v1",
+      "downloaded_at": "2026-06-07T11:29:02.604989"
+    },
+    {
+      "title": "A Survey on Multimodal Large Language Models",
+      "filename": "A_Survey_on_Multimodal_Large_Language_Models.pdf",
+      "topic": "Large Language Models",
+      "year": 2023,
+      "authors": [
+        "Shukang Yin",
+        "Chaoyou Fu",
+        "Sirui Zhao"
+      ],
+      "abstract": "Recently, Multimodal Large Language Model (MLLM) represented by GPT-4V has been a new rising research hotspot, which uses powerful Large Language Models (LLMs) as a brain to perform multimodal tasks. The surprising emergent capabilities of MLLM, such as writing stories based on images and OCR-free m",
+      "url": "http://arxiv.org/abs/2306.13549v4",
+      "arxiv_id": "2306.13549v4",
+      "downloaded_at": "2026-06-07T11:29:04.667654"
+    },
+    {
+      "title": "Not All Experts are Equal: Efficient Expert Pruning and Skipping for Mixture-of-Experts Large Language Models",
+      "filename": "Not_All_Experts_are_Equal_Efficient_Expert_Pruning_and_Skipp.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Xudong Lu",
+        "Qi Liu",
+        "Yuhui Xu"
+      ],
+      "abstract": "A pivotal advancement in the progress of large language models (LLMs) is the emergence of the Mixture-of-Experts (MoE) LLMs. Compared to traditional LLMs, MoE LLMs can achieve higher performance with fewer parameters, but it is still hard to deploy them due to their immense parameter sizes. Differen",
+      "url": "http://arxiv.org/abs/2402.14800v2",
+      "arxiv_id": "2402.14800v2",
+      "downloaded_at": "2026-06-07T11:29:05.872440"
+    },
+    {
+      "title": "Attacks on Third-Party APIs of Large Language Models",
+      "filename": "Attacks_on_Third-Party_APIs_of_Large_Language_Models.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Wanru Zhao",
+        "Vidit Khazanchi",
+        "Haodi Xing"
+      ],
+      "abstract": "Large language model (LLM) services have recently begun offering a plugin ecosystem to interact with third-party API services. This innovation enhances the capabilities of LLMs, but it also introduces risks, as these plugins developed by various third parties cannot be easily trusted. This paper pro",
+      "url": "http://arxiv.org/abs/2404.16891v1",
+      "arxiv_id": "2404.16891v1",
+      "downloaded_at": "2026-06-07T11:29:07.044845"
+    },
+    {
+      "title": "TEAL: Tokenize and Embed ALL for Multi-modal Large Language Models",
+      "filename": "TEAL_Tokenize_and_Embed_ALL_for_Multi-modal_Large_Language_M.pdf",
+      "topic": "Large Language Models",
+      "year": 2023,
+      "authors": [
+        "Zhen Yang",
+        "Yingxue Zhang",
+        "Fandong Meng"
+      ],
+      "abstract": "Despite Multi-modal Large Language Models (MM-LLMs) have made exciting strides recently, they are still struggling to efficiently model the interactions among multi-modal inputs and the generation in non-textual modalities. In this work, we propose TEAL (Tokenize and Embed ALl)}, an approach to trea",
+      "url": "http://arxiv.org/abs/2311.04589v3",
+      "arxiv_id": "2311.04589v3",
+      "downloaded_at": "2026-06-07T11:29:08.804010"
+    },
+    {
+      "title": "Large Language Models in Ambulatory Devices for Home Health Diagnostics: A case study of Sickle Cell Anemia Management",
+      "filename": "Large_Language_Models_in_Ambulatory_Devices_for_Home_Health_.pdf",
+      "topic": "Large Language Models",
+      "year": 2023,
+      "authors": [
+        "Oluwatosin Ogundare",
+        "Subuola Sofolahan"
+      ],
+      "abstract": "This study investigates the potential of an ambulatory device that incorporates Large Language Models (LLMs) in cadence with other specialized ML models to assess anemia severity in sickle cell patients in real time. The device would rely on sensor data that measures angiogenic material levels to as",
+      "url": "http://arxiv.org/abs/2305.03715v1",
+      "arxiv_id": "2305.03715v1",
+      "downloaded_at": "2026-06-07T11:29:10.199543"
+    },
+    {
+      "title": "PruneVid: Visual Token Pruning for Efficient Video Large Language Models",
+      "filename": "PruneVid_Visual_Token_Pruning_for_Efficient_Video_Large_Lang.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Xiaohu Huang",
+        "Hao Zhou",
+        "Kai Han"
+      ],
+      "abstract": "In this paper, we introduce PruneVid, a visual token pruning method designed to enhance the efficiency of multi-modal video understanding. Large Language Models (LLMs) have shown promising performance in video tasks due to their extended capabilities in comprehending visual modalities. However, the ",
+      "url": "http://arxiv.org/abs/2412.16117v1",
+      "arxiv_id": "2412.16117v1",
+      "downloaded_at": "2026-06-07T11:29:13.491876"
+    },
+    {
+      "title": "Reinforcement Learning Meets Large Language Models: A Survey of Advancements and Applications Across the LLM Lifecycle",
+      "filename": "Reinforcement_Learning_Meets_Large_Language_Models_A_Survey_.pdf",
+      "topic": "Large Language Models",
+      "year": 2025,
+      "authors": [
+        "Keliang Liu",
+        "Dingkang Yang",
+        "Ziyun Qian"
+      ],
+      "abstract": "In recent years, training methods centered on Reinforcement Learning (RL) have markedly enhanced the reasoning and alignment performance of Large Language Models (LLMs), particularly in understanding human intents, following user instructions, and bolstering inferential strength. Although existing s",
+      "url": "http://arxiv.org/abs/2509.16679v1",
+      "arxiv_id": "2509.16679v1",
+      "downloaded_at": "2026-06-07T11:29:18.122435"
+    },
+    {
+      "title": "LAraBench: Benchmarking Arabic AI with Large Language Models",
+      "filename": "LAraBench_Benchmarking_Arabic_AI_with_Large_Language_Models.pdf",
+      "topic": "Large Language Models",
+      "year": 2023,
+      "authors": [
+        "Ahmed Abdelali",
+        "Hamdy Mubarak",
+        "Shammur Absar Chowdhury"
+      ],
+      "abstract": "Recent advancements in Large Language Models (LLMs) have significantly influenced the landscape of language and speech research. Despite this progress, these models lack specific benchmarking against state-of-the-art (SOTA) models tailored to particular languages and tasks. LAraBench addresses this ",
+      "url": "http://arxiv.org/abs/2305.14982v2",
+      "arxiv_id": "2305.14982v2",
+      "downloaded_at": "2026-06-07T11:29:20.118579"
+    },
+    {
+      "title": "Scaling Behavior of Machine Translation with Large Language Models under Prompt Injection Attacks",
+      "filename": "Scaling_Behavior_of_Machine_Translation_with_Large_Language_.pdf",
+      "topic": "Large Language Models",
+      "year": 2024,
+      "authors": [
+        "Zhifan Sun",
+        "Antonio Valerio Miceli-Barone"
+      ],
+      "abstract": "Large Language Models (LLMs) are increasingly becoming the preferred foundation platforms for many Natural Language Processing tasks such as Machine Translation, owing to their quality often comparable to or better than task-specific models, and the simplicity of specifying the task through natural ",
+      "url": "http://arxiv.org/abs/2403.09832v1",
+      "arxiv_id": "2403.09832v1",
+      "downloaded_at": "2026-06-07T11:29:25.664693"
+    },
+    {
+      "title": "Emissions and Performance Trade-off Between Small and Large Language Models",
+      "filename": "Emissions_and_Performance_Trade-off_Between_Small_and_Large_.pdf",
+      "topic": "Large Language Models",
+      "year": 2025,
+      "authors": [
+        "Anandita Garg",
+        "Uma Gaba",
+        "Deepan Muthirayan"
+      ],
+      "abstract": "The advent of Large Language Models (LLMs) has raised concerns about their enormous carbon footprint, starting with energy-intensive training and continuing through repeated inference. This study investigates the potential of using fine-tuned Small Language Models (SLMs) as a sustainable alternative",
+      "url": "http://arxiv.org/abs/2601.08844v1",
+      "arxiv_id": "2601.08844v1",
+      "downloaded_at": "2026-06-07T11:29:26.770663"
+    },
+    {
+      "title": "Are Vision-Language Models Ready for Dietary Assessment? Exploring the Next Frontier in AI-Powered Food Image Recognition",
+      "filename": "Are_Vision-Language_Models_Ready_for_Dietary_Assessment_Expl.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2025,
+      "authors": [
+        "Sergio Romero-Tapiador",
+        "Ruben Tolosana",
+        "Blanca Lacruz-Pleguezuelos"
+      ],
+      "abstract": "Automatic dietary assessment based on food images remains a challenge, requiring precise food detection, segmentation, and classification. Vision-Language Models (VLMs) offer new possibilities by integrating visual and textual reasoning. In this study, we evaluate six state-of-the-art VLMs (ChatGPT,",
+      "url": "http://arxiv.org/abs/2504.06925v1",
+      "arxiv_id": "2504.06925v1",
+      "downloaded_at": "2026-06-07T11:29:44.297382"
+    },
+    {
+      "title": "PatchRot: A Self-Supervised Technique for Training Vision Transformers",
+      "filename": "PatchRot_A_Self-Supervised_Technique_for_Training_Vision_Tra.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2022,
+      "authors": [
+        "Sachin Chhabra",
+        "Prabal Bijoy Dutta",
+        "Hemanth Venkateswara"
+      ],
+      "abstract": "Vision transformers require a huge amount of labeled data to outperform convolutional neural networks. However, labeling a huge dataset is a very expensive process. Self-supervised learning techniques alleviate this problem by learning features similar to supervised learning in an unsupervised way. ",
+      "url": "http://arxiv.org/abs/2210.15722v1",
+      "arxiv_id": "2210.15722v1",
+      "downloaded_at": "2026-06-07T11:29:51.625587"
+    },
+    {
+      "title": "A Review of Pulse-Coupled Neural Network Applications in Computer Vision and Image Processing",
+      "filename": "A_Review_of_Pulse-Coupled_Neural_Network_Applications_in_Com.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2024,
+      "authors": [
+        "Nurul Rafi",
+        "Pablo Rivas"
+      ],
+      "abstract": "Research in neural models inspired by mammal's visual cortex has led to many spiking neural networks such as pulse-coupled neural networks (PCNNs). These models are oscillating, spatio-temporal models stimulated with images to produce several time-based responses. This paper reviews PCNN's state of ",
+      "url": "http://arxiv.org/abs/2406.00239v1",
+      "arxiv_id": "2406.00239v1",
+      "downloaded_at": "2026-06-07T11:29:52.964726"
+    },
+    {
+      "title": "Global Adaptive Filtering Layer for Computer Vision",
+      "filename": "Global_Adaptive_Filtering_Layer_for_Computer_Vision.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2020,
+      "authors": [
+        "Viktor Shipitsin",
+        "Iaroslav Bespalov",
+        "Dmitry V. Dylov"
+      ],
+      "abstract": "We devise a universal adaptive neural layer to \"learn\" optimal frequency filter for each image together with the weights of the base neural network that performs some computer vision task. The proposed approach takes the source image in the spatial domain, automatically selects the best frequencies ",
+      "url": "http://arxiv.org/abs/2010.01177v4",
+      "arxiv_id": "2010.01177v4",
+      "downloaded_at": "2026-06-07T11:30:06.372209"
+    },
+    {
+      "title": "Transformer-based Models to Deal with Heterogeneous Environments in Human Activity Recognition",
+      "filename": "Transformer-based_Models_to_Deal_with_Heterogeneous_Environm.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2022,
+      "authors": [
+        "Sannara EK",
+        "Fran\u00e7ois Portet",
+        "Philippe Lalanda"
+      ],
+      "abstract": "Human Activity Recognition (HAR) on mobile devices has been demonstrated to be possible using neural models trained on data collected from the device's inertial measurement units. These models have used Convolutional Neural Networks (CNNs), Long Short-Term Memory (LSTMs), Transformers or a combinati",
+      "url": "http://arxiv.org/abs/2209.11750v2",
+      "arxiv_id": "2209.11750v2",
+      "downloaded_at": "2026-06-07T11:30:18.633055"
+    },
+    {
+      "title": "Dense outlier detection and open-set recognition based on training with noisy negative images",
+      "filename": "Dense_outlier_detection_and_open-set_recognition_based_on_tr.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2021,
+      "authors": [
+        "Petra Bevandi\u0107",
+        "Ivan Kre\u0161o",
+        "Marin Or\u0161i\u0107"
+      ],
+      "abstract": "Deep convolutional models often produce inadequate predictions for inputs foreign to the training distribution. Consequently, the problem of detecting outlier images has recently been receiving a lot of attention. Unlike most previous work, we address this problem in the dense prediction context in ",
+      "url": "http://arxiv.org/abs/2101.09193v3",
+      "arxiv_id": "2101.09193v3",
+      "downloaded_at": "2026-06-07T11:30:22.943324"
+    },
+    {
+      "title": "Can Vision Transformers Learn without Natural Images?",
+      "filename": "Can_Vision_Transformers_Learn_without_Natural_Images.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2021,
+      "authors": [
+        "Kodai Nakashima",
+        "Hirokatsu Kataoka",
+        "Asato Matsumoto"
+      ],
+      "abstract": "Can we complete pre-training of Vision Transformers (ViT) without natural images and human-annotated labels? Although a pre-trained ViT seems to heavily rely on a large-scale dataset and human-annotated labels, recent large-scale datasets contain several problems in terms of privacy violations, inad",
+      "url": "http://arxiv.org/abs/2103.13023v1",
+      "arxiv_id": "2103.13023v1",
+      "downloaded_at": "2026-06-07T11:30:26.850939"
+    },
+    {
+      "title": "Towards End-to-End Image Compression and Analysis with Transformers",
+      "filename": "Towards_End-to-End_Image_Compression_and_Analysis_with_Trans.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2021,
+      "authors": [
+        "Yuanchao Bai",
+        "Xu Yang",
+        "Xianming Liu"
+      ],
+      "abstract": "We propose an end-to-end image compression and analysis model with Transformers, targeting to the cloud-based image classification application. Instead of placing an existing Transformer-based image classification model directly after an image codec, we aim to redesign the Vision Transformer (ViT) m",
+      "url": "http://arxiv.org/abs/2112.09300v1",
+      "arxiv_id": "2112.09300v1",
+      "downloaded_at": "2026-06-07T11:30:28.859721"
+    },
+    {
+      "title": "Vision Transformer with Cross-attention by Temporal Shift for Efficient Action Recognition",
+      "filename": "Vision_Transformer_with_Cross-attention_by_Temporal_Shift_fo.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2022,
+      "authors": [
+        "Ryota Hashiguchi",
+        "Toru Tamaki"
+      ],
+      "abstract": "Feature shifts have been shown to be useful for action recognition with CNN-based models since Temporal Shift Module (TSM) was proposed. It is based on frame-wise feature extraction with late fusion, and layer features are shifted along the time direction for the temporal interaction. TokenShift, a ",
+      "url": "http://arxiv.org/abs/2204.00452v2",
+      "arxiv_id": "2204.00452v2",
+      "downloaded_at": "2026-06-07T11:30:31.319706"
+    },
+    {
+      "title": "TransMorph: Transformer for unsupervised medical image registration",
+      "filename": "TransMorph_Transformer_for_unsupervised_medical_image_regist.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2021,
+      "authors": [
+        "Junyu Chen",
+        "Eric C. Frey",
+        "Yufan He"
+      ],
+      "abstract": "In the last decade, convolutional neural networks (ConvNets) have been a major focus of research in medical image analysis. However, the performances of ConvNets may be limited by a lack of explicit consideration of the long-range spatial relationships in an image. Recently Vision Transformer archit",
+      "url": "http://arxiv.org/abs/2111.10480v6",
+      "arxiv_id": "2111.10480v6",
+      "downloaded_at": "2026-06-07T11:31:26.940725"
+    },
+    {
+      "title": "M$^2$DAR: Multi-View Multi-Scale Driver Action Recognition with Vision Transformer",
+      "filename": "M2DAR_Multi-View_Multi-Scale_Driver_Action_Recognition_with_.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2023,
+      "authors": [
+        "Yunsheng Ma",
+        "Liangqi Yuan",
+        "Amr Abdelraouf"
+      ],
+      "abstract": "Ensuring traffic safety and preventing accidents is a critical goal in daily driving, where the advancement of computer vision technologies can be leveraged to achieve this goal. In this paper, we present a multi-view, multi-scale framework for naturalistic driving action recognition and localizatio",
+      "url": "http://arxiv.org/abs/2305.08877v1",
+      "arxiv_id": "2305.08877v1",
+      "downloaded_at": "2026-06-07T11:31:30.725649"
+    },
+    {
+      "title": "OAMixer: Object-aware Mixing Layer for Vision Transformers",
+      "filename": "OAMixer_Object-aware_Mixing_Layer_for_Vision_Transformers.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2022,
+      "authors": [
+        "Hyunwoo Kang",
+        "Sangwoo Mo",
+        "Jinwoo Shin"
+      ],
+      "abstract": "Patch-based models, e.g., Vision Transformers (ViTs) and Mixers, have shown impressive results on various visual recognition tasks, alternating classic convolutional networks. While the initial patch-based models (ViTs) treated all patches equally, recent studies reveal that incorporating inductive ",
+      "url": "http://arxiv.org/abs/2212.06595v1",
+      "arxiv_id": "2212.06595v1",
+      "downloaded_at": "2026-06-07T11:31:34.622452"
+    },
+    {
+      "title": "Semantic-Aware Scene Recognition",
+      "filename": "Semantic-Aware_Scene_Recognition.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2019,
+      "authors": [
+        "Alejandro L\u00f3pez-Cifuentes",
+        "Marcos Escudero-Vi\u00f1olo",
+        "Jes\u00fas Besc\u00f3s"
+      ],
+      "abstract": "Scene recognition is currently one of the top-challenging research fields in computer vision. This may be due to the ambiguity between classes: images of several scene classes may share similar objects, which causes confusion among them. The problem is aggravated when images of a particular scene cl",
+      "url": "http://arxiv.org/abs/1909.02410v3",
+      "arxiv_id": "1909.02410v3",
+      "downloaded_at": "2026-06-07T11:31:51.130125"
+    },
+    {
+      "title": "A Simple and Robust Framework for Cross-Modality Medical Image Segmentation applied to Vision Transformers",
+      "filename": "A_Simple_and_Robust_Framework_for_Cross-Modality_Medical_Ima.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2023,
+      "authors": [
+        "Matteo Bastico",
+        "David Ryckelynck",
+        "Laurent Cort\u00e9"
+      ],
+      "abstract": "When it comes to clinical images, automatic segmentation has a wide variety of applications and a considerable diversity of input domains, such as different types of Magnetic Resonance Images (MRIs) and Computerized Tomography (CT) scans. This heterogeneity is a challenge for cross-modality algorith",
+      "url": "http://arxiv.org/abs/2310.05572v1",
+      "arxiv_id": "2310.05572v1",
+      "downloaded_at": "2026-06-07T11:31:55.756934"
+    },
+    {
+      "title": "MF-LPR$^2$: Multi-Frame License Plate Image Restoration and Recognition using Optical Flow",
+      "filename": "MF-LPR2_Multi-Frame_License_Plate_Image_Restoration_and_Reco.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2025,
+      "authors": [
+        "Kihyun Na",
+        "Junseok Oh",
+        "Youngkwan Cho"
+      ],
+      "abstract": "License plate recognition (LPR) is important for traffic law enforcement, crime investigation, and surveillance. However, license plate areas in dash cam images often suffer from low resolution, motion blur, and glare, which make accurate recognition challenging. Existing generative models that rely",
+      "url": "http://arxiv.org/abs/2508.14797v1",
+      "arxiv_id": "2508.14797v1",
+      "downloaded_at": "2026-06-07T11:32:46.846951"
+    },
+    {
+      "title": "VoxelPrompt: A Vision Agent for End-to-End Medical Image Analysis",
+      "filename": "VoxelPrompt_A_Vision_Agent_for_End-to-End_Medical_Image_Anal.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2024,
+      "authors": [
+        "Andrew Hoopes",
+        "Neel Dey",
+        "Victor Ion Butoi"
+      ],
+      "abstract": "We present VoxelPrompt, an end-to-end image analysis agent that tackles free-form radiological tasks. Given any number of volumetric medical images and a natural language prompt, VoxelPrompt integrates a language model that generates executable code to invoke a jointly-trained, adaptable vision netw",
+      "url": "http://arxiv.org/abs/2410.08397v2",
+      "arxiv_id": "2410.08397v2",
+      "downloaded_at": "2026-06-07T11:33:05.347509"
+    },
+    {
+      "title": "Vim4Path: Self-Supervised Vision Mamba for Histopathology Images",
+      "filename": "Vim4Path_Self-Supervised_Vision_Mamba_for_Histopathology_Ima.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2024,
+      "authors": [
+        "Ali Nasiri-Sarvi",
+        "Vincent Quoc-Huy Trinh",
+        "Hassan Rivaz"
+      ],
+      "abstract": "Representation learning from Gigapixel Whole Slide Images (WSI) poses a significant challenge in computational pathology due to the complicated nature of tissue structures and the scarcity of labeled data. Multi-instance learning methods have addressed this challenge, leveraging image patches to cla",
+      "url": "http://arxiv.org/abs/2404.13222v2",
+      "arxiv_id": "2404.13222v2",
+      "downloaded_at": "2026-06-07T11:33:16.994472"
+    },
+    {
+      "title": "Masked Vision-Language Transformers for Scene Text Recognition",
+      "filename": "Masked_Vision-Language_Transformers_for_Scene_Text_Recogniti.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2022,
+      "authors": [
+        "Jie Wu",
+        "Ying Peng",
+        "Shengming Zhang"
+      ],
+      "abstract": "Scene text recognition (STR) enables computers to recognize and read the text in various real-world scenes. Recent STR models benefit from taking linguistic information in addition to visual cues into consideration. We propose a novel Masked Vision-Language Transformers (MVLT) to capture both the ex",
+      "url": "http://arxiv.org/abs/2211.04785v1",
+      "arxiv_id": "2211.04785v1",
+      "downloaded_at": "2026-06-07T11:33:36.344321"
+    },
+    {
+      "title": "Towards a Large Language-Vision Question Answering Model for MSTAR Automatic Target Recognition",
+      "filename": "Towards_a_Large_Language-Vision_Question_Answering_Model_for.pdf",
+      "topic": "Vision Transformers image recognition",
+      "year": 2026,
+      "authors": [
+        "David F. Ramirez",
+        "Tim L. Overman",
+        "Kristen Jaskie"
+      ],
+      "abstract": "Large language-vision models (LLVM), such as OpenAI's ChatGPT and GPT-4, have gained prominence as powerful tools for analyzing text and imagery. The merging of these data domains represents a significant paradigm shift with far-reaching implications for automatic target recognition (ATR). Recent tr",
+      "url": "http://arxiv.org/abs/2605.10772v1",
+      "arxiv_id": "2605.10772v1",
+      "downloaded_at": "2026-06-07T11:33:38.060850"
+    },
+    {
+      "title": "SelfMatch: Combining Contrastive Self-Supervision and Consistency for Semi-Supervised Learning",
+      "filename": "SelfMatch_Combining_Contrastive_Self-Supervision_and_Consist.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Byoungjip Kim",
+        "Jinho Choo",
+        "Yeong-Dae Kwon"
+      ],
+      "abstract": "This paper introduces SelfMatch, a semi-supervised learning method that combines the power of contrastive self-supervised learning and consistency regularization. SelfMatch consists of two stages: (1) self-supervised pre-training based on contrastive learning and (2) semi-supervised fine-tuning base",
+      "url": "http://arxiv.org/abs/2101.06480v1",
+      "arxiv_id": "2101.06480v1",
+      "downloaded_at": "2026-06-07T11:33:40.517143"
+    },
+    {
+      "title": "Similarity Contrastive Estimation for Image and Video Soft Contrastive Self-Supervised Learning",
+      "filename": "Similarity_Contrastive_Estimation_for_Image_and_Video_Soft_C.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2022,
+      "authors": [
+        "Julien Denize",
+        "Jaonary Rabarisoa",
+        "Astrid Orcesi"
+      ],
+      "abstract": "Contrastive representation learning has proven to be an effective self-supervised learning method for images and videos. Most successful approaches are based on Noise Contrastive Estimation (NCE) and use different views of an instance as positives that should be contrasted with other instances, call",
+      "url": "http://arxiv.org/abs/2212.11187v1",
+      "arxiv_id": "2212.11187v1",
+      "downloaded_at": "2026-06-07T11:33:42.072862"
+    },
+    {
+      "title": "Non-Contrastive Self-supervised Learning for Utterance-Level Information Extraction from Speech",
+      "filename": "Non-Contrastive_Self-supervised_Learning_for_Utterance-Level.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2022,
+      "authors": [
+        "Jaejin Cho",
+        "Jes'us Villalba",
+        "Laureano Moro-Velazquez"
+      ],
+      "abstract": "In recent studies, self-supervised pre-trained models tend to outperform supervised pre-trained models in transfer learning. In particular, self-supervised learning (SSL) of utterance-level speech representation can be used in speech applications that require discriminative representation of consist",
+      "url": "http://arxiv.org/abs/2208.05445v1",
+      "arxiv_id": "2208.05445v1",
+      "downloaded_at": "2026-06-07T11:33:45.757228"
+    },
+    {
+      "title": "On the Similarities of Embeddings in Contrastive Learning",
+      "filename": "On_the_Similarities_of_Embeddings_in_Contrastive_Learning.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2025,
+      "authors": [
+        "Chungpa Lee",
+        "Sehee Lim",
+        "Kibok Lee"
+      ],
+      "abstract": "Contrastive learning operates on a simple yet effective principle: Embeddings of positive pairs are pulled together, while those of negative pairs are pushed apart. In this paper, we propose a unified framework for understanding contrastive learning through the lens of cosine similarity, and present",
+      "url": "http://arxiv.org/abs/2506.09781v2",
+      "arxiv_id": "2506.09781v2",
+      "downloaded_at": "2026-06-07T11:33:47.862390"
+    },
+    {
+      "title": "Contrastive Self-Supervised Learning for Skeleton Representations",
+      "filename": "Contrastive_Self-Supervised_Learning_for_Skeleton_Representa.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2022,
+      "authors": [
+        "Nico Lingg",
+        "Miguel Sarabia",
+        "Luca Zappella"
+      ],
+      "abstract": "Human skeleton point clouds are commonly used to automatically classify and predict the behaviour of others. In this paper, we use a contrastive self-supervised learning method, SimCLR, to learn representations that capture the semantics of skeleton point clouds. This work focuses on systematically ",
+      "url": "http://arxiv.org/abs/2211.05304v1",
+      "arxiv_id": "2211.05304v1",
+      "downloaded_at": "2026-06-07T11:33:49.429464"
+    },
+    {
+      "title": "Self-Supervised Learning for Large-Scale Unsupervised Image Clustering",
+      "filename": "Self-Supervised_Learning_for_Large-Scale_Unsupervised_Image_.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2020,
+      "authors": [
+        "Evgenii Zheltonozhskii",
+        "Chaim Baskin",
+        "Alex M. Bronstein"
+      ],
+      "abstract": "Unsupervised learning has always been appealing to machine learning researchers and practitioners, allowing them to avoid an expensive and complicated process of labeling the data. However, unsupervised learning of complex data is challenging, and even the best approaches show much weaker performanc",
+      "url": "http://arxiv.org/abs/2008.10312v2",
+      "arxiv_id": "2008.10312v2",
+      "downloaded_at": "2026-06-07T11:33:51.335984"
+    },
+    {
+      "title": "Data-Efficient Contrastive Self-supervised Learning: Most Beneficial Examples for Supervised Learning Contribute the Least",
+      "filename": "Data-Efficient_Contrastive_Self-supervised_Learning_Most_Ben.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2023,
+      "authors": [
+        "Siddharth Joshi",
+        "Baharan Mirzasoleiman"
+      ],
+      "abstract": "Self-supervised learning (SSL) learns high-quality representations from large pools of unlabeled training data. As datasets grow larger, it becomes crucial to identify the examples that contribute the most to learning such representations. This enables efficient SSL by reducing the volume of data re",
+      "url": "http://arxiv.org/abs/2302.09195v5",
+      "arxiv_id": "2302.09195v5",
+      "downloaded_at": "2026-06-07T11:33:57.440769"
+    },
+    {
+      "title": "Elastic Weight Consolidation Improves the Robustness of Self-Supervised Learning Methods under Transfer",
+      "filename": "Elastic_Weight_Consolidation_Improves_the_Robustness_of_Self.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2022,
+      "authors": [
+        "Andrius Ovsianas",
+        "Jason Ramapuram",
+        "Dan Busbridge"
+      ],
+      "abstract": "Self-supervised representation learning (SSL) methods provide an effective label-free initial condition for fine-tuning downstream tasks. However, in numerous realistic scenarios, the downstream task might be biased with respect to the target label distribution. This in turn moves the learned fine-t",
+      "url": "http://arxiv.org/abs/2210.16365v1",
+      "arxiv_id": "2210.16365v1",
+      "downloaded_at": "2026-06-07T11:33:59.050681"
+    },
+    {
+      "title": "HoughCL: Finding Better Positive Pairs in Dense Self-supervised Learning",
+      "filename": "HoughCL_Finding_Better_Positive_Pairs_in_Dense_Self-supervis.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Yunsung Lee",
+        "Teakgyu Hong",
+        "Han-Cheol Cho"
+      ],
+      "abstract": "Recently, self-supervised methods show remarkable achievements in image-level representation learning. Nevertheless, their image-level self-supervisions lead the learned representation to sub-optimal for dense prediction tasks, such as object detection, instance segmentation, etc. To tackle this iss",
+      "url": "http://arxiv.org/abs/2111.10794v1",
+      "arxiv_id": "2111.10794v1",
+      "downloaded_at": "2026-06-07T11:34:00.735297"
+    },
+    {
+      "title": "Supervise Thyself: Examining Self-Supervised Representations in Interactive Environments",
+      "filename": "Supervise_Thyself_Examining_Self-Supervised_Representations_.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2019,
+      "authors": [
+        "Evan Racah",
+        "Christopher Pal"
+      ],
+      "abstract": "Self-supervised methods, wherein an agent learns representations solely by observing the results of its actions, become crucial in environments which do not provide a dense reward signal or have labels. In most cases, such methods are used for pretraining or auxiliary tasks for \"downstream\" tasks, s",
+      "url": "http://arxiv.org/abs/1906.11951v1",
+      "arxiv_id": "1906.11951v1",
+      "downloaded_at": "2026-06-07T11:34:03.101992"
+    },
+    {
+      "title": "Improving Few-Shot Learning with Auxiliary Self-Supervised Pretext Tasks",
+      "filename": "Improving_Few-Shot_Learning_with_Auxiliary_Self-Supervised_P.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Nathaniel Simard",
+        "Guillaume Lagrange"
+      ],
+      "abstract": "Recent work on few-shot learning \\cite{tian2020rethinking} showed that quality of learned representations plays an important role in few-shot classification performance. On the other hand, the goal of self-supervised learning is to recover useful semantic information of the data without the use of c",
+      "url": "http://arxiv.org/abs/2101.09825v1",
+      "arxiv_id": "2101.09825v1",
+      "downloaded_at": "2026-06-07T11:34:04.264820"
+    },
+    {
+      "title": "Self-Distilled Representation Learning for Time Series",
+      "filename": "Self-Distilled_Representation_Learning_for_Time_Series.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2023,
+      "authors": [
+        "Felix Pieper",
+        "Konstantin Ditschuneit",
+        "Martin Genzel"
+      ],
+      "abstract": "Self-supervised learning for time-series data holds potential similar to that recently unleashed in Natural Language Processing and Computer Vision. While most existing works in this area focus on contrastive learning, we propose a conceptually simple yet powerful non-contrastive approach, based on ",
+      "url": "http://arxiv.org/abs/2311.11335v1",
+      "arxiv_id": "2311.11335v1",
+      "downloaded_at": "2026-06-07T11:34:05.618196"
+    },
+    {
+      "title": "Pretraining Neural Architecture Search Controllers with Locality-based Self-Supervised Learning",
+      "filename": "Pretraining_Neural_Architecture_Search_Controllers_with_Loca.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Kwanghee Choi",
+        "Minyoung Choe",
+        "Hyelee Lee"
+      ],
+      "abstract": "Neural architecture search (NAS) has fostered various fields of machine learning. Despite its prominent dedications, many have criticized the intrinsic limitations of high computational cost. We aim to ameliorate this by proposing a pretraining scheme that can be generally applied to controller-base",
+      "url": "http://arxiv.org/abs/2103.08157v1",
+      "arxiv_id": "2103.08157v1",
+      "downloaded_at": "2026-06-07T11:34:07.481388"
+    },
+    {
+      "title": "Tradeoffs Between Contrastive and Supervised Learning: An Empirical Study",
+      "filename": "Tradeoffs_Between_Contrastive_and_Supervised_Learning_An_Emp.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Ananya Karthik",
+        "Mike Wu",
+        "Noah Goodman"
+      ],
+      "abstract": "Contrastive learning has made considerable progress in computer vision, outperforming supervised pretraining on a range of downstream datasets. However, is contrastive learning the better choice in all situations? We demonstrate two cases where it is not. First, under sufficiently small pretraining ",
+      "url": "http://arxiv.org/abs/2112.05340v1",
+      "arxiv_id": "2112.05340v1",
+      "downloaded_at": "2026-06-07T11:34:09.613729"
+    },
+    {
+      "title": "Robot Perception enables Complex Navigation Behavior via Self-Supervised Learning",
+      "filename": "Robot_Perception_enables_Complex_Navigation_Behavior_via_Sel.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2020,
+      "authors": [
+        "Marvin Chanc\u00e1n",
+        "Michael Milford"
+      ],
+      "abstract": "Learning visuomotor control policies in robotic systems is a fundamental problem when aiming for long-term behavioral autonomy. Recent supervised-learning-based vision and motion perception systems, however, are often separately built with limited capabilities, while being restricted to few behavior",
+      "url": "http://arxiv.org/abs/2006.08967v1",
+      "arxiv_id": "2006.08967v1",
+      "downloaded_at": "2026-06-07T11:34:20.573515"
+    },
+    {
+      "title": "Self-supervision of wearable sensors time-series data for influenza detection",
+      "filename": "Self-supervision_of_wearable_sensors_time-series_data_for_in.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Arinbj\u00f6rn Kolbeinsson",
+        "Piyusha Gade",
+        "Raghu Kainkaryam"
+      ],
+      "abstract": "Self-supervision may boost model performance in downstream tasks. However, there is no principled way of selecting the self-supervised objectives that yield the most adaptable models. Here, we study this problem on daily time-series data generated from wearable sensors used to detect onset of influe",
+      "url": "http://arxiv.org/abs/2112.13755v1",
+      "arxiv_id": "2112.13755v1",
+      "downloaded_at": "2026-06-07T11:34:22.286132"
+    },
+    {
+      "title": "Self-Supervised Image Captioning with CLIP",
+      "filename": "Self-Supervised_Image_Captioning_with_CLIP.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2023,
+      "authors": [
+        "Chuanyang Jin"
+      ],
+      "abstract": "Image captioning, a fundamental task in vision-language understanding, seeks to generate accurate natural language descriptions for provided images. Current image captioning approaches heavily rely on high-quality image-caption pairs, which can be hard to obtain for many domains. To address this, we",
+      "url": "http://arxiv.org/abs/2306.15111v2",
+      "arxiv_id": "2306.15111v2",
+      "downloaded_at": "2026-06-07T11:34:32.464483"
+    },
+    {
+      "title": "Evaluation of Out-of-Distribution Detection Performance of Self-Supervised Learning in a Controllable Environment",
+      "filename": "Evaluation_of_Out-of-Distribution_Detection_Performance_of_S.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2020,
+      "authors": [
+        "Jeonghoon Park",
+        "Kyungmin Jo",
+        "Daehoon Gwak"
+      ],
+      "abstract": "We evaluate the out-of-distribution (OOD) detection performance of self-supervised learning (SSL) techniques with a new evaluation framework. Unlike the previous evaluation methods, the proposed framework adjusts the distance of OOD samples from the in-distribution samples. We evaluate an extensive ",
+      "url": "http://arxiv.org/abs/2011.13120v2",
+      "arxiv_id": "2011.13120v2",
+      "downloaded_at": "2026-06-07T11:34:35.086264"
+    },
+    {
+      "title": "Gaze Estimation with Eye Region Segmentation and Self-Supervised Multistream Learning",
+      "filename": "Gaze_Estimation_with_Eye_Region_Segmentation_and_Self-Superv.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Zunayed Mahmud",
+        "Paul Hungler",
+        "Ali Etemad"
+      ],
+      "abstract": "We present a novel multistream network that learns robust eye representations for gaze estimation. We first create a synthetic dataset containing eye region masks detailing the visible eyeball and iris using a simulator. We then perform eye region segmentation with a U-Net type model which we later ",
+      "url": "http://arxiv.org/abs/2112.07878v1",
+      "arxiv_id": "2112.07878v1",
+      "downloaded_at": "2026-06-07T11:34:36.657528"
+    },
+    {
+      "title": "Do Self-Supervised and Supervised Methods Learn Similar Visual Representations?",
+      "filename": "Do_Self-Supervised_and_Supervised_Methods_Learn_Similar_Visu.pdf",
+      "topic": "Contrastive Learning self-supervised",
+      "year": 2021,
+      "authors": [
+        "Tom George Grigg",
+        "Dan Busbridge",
+        "Jason Ramapuram"
+      ],
+      "abstract": "Despite the success of a number of recent techniques for visual self-supervised deep learning, there has been limited investigation into the representations that are ultimately learned. By leveraging recent advances in the comparison of neural representations, we explore in this direction by compari",
+      "url": "http://arxiv.org/abs/2110.00528v3",
+      "arxiv_id": "2110.00528v3",
+      "downloaded_at": "2026-06-07T11:34:38.565779"
     }
   ],
-  "total_in_folder": 30,
-  "registry_size": 30
+  "total_in_folder": 122,
+  "registry_size": 119
 }
