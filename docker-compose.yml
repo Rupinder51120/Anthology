@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://anthology:anthology@db:5432/anthology
+      - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
+    volumes:
+      - ./indexes:/app/indexes
+      - ./data:/app/data
+      - ./src:/app/src
+      - ./api:/app/api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: anthology
+      POSTGRES_PASSWORD: anthology
+      POSTGRES_DB: anthology
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anthology"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
