@@ -1,106 +1,160 @@
 # Anthology
 
-> The story behind every discovery.
+> **The Story Behind Every Discovery**
 
-Anthology is a local-first Retrieval-Augmented Generation (RAG) system for academic research papers. It enables users to ingest PDF collections, retrieve relevant evidence using hybrid search, and generate citation-grounded answers through a conversational interface.
+Anthology is a local-first Retrieval-Augmented Generation (RAG) system for academic literature. It enables users to ingest research papers, retrieve relevant evidence through hybrid search, and generate citation-grounded answers using local language models.
+
+Built to explore modern information retrieval techniques, Anthology combines dense retrieval, lexical retrieval, reranking, query expansion, and evaluation into a single end-to-end research assistant.
 
 ---
 
 ## Overview
 
-Anthology combines semantic retrieval, lexical retrieval, reranking, and local language models to create an end-to-end research assistant that runs entirely on your own infrastructure.
+Researchers often work with hundreds of papers spread across multiple domains, making knowledge retrieval difficult and time-consuming.
 
-The system is designed for:
+Anthology addresses this problem by:
 
-- Research paper question answering
-- Literature exploration
-- Evidence-grounded responses
-- Private, local-first workflows
+* Ingesting and indexing research papers
+* Retrieving relevant passages using hybrid search
+* Generating answers grounded in retrieved evidence
+* Providing citations for transparency
+* Evaluating retrieval quality using IR metrics
+
+The entire system runs locally, allowing private and reproducible research workflows.
 
 ---
 
 ## Features
 
-- PDF ingestion and indexing
-- Hybrid retrieval (FAISS + BM25)
-- Reciprocal Rank Fusion (RRF)
-- Cross-encoder reranking
-- HyDE query expansion
-- Citation-grounded answers
-- Conversational memory
-- Local LLM inference via Ollama
-- Paper recommendations
-- Benchmarking and retrieval evaluation
+### Retrieval
+
+* Dense semantic retrieval with FAISS
+* Lexical retrieval with BM25
+* Hybrid retrieval via Reciprocal Rank Fusion (RRF)
+* Cross-encoder reranking
+* HyDE query expansion
+
+### Generation
+
+* Local LLM inference through Ollama
+* Streaming responses
+* Citation-grounded answers
+* Multi-turn conversation memory
+
+### Research Tools
+
+* Research paper recommendations
+* ArXiv paper ingestion
+* Library management
+* Retrieval benchmarking
+
+### Evaluation
+
+* Hit@K
+* Mean Reciprocal Rank (MRR)
+* nDCG@K
+* Retrieval configuration comparison
 
 ---
 
 ## Architecture
 
 ```text
-PDFs
- │
- ▼
-PyMuPDF
- │
- ▼
-Chunking + Metadata
- │
- ├── FAISS (Dense Retrieval)
- │
- └── BM25 (Lexical Retrieval)
-        │
-        ▼
+Research Papers (PDFs)
+          │
+          ▼
+      PyMuPDF
+          │
+          ▼
+ Section-Aware Chunking
+          │
+ ┌────────┴────────┐
+ ▼                 ▼
+FAISS            BM25
+(Dense)        (Lexical)
+ └────────┬────────┘
+          ▼
 Reciprocal Rank Fusion
-        │
-        ▼
-Cross Encoder Reranker
-        │
-        ▼
-Context Builder
-        │
-        ▼
-Ollama (Qwen)
-        │
-        ▼
-Citation-Grounded Response
+          ▼
+ Cross-Encoder Reranker
+          ▼
+      HyDE Expansion
+          ▼
+ Context Construction
+          ▼
+ Ollama
+          ▼
+ Citation-Grounded Answer
+```
+
+---
+
+## Retrieval Pipeline
+
+```text
+User Query
+    │
+    ▼
+Intent Detection
+    │
+    ▼
+Hybrid Retrieval
+(FAISS + BM25)
+    │
+    ▼
+Reciprocal Rank Fusion
+    │
+    ▼
+Cross-Encoder Reranking
+    │
+    ▼
+Context Construction
+    │
+    ▼
+LLM Generation
+    │
+    ▼
+Citation Formatting
 ```
 
 ---
 
 ## Tech Stack
 
+### AI & Retrieval
+
+* FAISS
+* BM25
+* Sentence Transformers
+* Cross-Encoder Reranking
+* HyDE
+* Ollama
+* Hugging Face Transformers
+
 ### Backend
 
-- Python
-- FastAPI
-- PostgreSQL
-- Redis
-- SQLAlchemy
-- Alembic
-
-### Retrieval
-
-- FAISS
-- BM25
-- Sentence Transformers
-- Cross Encoder Reranking
-- HyDE
-
-### AI
-
-- Ollama
-- Qwen
-- Hugging Face Transformers
-
-### Infrastructure
-
-- Docker
-- Docker Compose
-- Railway / Render
+* Python
+* FastAPI
+* PostgreSQL
+* Redis
+* SQLAlchemy
+* Alembic
 
 ### Frontend
 
-- Streamlit
+* Streamlit
+
+### Infrastructure
+
+* Docker
+* Docker Compose
+* Railway / Render
+
+### Data Processing
+
+* PyMuPDF
+* ArXiv API
+* Pandas
 
 ---
 
@@ -123,7 +177,8 @@ Anthology/
 ├── data/
 ├── alembic/
 ├── Dockerfile
-└── docker-compose.yml
+├── docker-compose.yml
+└── requirements.txt
 ```
 
 ---
@@ -149,7 +204,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-### Start Services
+### Start Infrastructure
 
 ```bash
 docker compose up -d
@@ -163,23 +218,28 @@ streamlit run app.py
 
 ---
 
-## Example Workflow
+## Evaluation
 
-1. Add research papers to the corpus
-2. Build or update indexes
-3. Ask questions in natural language
-4. Retrieve supporting evidence
-5. Generate citation-grounded answers
+Anthology includes a retrieval evaluation framework for comparing different retrieval configurations and measuring search quality across academic corpora.
+
+Metrics include:
+
+* Hit@1
+* Hit@3
+* Hit@5
+* Mean Reciprocal Rank (MRR)
+* nDCG@5
 
 ---
 
-## Future Improvements
+## Roadmap
 
-- Automated testing
-- CI/CD pipelines
-- Retrieval observability
-- Hallucination guardrails
-- Advanced evaluation metrics
+* Automated testing
+* GitHub Actions CI/CD
+* Retrieval observability
+* LLM guardrails
+* Expanded evaluation metrics
+* Production deployment
 
 ---
 
