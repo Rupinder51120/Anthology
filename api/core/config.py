@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     indexes_dir: str = "indexes"
     papers_dir: str = "data/papers"
     chunks_path: str = "indexes/chunks_metadata.json"
+    embeddings_path: str = "indexes/chunk_embeddings.npy"
     registry_path: str = "data/download_registry.json"
 
     # Groq
