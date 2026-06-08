@@ -65,3 +65,32 @@ async def sync_papers(db: AsyncSession = Depends(get_db)):
     """Sync registry to PostgreSQL."""
     synced = await paper_service.sync_registry_to_db(db)
     return {"success": True, "synced": synced}
+
+
+@router.post("/vectors/sync")
+async def sync_vectors(db: AsyncSession = Depends(get_db)):
+    """Sync chunk embeddings to PostgreSQL pgvector."""
+    import traceback
+    from api.services.vector_service import VectorService
+    try:
+        vector_service = VectorService()
+        result = await vector_service.sync_chunks_to_db(db)
+        return result
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/vectors/search")
+async def vector_search(
+    query: str,
+    top_k: int = 5,
+    db: AsyncSession = Depends(get_db),
+):
+    """Search chunks using pgvector similarity."""
+    from api.services.vector_service import VectorService
+    from src.retrieval.embedder import embed_texts
+
+    vector_service = VectorService()
+    embedding = embed_texts([query])[0].tolist()
+    results = await vector_service.similarity_search(embedding, top_k, db)
+    return {"query": query, "results": results, "total": len(results)}
