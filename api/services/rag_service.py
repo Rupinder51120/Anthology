@@ -18,10 +18,13 @@ class RAGService:
         start = time.time()
 
         # Retrieve chunks
+        import os
+        use_pgvector = os.getenv("USE_PGVECTOR", "false").lower() == "true"
         chunks = retrieve(
             request.question,
             top_k=request.top_k,
             use_hyde=request.use_hyde,
+            db=db if use_pgvector else None,
         )
 
         # Generate answer

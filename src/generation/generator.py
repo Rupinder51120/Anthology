@@ -1,13 +1,15 @@
 """
 src/generation/generator.py
 
-Migrated from Groq to Ollama (local LLM).
-- No API key needed, no rate limits
-- Model: qwen2.5:7b (runs on 16GB Mac)
-- Streaming works via Ollama stream API
+Supports two LLM providers:
+- Ollama (local, default) — for development
+- Groq (cloud, free) — for deployment
+
+Set USE_GROQ=true in .env to use Groq.
 """
 
 import json
+import os
 import requests
 
 OLLAMA_URL   = "http://localhost:11434/api/chat"
@@ -44,6 +46,20 @@ MANDATORY FINAL SECTION — always end with:
 For every source in the context write exactly one bullet:
 - [Paper Title (Year)]: [one sentence on what it contributes to this answer]
 Cover EVERY source. Do not skip any."""
+
+
+def _is_groq_enabled() -> bool:
+    """Check if Groq is enabled via environment variable."""
+    return os.getenv("USE_GROQ", "false").lower() == "true"
+
+
+def _get_groq_client():
+    """Get Groq client."""
+    from groq import Groq
+    api_key = os.getenv("GROQ_API_KEY", "")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not set in environment")
+    return Groq(api_key=api_key)
 
 
 def format_context(chunks: list[dict]) -> str:
@@ -91,21 +107,36 @@ def detect_response_type(query: str) -> str:
     return "explanation"
 
 
+def _call_groq(messages: list[dict]) -> str:
+    """Call Groq API and return response text."""
+    client = _get_groq_client()
+    groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    
+    response = client.chat.completions.create(
+        model=groq_model,
+        messages=messages,
+        max_tokens=3000,
+        temperature=0.2,
+    )
+    return response.choices[0].message.content.strip()
+
+
 def _call_ollama(messages: list[dict], stream: bool = False) -> requests.Response:
+    """Call local Ollama API."""
     return requests.post(
         OLLAMA_URL,
         json={
-            "model":   OLLAMA_MODEL,
+            "model":    OLLAMA_MODEL,
             "messages": messages,
-            "stream":  stream,
-            "options": {
+            "stream":   stream,
+            "options":  {
                 "temperature": 0.2,
                 "num_predict": 3000,
-                "num_ctx":     16384,  # raised — prevents context truncation
+                "num_ctx":     16384,
             },
         },
         stream=stream,
-        timeout=180,       # raised from 120 — longer answers need more time
+        timeout=180,
     )
 
 
@@ -138,15 +169,20 @@ def generate_answer(
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if chat_history:
-        messages.extend(chat_history[-4:])   # reduced from 6 to free context space
+        messages.extend(chat_history[-4:])
     messages.append({"role": "user", "content": user_message})
 
     try:
-        resp = _call_ollama(messages, stream=False)
-        resp.raise_for_status()
-        data        = resp.json()
-        answer      = data["message"]["content"].strip()
-        tokens_used = data.get("eval_count", 0)
+        if _is_groq_enabled():
+            answer = _call_groq(messages)
+            tokens_used = 0
+        else:
+            resp = _call_ollama(messages, stream=False)
+            resp.raise_for_status()
+            data        = resp.json()
+            answer      = data["message"]["content"].strip()
+            tokens_used = data.get("eval_count", 0)
+
     except Exception as e:
         answer      = f"Generation failed: {e}"
         tokens_used = 0
@@ -165,7 +201,7 @@ def generate_answer_streaming(
     chunks:       list[dict],
     chat_history: list[dict] = None,
 ):
-    """Yields answer tokens one by one. Use with st.write_stream() in Streamlit."""
+    """Yields answer tokens one by one."""
     if not chunks:
         yield "I couldn't find relevant information in your papers for this query."
         return
@@ -186,15 +222,33 @@ def generate_answer_streaming(
     messages.append({"role": "user", "content": user_message})
 
     try:
-        resp = _call_ollama(messages, stream=True)
-        resp.raise_for_status()
-        for line in resp.iter_lines():
-            if line:
-                data  = json.loads(line)
-                delta = data.get("message", {}).get("content", "")
+        if _is_groq_enabled():
+            # Groq streaming
+            client = _get_groq_client()
+            groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+            stream = client.chat.completions.create(
+                model=groq_model,
+                messages=messages,
+                max_tokens=3000,
+                temperature=0.2,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
                 if delta:
                     yield delta
-                if data.get("done"):
-                    break
+        else:
+            # Ollama streaming
+            resp = _call_ollama(messages, stream=True)
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if line:
+                    data  = json.loads(line)
+                    delta = data.get("message", {}).get("content", "")
+                    if delta:
+                        yield delta
+                    if data.get("done"):
+                        break
+
     except Exception as e:
         yield f"Generation failed: {e}"

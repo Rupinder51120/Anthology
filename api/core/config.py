@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     chunks_path: str = "indexes/chunks_metadata.json"
     registry_path: str = "data/download_registry.json"
 
+    # Groq
+    groq_api_key: str = ""
+    use_groq: bool = False
+    groq_model: str = "llama-3.1-8b-instant"
+
+    # pgvector
+    use_pgvector: bool = False
+
     # CORS
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8501"]
 

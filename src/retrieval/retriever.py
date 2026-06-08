@@ -1,250 +1,313 @@
 """
-src/retriever.py — Fixed HyDE integration
+src/retrieval/retriever.py
 
-Key changes vs original:
-1. embed ONLY hyde_docs (not query+hyde concat) — true HyDE behaviour
-2. Average embeddings of N hypothetical docs → stable centroid
-3. BM25 query augmented with HyDE keywords (not just original query)
-4. Kept all prior fixes (#3-#8) intact
+Supports two retrieval modes:
+- File-based (FAISS + BM25) — local development
+- pgvector + PostgreSQL FTS — cloud deployment
+
+Set USE_PGVECTOR=true in .env to use PostgreSQL.
 """
 
+import os
 import numpy as np
-import json
-import re
-import time
-from sentence_transformers import CrossEncoder
+from pathlib import Path
+
+# ── embedder ──────────────────────────────────────────────────────────
 from src.retrieval.embedder import embed_texts
-from src.retrieval.indexer import load_faiss_index, load_bm25_index
 
-_cross_encoder = None
-_chunks_cache  = None
-_faiss_cache   = None
-_bm25_cache    = None
+USE_PGVECTOR = os.getenv("USE_PGVECTOR", "false").lower() == "true"
 
-USE_RERANKER = False
-
-
-# ─── loaders with caching ─────────────────────────────────────
-
-def get_cross_encoder() -> CrossEncoder:
-    global _cross_encoder
-    if _cross_encoder is None:
-        print("Loading cross-encoder...")
-        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-    return _cross_encoder
+# ── lazy-loaded indexes (file-based mode) ─────────────────────────────
+_chunks     = None
+_bm25_index = None
+_faiss_vecs = None
 
 
 def load_chunks(path: str = "indexes/chunks_metadata.json") -> list[dict]:
-    global _chunks_cache
-    if _chunks_cache is None:
+    global _chunks
+    if _chunks is None:
+        import json
         with open(path) as f:
-            _chunks_cache = json.load(f)
-    return _chunks_cache
+            _chunks = json.load(f)
+    return _chunks
+
+
+def get_bm25_index(chunks: list[dict] = None):
+    global _bm25_index
+    if _bm25_index is None:
+        import pickle
+        bm25_path = Path("indexes/bm25_index.pkl")
+        if bm25_path.exists():
+            with open(bm25_path, "rb") as f:
+                _bm25_index = pickle.load(f)
+    return _bm25_index
 
 
 def get_faiss_index():
-    global _faiss_cache
-    if _faiss_cache is None:
-        _faiss_cache = load_faiss_index()
-    return _faiss_cache
+    global _faiss_vecs
+    if _faiss_vecs is None:
+        emb_path = Path("indexes/chunk_embeddings.npy")
+        if emb_path.exists():
+            _faiss_vecs = np.load(str(emb_path))
+    return _faiss_vecs
 
 
-def get_bm25_index():
-    global _bm25_cache
-    if _bm25_cache is None:
-        _bm25_cache = load_bm25_index()
-    return _bm25_cache
+# ── file-based search ─────────────────────────────────────────────────
 
-
-# ─── query intent detection ───────────────────────────────────
-
-def detect_query_intent(query: str) -> str:
-    q = query.lower()
-    math_words    = ['equation', 'formula', 'loss function', 'derivative',
-                     'gradient', 'proof', 'theorem', 'calculate', 'compute']
-    compare_words = ['compare', 'difference', 'versus', 'vs', 'better',
-                     'advantage', 'disadvantage', 'trade-off']
-    concept_words = ['how', 'why', 'what is', 'explain', 'understand',
-                     'intuition', 'meaning', 'define']
-    if any(w in q for w in math_words):
-        return "math"
-    if any(w in q for w in compare_words):
-        return "comparison"
-    if any(w in q for w in concept_words):
-        return "concept"
-    return "search"
-
-
-# ─── search functions ─────────────────────────────────────────
-
-def faiss_search(query_embedding: np.ndarray, top_k: int = 25) -> list[int]:
-    index  = get_faiss_index()
-    query  = query_embedding.astype("float32")
-    scores, indices = index.search(query, top_k)
-    if hasattr(indices, 'ndim') and indices.ndim == 2:
-        indices = indices[0]
-    return [int(i) for i in indices if int(i) >= 0]
-
-
-def bm25_search(query: str, chunks: list[dict], top_k: int = 25,
-                extra_terms: list[str] = None) -> list[int]:
-    bm25   = get_bm25_index()
-    tokens = re.findall(r'\b[a-z][a-z0-9]{1,}\b', query.lower())
-    # FIX: augment with HyDE keyword terms for richer BM25 signal
-    if extra_terms:
-        tokens = tokens + extra_terms
-    if not tokens:
+def faiss_search(query_embedding: np.ndarray, top_k: int = 10) -> list[int]:
+    vecs = get_faiss_index()
+    if vecs is None:
         return []
-    scores      = bm25.get_scores(tokens)
-    top_indices = np.argsort(scores)[::-1][:top_k]
-    return [int(i) for i in top_indices if scores[i] > 0]
+    scores = vecs @ query_embedding
+    return list(np.argsort(scores)[::-1][:top_k])
+
+
+def bm25_search(query: str, chunks: list[dict], top_k: int = 10) -> list[int]:
+    bm25 = get_bm25_index(chunks)
+    if bm25 is None:
+        return []
+    from rank_bm25 import BM25Okapi
+    tokens = query.lower().split()
+    scores = bm25.get_scores(tokens)
+    return list(np.argsort(scores)[::-1][:top_k])
 
 
 def reciprocal_rank_fusion(
-    faiss_ids:    list[int],
-    bm25_ids:     list[int],
-    k:            int   = 60,
-    faiss_weight: float = 1.0,
-    bm25_weight:  float = 1.0,
+    list1: list[int], list2: list[int], k: int = 60
 ) -> list[int]:
     scores = {}
-    for rank, doc_id in enumerate(faiss_ids):
-        scores[doc_id] = scores.get(doc_id, 0) + faiss_weight / (rank + k)
-    for rank, doc_id in enumerate(bm25_ids):
-        scores[doc_id] = scores.get(doc_id, 0) + bm25_weight / (rank + k)
-    return sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+    for rank, idx in enumerate(list1):
+        scores[idx] = scores.get(idx, 0) + 1 / (k + rank + 1)
+    for rank, idx in enumerate(list2):
+        scores[idx] = scores.get(idx, 0) + 1 / (k + rank + 1)
+    return sorted(scores, key=scores.get, reverse=True)
 
 
-def deduplicate_candidates(candidates: list[dict]) -> list[dict]:
-    seen   = set()
-    unique = []
-    for c in candidates:
-        key = c["text"][:100].strip()
+def deduplicate_candidates(chunks: list[dict]) -> list[dict]:
+    seen = set()
+    result = []
+    for c in chunks:
+        key = c["metadata"].get("chunk_id") or c["text"][:50]
         if key not in seen:
             seen.add(key)
-            unique.append(c)
-    return unique
+            result.append(c)
+    return result
 
 
-def boost_by_section_priority(candidates: list[dict]) -> list[dict]:
+def boost_by_section_priority(chunks: list[dict]) -> list[dict]:
     return sorted(
-        candidates,
+        chunks,
         key=lambda c: c["metadata"].get("section_priority", 0.5),
-        reverse=True
+        reverse=True,
     )
 
 
-def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
-    if not candidates:
-        return []
-    cross_encoder = get_cross_encoder()
-    pairs         = [(query, c["text"][:512]) for c in candidates]
-    scores        = cross_encoder.predict(pairs)
-    ranked = sorted(zip(scores, candidates), key=lambda x: x[0], reverse=True)
-    results = []
-    for score, doc in ranked[:top_k]:
-        doc["metadata"]["rerank_score"] = round(float(score), 4)
-        results.append(doc)
-    return results
+def get_cross_encoder():
+    try:
+        from sentence_transformers import CrossEncoder
+        return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    except Exception:
+        return None
 
 
-# ─── HyDE embedding helper ────────────────────────────────────
-
-def _hyde_embedding(hyde_docs: list[str]) -> np.ndarray:
-    """
-    FIX #1 (core HyDE fix): embed each hypothetical doc SEPARATELY,
-    then average the embeddings.  This gives a stable centroid in the
-    document embedding space — geometrically much closer to real answer
-    chunks than the original query embedding.
-
-    The original code did embed(query + "\n\n" + hyde_doc) which is wrong:
-    it moves the vector only partway toward the document space.
-    """
-    embeddings = embed_texts(hyde_docs)          # shape: (N, dim)
-    avg = np.mean(embeddings, axis=0)            # shape: (dim,)
-    # L2-normalise so cosine similarity works correctly
-    norm = np.linalg.norm(avg)
-    if norm > 0:
-        avg = avg / norm
-    return avg
+def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
+    ce = get_cross_encoder()
+    if ce is None or not chunks:
+        return chunks[:top_k]
+    pairs  = [(query, c["text"]) for c in chunks]
+    scores = ce.predict(pairs)
+    ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
+    result = [c for _, c in ranked[:top_k]]
+    for i, (score, _) in enumerate(ranked[:top_k]):
+        result[i]["metadata"]["rerank_score"] = float(score)
+    return result
 
 
-# ─── main retrieve ────────────────────────────────────────────
+# ── pgvector search ───────────────────────────────────────────────────
+
+async def pgvector_search(
+    query_embedding: list[float],
+    top_k: int = 10,
+    db=None,
+) -> list[dict]:
+    """Search using pgvector similarity — cloud mode."""
+    from sqlalchemy import text
+
+    query_vec = "[" + ",".join(str(x) for x in query_embedding) + "]"
+    result = await db.execute(
+        text(f"""
+            SELECT
+                chunk_id, source, title, authors, year,
+                section, section_priority, chunk_type, text,
+                1 - (embedding <=> '{query_vec}'::vector) as similarity
+            FROM chunks
+            ORDER BY embedding <=> '{query_vec}'::vector
+            LIMIT {top_k}
+        """)
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "text": row.text,
+            "metadata": {
+                "chunk_id":         row.chunk_id,
+                "source":           row.source,
+                "title":            row.title,
+                "authors":          row.authors or "",
+                "year":             row.year,
+                "section":          row.section or "",
+                "section_priority": row.section_priority or 0.5,
+                "chunk_type":       row.chunk_type or "general",
+                "rerank_score":     float(row.similarity),
+            }
+        }
+        for row in rows
+    ]
+
+
+async def postgres_fts_search(
+    query: str,
+    top_k: int = 10,
+    db=None,
+) -> list[dict]:
+    """Full-text search using PostgreSQL — replaces BM25 in cloud mode."""
+    from sqlalchemy import text
+
+    # Clean query for FTS
+    clean_query = " & ".join(
+        w for w in query.split()
+        if len(w) > 2
+    )
+
+    result = await db.execute(
+        text(f"""
+            SELECT
+                chunk_id, source, title, authors, year,
+                section, section_priority, chunk_type, text,
+                ts_rank(to_tsvector('english', text),
+                        to_tsquery('english', :query)) as rank
+            FROM chunks
+            WHERE to_tsvector('english', text) @@ to_tsquery('english', :query)
+            ORDER BY rank DESC
+            LIMIT {top_k}
+        """),
+        {"query": clean_query}
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "text": row.text,
+            "metadata": {
+                "chunk_id":         row.chunk_id,
+                "source":           row.source,
+                "title":            row.title,
+                "authors":          row.authors or "",
+                "year":             row.year,
+                "section":          row.section or "",
+                "section_priority": row.section_priority or 0.5,
+                "chunk_type":       row.chunk_type or "general",
+                "rerank_score":     float(row.rank),
+            }
+        }
+        for row in rows
+    ]
+
+
+# ── intent detection ──────────────────────────────────────────────────
+
+def detect_query_intent(query: str) -> str:
+    q = query.lower()
+    if any(w in q for w in ["recommend", "suggest", "find papers", "similar to"]):
+        return "recommendation"
+    if any(w in q for w in ["compare", "difference", "versus", "vs", "better"]):
+        return "comparison"
+    if any(w in q for w in ["summarize", "summary", "overview", "explain"]):
+        return "explanation"
+    return "factual"
+
+
+# ── main retrieve function ────────────────────────────────────────────
 
 def retrieve(
-    query:        str,
-    top_k:        int   = 5,
-    faiss_weight: float = 1.0,
-    bm25_weight:  float = 1.0,
-    use_hyde:     bool  = False,
+    query:   str,
+    top_k:   int  = 5,
+    use_hyde: bool = False,
+    db=None,
 ) -> list[dict]:
+    """
+    Main retrieval function.
+    - If USE_PGVECTOR=true and db provided: uses pgvector + PostgreSQL FTS
+    - Otherwise: uses file-based FAISS + BM25
+    """
+    import asyncio
 
+    if USE_PGVECTOR and db is not None:
+        # Cloud mode — pgvector
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(_retrieve_pgvector(query, top_k, db))
+    else:
+        # Local mode — file-based
+        return _retrieve_files(query, top_k, use_hyde)
+
+
+async def _retrieve_pgvector(query: str, top_k: int, db) -> list[dict]:
+    """Retrieve using pgvector + PostgreSQL FTS."""
+    query_emb = embed_texts([query])[0].tolist()
+
+    # Vector search
+    vec_results = await pgvector_search(query_emb, top_k=top_k * 3, db=db)
+
+    # FTS search
+    fts_results = await postgres_fts_search(query, top_k=top_k * 3, db=db)
+
+    # Merge by chunk_id using RRF
+    vec_ids = [r["metadata"]["chunk_id"] for r in vec_results]
+    fts_ids = [r["metadata"]["chunk_id"] for r in fts_results]
+
+    # Build lookup
+    all_chunks = {r["metadata"]["chunk_id"]: r for r in vec_results + fts_results}
+
+    # RRF scoring
+    k = 60
+    scores = {}
+    for rank, cid in enumerate(vec_ids):
+        scores[cid] = scores.get(cid, 0) + 1 / (k + rank + 1)
+    for rank, cid in enumerate(fts_ids):
+        scores[cid] = scores.get(cid, 0) + 1 / (k + rank + 1)
+
+    top_ids = sorted(scores, key=scores.get, reverse=True)[:top_k]
+    return [all_chunks[cid] for cid in top_ids if cid in all_chunks]
+
+
+def _retrieve_files(query: str, top_k: int, use_hyde: bool) -> list[dict]:
+    """Retrieve using file-based FAISS + BM25."""
     chunks = load_chunks()
-    intent = detect_query_intent(query)   # always on original query
 
-    # ── intent-based weight adjustment ──
-    if intent == "math":
-        bm25_weight  = 1.4
-    elif intent == "concept":
-        faiss_weight = 1.4
-    elif intent == "comparison":
-        faiss_weight = 1.1
-        bm25_weight  = 1.1
-
-    bm25_extra_terms: list[str] = []
-
-    # ── HyDE: embed ONLY the hypothetical docs, not the query ──
-    t = time.time()
+    # HyDE
     if use_hyde:
         try:
             from src.retrieval.hyde import expand_query_with_hyde
-            _, hyde_docs, bm25_extra_terms = expand_query_with_hyde(query, n_docs=3)
-            # FIX: average embedding of N hyde docs (true HyDE)
-            query_embedding = _hyde_embedding(hyde_docs)
-            print(f"  HyDE: {len(hyde_docs)} docs generated, "
-                  f"{len(bm25_extra_terms)} BM25 terms")
-        except Exception as e:
-            print(f"HyDE failed, falling back to query embedding: {e}")
-            query_embedding = embed_texts([query])[0]
+            expanded = expand_query_with_hyde(query)
+            query_for_embed = expanded.get("hyde_docs", [query])[0]
+        except Exception:
+            query_for_embed = query
     else:
-        query_embedding = embed_texts([query])[0]
-    print(f"  embed: {int((time.time()-t)*1000)}ms")
+        query_for_embed = query
 
-    t = time.time()
-    faiss_ids = faiss_search(query_embedding, top_k=25)
-    print(f"  faiss: {int((time.time()-t)*1000)}ms")
+    # Embed
+    query_emb = embed_texts([query_for_embed])[0]
 
-    t = time.time()
-    # FIX: pass BM25 keywords extracted from HyDE docs for richer keyword recall
-    bm25_ids = bm25_search(query, chunks, top_k=25, extra_terms=bm25_extra_terms)
-    print(f"  bm25:  {int((time.time()-t)*1000)}ms")
+    # FAISS
+    faiss_ids = faiss_search(query_emb, top_k=top_k * 5)
+    # BM25
+    bm25_ids  = bm25_search(query, chunks, top_k=top_k * 5)
 
-    fused_ids = reciprocal_rank_fusion(
-        faiss_ids, bm25_ids,
-        faiss_weight=faiss_weight,
-        bm25_weight=bm25_weight,
-    )[:20]
-
+    # Fuse
+    fused_ids = reciprocal_rank_fusion(faiss_ids, bm25_ids)[:top_k * 3]
     candidates = [chunks[i] for i in fused_ids if i < len(chunks)]
+
+    # Dedup + boost
     candidates = deduplicate_candidates(candidates)
+    candidates = boost_by_section_priority(candidates)
 
-    if USE_RERANKER:
-        reranked = rerank(query, candidates, top_k=top_k * 2)
-        final    = boost_by_section_priority(reranked)[:top_k]
-    else:
-        for c in candidates:
-            c["metadata"]["rerank_score"] = None
-        final = boost_by_section_priority(candidates)[:top_k]
-
-    print(f"Retrieved {len(final)} chunks | intent={intent} | hyde={use_hyde}")
-    return final
-
-
-if __name__ == "__main__":
-    results = retrieve("How does the GAN discriminator work?", use_hyde=True)
-    for i, r in enumerate(results):
-        print(f"\n--- Result {i+1} ---")
-        print(f"Source:  {r['metadata']['title'][:50]}")
-        print(f"Section: {r['metadata']['section']}")
-        print(f"Score:   {r['metadata'].get('rerank_score', 'N/A')}")
-        print(r["text"][:250])
+    return candidates[:top_k]
