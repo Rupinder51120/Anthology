@@ -1,19 +1,27 @@
 import asyncio
+import os
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
-# Import your models
 import sys
-import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.core.database import Base
-from api.models.tables import Paper, Query, Feedback
+from api.models.tables import Paper, Query, Feedback, Chunk
 
 config = context.config
+
+# Override sqlalchemy.url with DATABASE_URL env var
+database_url = os.getenv("DATABASE_URL", "")
+if database_url:
+    # Render gives postgresql:// but asyncpg needs postgresql+asyncpg://
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    config.set_main_option("sqlalchemy.url", database_url)
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
