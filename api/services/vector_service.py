@@ -18,9 +18,9 @@ class VectorService:
         embeddings_path = Path("indexes/chunk_embeddings.npy")
 
         if not chunks_path.exists():
-            return {"success": False, "error": "chunks_metadata.json not found"}
+            return {"success": False, "error": "chunks_metadata.json not found — run build_index.py first"}
         if not embeddings_path.exists():
-            return {"success": False, "error": "chunk_embeddings.npy not found"}
+            return {"success": False, "error": "chunk_embeddings.npy not found — run build_index.py first"}
 
         # Load chunks metadata
         with open(chunks_path) as f:
