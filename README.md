@@ -1,79 +1,188 @@
-# Research Paper RAG System
+# Anthology
 
-A production-grade Retrieval-Augmented Generation system for querying academic papers, built entirely with local models — no API keys, no rate limits, fully reproducible.
+> The story behind every discovery.
 
-## What it does
+Anthology is a local-first Retrieval-Augmented Generation (RAG) system for academic research papers. It enables users to ingest PDF collections, retrieve relevant evidence using hybrid search, and generate citation-grounded answers through a conversational interface.
 
-- Ingests research papers (PDF) and chunks them with section-aware splitting
-- Hybrid retrieval: FAISS semantic search + BM25 lexical search with Reciprocal Rank Fusion
-- Cross-encoder reranking and HyDE query expansion
-- Local LLM answer generation via Ollama (qwen2.5:7b)
-- Streamlit chat UI with streaming responses, citations, and paper recommendations
-- Full evaluation pipeline with bias-audited benchmarks
+---
 
-## Benchmark Results
+## Overview
 
-Evaluated on a 100-question bias-audited benchmark (abstract-anchored QA generation):
+Anthology combines semantic retrieval, lexical retrieval, reranking, and local language models to create an end-to-end research assistant that runs entirely on your own infrastructure.
 
-| Config | Hit@1 | Hit@3 | Hit@5 | MRR | nDCG@5 |
-|---|---|---|---|---|---|
-| BM25 baseline | 0.77 | 0.90 | 0.94 | 0.838 | 0.854 |
-| FAISS only | 0.84 | 0.89 | 0.93 | 0.871 | 0.883 |
-| Hybrid (best) | 0.84 | 0.95 | 0.96 | 0.893 | 0.892 |
-| Hybrid + rerank | 0.78 | 0.93 | 0.95 | 0.856 | 0.869 |
-| Hybrid + HyDE | 0.79 | 0.89 | 0.94 | 0.844 | 0.843 |
+The system is designed for:
 
-Key finding: Chunk-derived QA benchmarks inflate BM25 scores via lexical leakage. After switching to abstract-anchored generation, Hybrid retrieval outperforms BM25 across all metrics.
+- Research paper question answering
+- Literature exploration
+- Evidence-grounded responses
+- Private, local-first workflows
 
-## Stack
+---
 
-| Component | Technology |
-|---|---|
-| PDF parsing | PyMuPDF |
-| Embeddings | BAAI/bge-large-en-v1.5 (1024-dim) |
-| Vector search | FAISS (IndexFlatIP) |
-| Lexical search | BM25Okapi |
-| Reranking | cross-encoder/ms-marco-MiniLM-L-6-v2 |
-| LLM | Ollama qwen2.5:7b |
-| UI | Streamlit |
+## Features
 
-## Setup
+- PDF ingestion and indexing
+- Hybrid retrieval (FAISS + BM25)
+- Reciprocal Rank Fusion (RRF)
+- Cross-encoder reranking
+- HyDE query expansion
+- Citation-grounded answers
+- Conversational memory
+- Local LLM inference via Ollama
+- Paper recommendations
+- Benchmarking and retrieval evaluation
 
-```bash
-git clone https://github.com/Rupinder51120/RAG.git
-cd RAG
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-ollama pull qwen2.5:7b
-make index
-make app
+---
+
+## Architecture
+
+```text
+PDFs
+ │
+ ▼
+PyMuPDF
+ │
+ ▼
+Chunking + Metadata
+ │
+ ├── FAISS (Dense Retrieval)
+ │
+ └── BM25 (Lexical Retrieval)
+        │
+        ▼
+Reciprocal Rank Fusion
+        │
+        ▼
+Cross Encoder Reranker
+        │
+        ▼
+Context Builder
+        │
+        ▼
+Ollama (Qwen)
+        │
+        ▼
+Citation-Grounded Response
 ```
+
+---
+
+## Tech Stack
+
+### Backend
+
+- Python
+- FastAPI
+- PostgreSQL
+- Redis
+- SQLAlchemy
+- Alembic
+
+### Retrieval
+
+- FAISS
+- BM25
+- Sentence Transformers
+- Cross Encoder Reranking
+- HyDE
+
+### AI
+
+- Ollama
+- Qwen
+- Hugging Face Transformers
+
+### Infrastructure
+
+- Docker
+- Docker Compose
+- Railway / Render
+
+### Frontend
+
+- Streamlit
+
+---
 
 ## Project Structure
 
-```
-RAG/
-├── app.py                      # Streamlit UI
-├── scripts/
-│   ├── build_index.py          # PDF ingestion + index building
-│   └── run_benchmark.py        # Evaluation pipeline
+```text
+Anthology/
+│
+├── app.py
+├── api/
 ├── src/
-│   ├── ingestion/              # PDF parsing, chunking
-│   ├── retrieval/              # FAISS, BM25, embedder, HyDE
-│   ├── generation/             # LLM answer generation
-│   ├── evaluation/             # Benchmarking + metrics
-│   ├── download/               # ArXiv paper downloader
-│   └── ui/                     # Streamlit helpers
-└── data/
-    ├── papers/                 # PDF files
-    └── download_registry.json  # Paper metadata
+│   ├── ingestion/
+│   ├── retrieval/
+│   ├── generation/
+│   ├── evaluation/
+│   ├── download/
+│   └── ui/
+│
+├── scripts/
+├── data/
+├── alembic/
+├── Dockerfile
+└── docker-compose.yml
 ```
 
-## Evaluation Methodology
+---
 
-Standard RAG benchmarks suffer from lexical bias: when QA pairs are generated from chunk text, questions inherit rare tokens that BM25 matches trivially, inflating BM25 scores by ~15%.
+## Local Setup
 
-This project addresses this by:
-1. Generating questions from paper abstracts only (QASPER-style)
-2. Filtering questions with content-word Jaccard overlap > 0.35 against source chunks
-3. Tracking generation_source per QA pair for bias diagnostics
+### Clone Repository
+
+```bash
+git clone https://github.com/Rupinder51120/Anthology.git
+cd Anthology
+```
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+### Start Services
+
+```bash
+docker compose up -d
+```
+
+### Run Application
+
+```bash
+streamlit run app.py
+```
+
+---
+
+## Example Workflow
+
+1. Add research papers to the corpus
+2. Build or update indexes
+3. Ask questions in natural language
+4. Retrieve supporting evidence
+5. Generate citation-grounded answers
+
+---
+
+## Future Improvements
+
+- Automated testing
+- CI/CD pipelines
+- Retrieval observability
+- Hallucination guardrails
+- Advanced evaluation metrics
+
+---
+
+## License
+
+MIT License
