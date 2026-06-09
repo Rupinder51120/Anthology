@@ -20,12 +20,53 @@ class RAGService:
         # Retrieve chunks
         import os
         use_pgvector = os.getenv("USE_PGVECTOR", "false").lower() == "true"
-        chunks = retrieve(
-            request.question,
-            top_k=request.top_k,
-            use_hyde=request.use_hyde,
-            db=db if use_pgvector else None,
-        )
+        
+        if use_pgvector:
+            # Cloud mode — pure PostgreSQL FTS, no ML models needed
+            from sqlalchemy import text as sql_text
+            clean_query = " & ".join(
+                w for w in request.question.split() if len(w) > 2
+            )
+            try:
+                result = await db.execute(
+                    sql_text("""
+                        SELECT chunk_id, source, title, authors, year,
+                               section, section_priority, chunk_type, text,
+                               ts_rank(to_tsvector('english', text),
+                                       to_tsquery('english', :q)) as rank
+                        FROM chunks
+                        WHERE to_tsvector('english', text) @@ to_tsquery('english', :q)
+                        ORDER BY rank DESC
+                        LIMIT :k
+                    """),
+                    {"q": clean_query, "k": request.top_k}
+                )
+                rows = result.fetchall()
+                chunks = [
+                    {
+                        "text": row.text,
+                        "metadata": {
+                            "chunk_id":         row.chunk_id,
+                            "source":           row.source,
+                            "title":            row.title,
+                            "authors":          row.authors or "",
+                            "year":             row.year,
+                            "section":          row.section or "",
+                            "section_priority": row.section_priority or 0.5,
+                            "chunk_type":       row.chunk_type or "general",
+                            "rerank_score":     float(row.rank),
+                        }
+                    }
+                    for row in rows
+                ]
+            except Exception:
+                chunks = []
+        else:
+            chunks = retrieve(
+                request.question,
+                top_k=request.top_k,
+                use_hyde=request.use_hyde,
+            )
 
         # Generate answer
         result = generate_answer(request.question, chunks)
