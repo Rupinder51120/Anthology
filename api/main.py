@@ -12,8 +12,11 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await create_tables()
-    print(f"Anthology API v{settings.app_version} started")
+    try:
+        await create_tables()
+        print(f"Anthology API v{settings.app_version} started")
+    except Exception as e:
+        print(f"Startup warning: {e}")
     yield
     # Shutdown
     print("Anthology API shutting down")
