@@ -3,11 +3,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 import os
-MODEL_NAME = (
-    "BAAI/bge-small-en-v1.5"
-    if os.getenv("USE_PGVECTOR", "false").lower() == "true"
-    else "BAAI/bge-large-en-v1.5"
-)
+MODEL_NAME = "BAAI/bge-large-en-v1.5"
 
 def get_model() -> SentenceTransformer:
     if not hasattr(get_model, "_instance"):
