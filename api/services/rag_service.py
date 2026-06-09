@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from api.models.tables import Query
 from api.schemas.schemas import QueryRequest, QueryResponse, CitationOut
-from src.retrieval.retriever import retrieve
+
 from src.generation.generator import generate_answer, format_citations
 
 
@@ -62,6 +62,7 @@ class RAGService:
             except Exception:
                 chunks = []
         else:
+            from src.retrieval.retriever import retrieve
             chunks = retrieve(
                 request.question,
                 top_k=request.top_k,
