@@ -142,7 +142,7 @@ class FeedbackResponse(BaseModel):
 class StatsResponse(BaseModel):
     total_papers: int
     total_chunks: int
-    faiss_vectors: int
+    vector_chunks: int
     embedding_dim: int
     total_queries: int
 

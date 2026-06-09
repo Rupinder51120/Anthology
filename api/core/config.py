@@ -18,8 +18,6 @@ class Settings(BaseSettings):
     # Paths
     indexes_dir: str = "indexes"
     papers_dir: str = "data/papers"
-    chunks_path: str = "indexes/chunks_metadata.json"
-    embeddings_path: str = "indexes/chunk_embeddings.npy"
     registry_path: str = "data/download_registry.json"
 
     # Groq
@@ -28,7 +26,6 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.1-8b-instant"
 
     # pgvector
-    use_pgvector: bool = False
 
     # CORS
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8501"]
