@@ -86,11 +86,36 @@ async def vector_search(
     top_k: int = 5,
     db: AsyncSession = Depends(get_db),
 ):
-    """Search chunks using pgvector similarity."""
+    """Search chunks using PostgreSQL full-text search (cloud) or pgvector (local)."""
     from api.services.vector_service import VectorService
-    from src.retrieval.embedder import embed_texts
-
     vector_service = VectorService()
-    embedding = embed_texts([query])[0].tolist()
-    results = await vector_service.similarity_search(embedding, top_k, db)
+
+    import os
+    if os.getenv("USE_PGVECTOR", "false").lower() == "true":
+        # Cloud mode — use PostgreSQL FTS (no embedding model needed)
+        from sqlalchemy import text
+        clean_query = " & ".join(w for w in query.split() if len(w) > 2)
+        result = await db.execute(
+            text("""
+                SELECT chunk_id, source, title, authors, year,
+                       section, chunk_type, text,
+                       ts_rank(to_tsvector('english', text),
+                               to_tsquery('english', :q)) as rank
+                FROM chunks
+                WHERE to_tsvector('english', text) @@ to_tsquery('english', :q)
+                ORDER BY rank DESC
+                LIMIT :k
+            """),
+            {"q": clean_query, "k": top_k}
+        )
+        rows = result.fetchall()
+        results = [{"chunk_id": r.chunk_id, "source": r.source,
+                    "title": r.title, "text": r.text,
+                    "similarity": float(r.rank)} for r in rows]
+    else:
+        # Local mode — use pgvector similarity
+        from src.retrieval.embedder import embed_texts
+        embedding = embed_texts([query])[0].tolist()
+        results = await vector_service.similarity_search(embedding, top_k, db)
+
     return {"query": query, "results": results, "total": len(results)}
