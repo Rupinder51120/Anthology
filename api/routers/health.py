@@ -1,29 +1,26 @@
-import requests
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from api.core.database import get_db
 from api.schemas.schemas import HealthResponse
 from api.core.config import get_settings
-from pathlib import Path
 
-router = APIRouter()
+router = APIRouter(tags=["Health"])
 settings = get_settings()
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check():
-    # Check Ollama
-    ollama_ok = False
+async def health_check(db: AsyncSession = Depends(get_db)):
+    # Check pgvector index
     try:
-        resp = requests.get("http://localhost:11434/api/tags", timeout=2)
-        ollama_ok = resp.status_code == 200
+        result = await db.execute(text("SELECT COUNT(*) FROM chunks WHERE embedding IS NOT NULL"))
+        index_ok = (result.scalar() or 0) > 0
     except Exception:
-        pass
-
-    # Check index
-    index_ok = Path(settings.chunks_path).exists()
+        index_ok = False
 
     return HealthResponse(
-        status="ok" if (ollama_ok and index_ok) else "degraded",
+        status="ok" if index_ok else "degraded",
         version=settings.app_version,
-        ollama=ollama_ok,
+        ollama=False,
         index=index_ok,
     )
