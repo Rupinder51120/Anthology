@@ -3,7 +3,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 import os
-MODEL_NAME = "BAAI/bge-large-en-v1.5"
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 def get_model() -> SentenceTransformer:
     if not hasattr(get_model, "_instance"):
