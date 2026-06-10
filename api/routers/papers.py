@@ -39,18 +39,17 @@ async def vector_search(
     top_k: int = 5,
     db: AsyncSession = Depends(get_db),
 ):
-    from src.retrieval.embedder import embed_texts
-    embedding = embed_texts([query])[0].tolist()
-    query_vec = "[" + ",".join(str(x) for x in embedding) + "]"
-    result = await db.execute(text(f"""
+    result = await db.execute(text("""
         SELECT chunk_id, source, title, text,
-               1 - (embedding <=> '{query_vec}'::vector) as similarity
+               ts_rank_cd(to_tsvector('english', text),
+                          plainto_tsquery('english', :q)) as rank
         FROM chunks
-        ORDER BY embedding <=> '{query_vec}'::vector
-        LIMIT {top_k}
-    """))
+        WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :q)
+        ORDER BY rank DESC
+        LIMIT :k
+    """), {"q": query, "k": top_k})
     rows = result.fetchall()
     results = [{"chunk_id": r.chunk_id, "source": r.source,
                 "title": r.title, "text": r.text,
-                "similarity": float(r.similarity)} for r in rows]
+                "similarity": float(r.rank)} for r in rows]
     return {"query": query, "results": results, "total": len(results)}

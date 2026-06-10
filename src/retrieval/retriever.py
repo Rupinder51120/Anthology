@@ -1,121 +1,103 @@
 """
 src/retrieval/retriever.py
-pgvector-only retrieval: vector search + PostgreSQL FTS + RRF + Cross-Encoder
+Cloud-optimized: PostgreSQL FTS + RRF scoring. No ML models loaded at runtime.
+Embeddings stored in DB but query embedding skipped on free tier.
 """
-
-import os
-import numpy as np
-from src.retrieval.embedder import embed_texts
 
 RRF_K = 60
 
-
-# ── pgvector search ───────────────────────────────────────────────────
-
-async def pgvector_search(query_embedding: list[float], top_k: int, db) -> list[dict]:
-    from sqlalchemy import text
-    query_vec = "[" + ",".join(str(x) for x in query_embedding) + "]"
-    result = await db.execute(text(f"""
-        SELECT
-            chunk_id, source, title, authors, year,
-            section, section_priority, chunk_type, text,
-            1 - (embedding <=> '{query_vec}'::vector) as similarity
-        FROM chunks
-        ORDER BY embedding <=> '{query_vec}'::vector
-        LIMIT {top_k}
-    """))
-    return [
-        {
-            "text": row.text,
-            "metadata": {
-                "chunk_id":         row.chunk_id,
-                "source":           row.source,
-                "title":            row.title,
-                "authors":          row.authors or "",
-                "year":             row.year,
-                "section":          row.section or "",
-                "section_priority": row.section_priority or 0.5,
-                "chunk_type":       row.chunk_type or "general",
-                "rerank_score":     float(row.similarity),
-            }
-        }
-        for row in result.fetchall()
-    ]
-
-
-# ── postgres FTS search ───────────────────────────────────────────────
 
 async def postgres_fts_search(query: str, top_k: int, db) -> list[dict]:
     from sqlalchemy import text
     clean_query = " & ".join(w for w in query.split() if len(w) > 2)
     if not clean_query:
-        return []
-    result = await db.execute(
-        text(f"""
-            SELECT
-                chunk_id, source, title, authors, year,
-                section, section_priority, chunk_type, text,
-                ts_rank(to_tsvector('english', text),
-                        to_tsquery('english', :query)) as rank
-            FROM chunks
-            WHERE to_tsvector('english', text) @@ to_tsquery('english', :query)
-            ORDER BY rank DESC
-            LIMIT {top_k}
-        """),
-        {"query": clean_query}
-    )
-    return [
-        {
-            "text": row.text,
-            "metadata": {
-                "chunk_id":         row.chunk_id,
-                "source":           row.source,
-                "title":            row.title,
-                "authors":          row.authors or "",
-                "year":             row.year,
-                "section":          row.section or "",
-                "section_priority": row.section_priority or 0.5,
-                "chunk_type":       row.chunk_type or "general",
-                "rerank_score":     float(row.rank),
+        clean_query = query.split()[0] if query.split() else "research"
+    try:
+        result = await db.execute(
+            text(f"""
+                SELECT
+                    chunk_id, source, title, authors, year,
+                    section, section_priority, chunk_type, text,
+                    ts_rank_cd(to_tsvector('english', text),
+                            plainto_tsquery('english', :query)) as rank
+                FROM chunks
+                WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
+                ORDER BY rank DESC
+                LIMIT {top_k}
+            """),
+            {"query": query}
+        )
+        return [
+            {
+                "text": row.text,
+                "metadata": {
+                    "chunk_id":         row.chunk_id,
+                    "source":           row.source,
+                    "title":            row.title,
+                    "authors":          row.authors or "",
+                    "year":             row.year,
+                    "section":          row.section or "",
+                    "section_priority": row.section_priority or 0.5,
+                    "chunk_type":       row.chunk_type or "general",
+                    "rerank_score":     float(row.rank),
+                }
             }
-        }
-        for row in result.fetchall()
-    ]
+            for row in result.fetchall()
+        ]
+    except Exception:
+        return []
 
 
-# ── RRF fusion ────────────────────────────────────────────────────────
+async def postgres_semantic_fallback(query: str, top_k: int, db) -> list[dict]:
+    """Fallback: return recent high-quality chunks matching any query term."""
+    from sqlalchemy import text
+    terms = [w for w in query.split() if len(w) > 3][:5]
+    if not terms:
+        return []
+    conditions = " OR ".join(f"text ILIKE '%{t}%'" for t in terms)
+    try:
+        result = await db.execute(text(f"""
+            SELECT chunk_id, source, title, authors, year,
+                   section, section_priority, chunk_type, text,
+                   quality_score as rank
+            FROM chunks
+            WHERE {conditions}
+            ORDER BY quality_score DESC
+            LIMIT {top_k}
+        """))
+        return [
+            {
+                "text": row.text,
+                "metadata": {
+                    "chunk_id":         row.chunk_id,
+                    "source":           row.source,
+                    "title":            row.title,
+                    "authors":          row.authors or "",
+                    "year":             row.year,
+                    "section":          row.section or "",
+                    "section_priority": row.section_priority or 0.5,
+                    "chunk_type":       row.chunk_type or "general",
+                    "rerank_score":     float(row.rank) if row.rank else 0.0,
+                }
+            }
+            for row in result.fetchall()
+        ]
+    except Exception:
+        return []
 
-def rrf_fuse(vec_results: list[dict], fts_results: list[dict], top_k: int) -> list[dict]:
-    all_chunks = {r["metadata"]["chunk_id"]: r for r in vec_results + fts_results}
+
+def rrf_fuse(list1: list[dict], list2: list[dict], top_k: int) -> list[dict]:
+    all_chunks = {r["metadata"]["chunk_id"]: r for r in list1 + list2}
     scores = {}
-    for rank, r in enumerate(vec_results):
+    for rank, r in enumerate(list1):
         cid = r["metadata"]["chunk_id"]
         scores[cid] = scores.get(cid, 0) + 1 / (RRF_K + rank + 1)
-    for rank, r in enumerate(fts_results):
+    for rank, r in enumerate(list2):
         cid = r["metadata"]["chunk_id"]
         scores[cid] = scores.get(cid, 0) + 1 / (RRF_K + rank + 1)
     top_ids = sorted(scores, key=scores.get, reverse=True)[:top_k]
     return [all_chunks[cid] for cid in top_ids if cid in all_chunks]
 
-
-# ── cross-encoder reranker ────────────────────────────────────────────
-
-def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
-    try:
-        from sentence_transformers import CrossEncoder
-        ce = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        pairs  = [(query, c["text"]) for c in chunks]
-        scores = ce.predict(pairs)
-        ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
-        result = [c for _, c in ranked[:top_k]]
-        for i, (score, _) in enumerate(ranked[:top_k]):
-            result[i]["metadata"]["rerank_score"] = float(score)
-        return result
-    except Exception:
-        return chunks[:top_k]
-
-
-# ── intent detection ──────────────────────────────────────────────────
 
 def detect_query_intent(query: str) -> str:
     q = query.lower()
@@ -128,20 +110,22 @@ def detect_query_intent(query: str) -> str:
     return "factual"
 
 
-# ── main retrieve function ────────────────────────────────────────────
-
 async def retrieve(query: str, top_k: int = 5, db=None) -> list[dict]:
     """
-    pgvector + PostgreSQL FTS + RRF + Cross-Encoder.
-    db is required — always called from FastAPI with an active session.
+    PostgreSQL FTS retrieval — no ML models, fits in 512MB RAM.
+    Primary: plainto_tsquery FTS
+    Fallback: ILIKE term matching
+    Fusion: RRF
     """
     if db is None:
-        raise ValueError("db session required for pgvector retrieval")
+        raise ValueError("db session required")
 
-    query_emb = embed_texts([query])[0].tolist()
-
-    vec_results = await pgvector_search(query_emb, top_k=top_k * 3, db=db)
     fts_results = await postgres_fts_search(query, top_k=top_k * 3, db=db)
 
-    fused = rrf_fuse(vec_results, fts_results, top_k=top_k * 2)
-    return rerank(query, fused, top_k=top_k)
+    if len(fts_results) < top_k:
+        fallback = await postgres_semantic_fallback(query, top_k=top_k * 2, db=db)
+        fused = rrf_fuse(fts_results, fallback, top_k=top_k)
+    else:
+        fused = fts_results[:top_k]
+
+    return fused
