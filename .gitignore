@@ -1,20 +1,127 @@
+# Environment Variables
+
 .env
+.env.*
+!.env.example
+
+# Python
+
+**pycache**/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual Environments
+
 .venv/
-__pycache__/
-*.pyc
+venv/
+ENV/
+env/
+
+# IDEs
+
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+# macOS
+
+.DS_Store
+
+# Logs
+
+*.log
+logs/
+
+# Build / Distribution
+
+build/
+dist/
+*.egg-info/
+
+# Local Databases
+
+*.db
+*.sqlite
+*.sqlite3
+
+# Research Data (Large Files)
 
 data/papers/
+data/raw/
+data/processed/
+
+# Vector Indexes
+
+indexes/
 faiss_index/
 chroma_db/
 
-.DS_Storeindexes/
-indexes/
+# Generated Evaluation Results
 
-# macOS
-.DS_Store
+benchmark_results/
+evaluation_results/
+*.jsonl
 
-# Graphify generated files
+# Graphify Outputs
+
 graphify-out/
 graphify_output/
 graph-output/
+
+# Streamlit
+
+.streamlit/secrets.toml
+
+# Docker
+
+docker-data/
+
+# Model Caches
+
+.cache/
+models/
+hf_cache/
+huggingface/
+sentence_transformers/
+
+# Ollama
+
+ollama_models/
+
+# Temporary Files
+
+tmp/
+temp/
+*.tmp
+
+# Runtime Artifacts
+
+**pypackages**/
+
+# Local Benchmark Outputs
+
+qasper_eval_results.json
+benchmark_summary.json
+test_smoke.json
+
+# Alembic Cache
+
+alembic/versions/**pycache**/
+
+# Node (future UI)
+
+node_modules/
+.next/
+out/
