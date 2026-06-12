@@ -21,9 +21,7 @@ from src.retrieval.retriever import retrieve, detect_query_intent
 from src.generation.generator import generate_answer_streaming, format_citations
 from src.ui.recommender import recommend_by_query, recommend_arxiv
 from src.generation.memory import ConversationMemory
-from src.retrieval.indexer import get_index_stats
 from src.download.arxiv_fetcher import download_all
-from src.ingestion.index_manager import add_paper, add_new_papers, full_rebuild
 from src.ui.tts import text_to_speech
 from src.ui.flowchart import generate_flowchart
 
@@ -1155,28 +1153,19 @@ def render_mermaid(diagram_code: str, height: int = 360):
 
 def load_chunks_for_suggestions(n: int = 6) -> list[str]:
     try:
-        p = Path("indexes/chunks_metadata.json")
-        if not p.exists(): return []
-        with open(p) as f: chunks = json.load(f)
-        by_paper = {}
-        for c in chunks:
-            src = c["metadata"]["source"]
-            if src not in by_paper: by_paper[src] = []
-            by_paper[src].append(c)
-        sampled, papers = [], list(by_paper.keys())
+        import requests, random
+        resp = requests.get(API_BASE + "/api/v1/papers", timeout=5)
+        if resp.status_code != 200: return []
+        papers = resp.json().get("papers", [])
         random.shuffle(papers)
-        for paper in papers[:n]:
-            pc = [c for c in by_paper[paper]
-                  if c["metadata"]["section"] in ("abstract","introduction","methodology","method","results")]
-            if pc: sampled.append(random.choice(pc))
         question_templates = [
             "How does {} work?","What is the key contribution of {}?",
             "Explain the methodology in {}","What are the main results of {}?",
             "How does {} compare to prior work?","What problem does {} solve?",
         ]
         suggestions = []
-        for i, chunk in enumerate(sampled[:n]):
-            title = strip_md(chunk["metadata"].get("title", "this paper"))
+        for i, paper in enumerate(papers[:n]):
+            title = paper.get("title", "this paper")
             short_title = title[:45] + ("…" if len(title) > 45 else "")
             suggestions.append(question_templates[i % len(question_templates)].format(short_title))
         return suggestions
@@ -1226,22 +1215,18 @@ try:
     stats = get_index_stats()
     papers_count = stats.get("unique_papers", 0)
     chunks_count = stats.get("total_chunks", 0)
-    vecs_count   = stats.get("faiss_vectors", 0)
+    vecs_count   = stats.get("vector_chunks", 0)
 except Exception:
     papers_count = chunks_count = vecs_count = 0
 
 # Load papers list once
 papers_list = []
 try:
-    with open("indexes/chunks_metadata.json") as f:
-        all_chunks = json.load(f)
-    seen = set()
-    for c in all_chunks:
-        m = c["metadata"]
-        if m["source"] not in seen:
-            seen.add(m["source"])
-            papers_list.append(m)
-    papers_list.sort(key=lambda x: x.get("year", ""), reverse=True)
+    import requests as _req
+    _resp = _req.get(API_BASE + "/api/v1/papers", timeout=5)
+    if _resp.status_code == 200:
+        papers_list = _resp.json().get("papers", [])
+        papers_list.sort(key=lambda x: x.get("year", ""), reverse=True)
 except Exception:
     pass
 

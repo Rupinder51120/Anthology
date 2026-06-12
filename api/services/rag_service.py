@@ -6,10 +6,18 @@ from api.models.tables import Query
 from api.schemas.schemas import QueryRequest, QueryResponse, CitationOut
 from src.retrieval.retriever import retrieve
 from src.generation.generator import generate_answer, format_citations
+from src.generation.memory import ConversationMemory
+
+# In-memory sessions — keyed by session_id
+_sessions: dict[str, ConversationMemory] = {}
+
+def _get_memory(session_id: str) -> ConversationMemory:
+    if session_id not in _sessions:
+        _sessions[session_id] = ConversationMemory(session_id=session_id)
+    return _sessions[session_id]
 
 
 class RAGService:
-
     async def query(
         self,
         request: QueryRequest,
@@ -17,13 +25,36 @@ class RAGService:
     ) -> QueryResponse:
         start = time.time()
 
+        # Memory
+        session_id = getattr(request, "session_id", "default") or "default"
+        memory = _get_memory(session_id)
+        chat_history = memory.get()
+
         chunks = await retrieve(
             query=request.question,
             top_k=request.top_k,
             db=db,
         )
 
-        result = generate_answer(request.question, chunks)
+        # Pass image_paths for figure chunks
+        image_paths = [
+            c["metadata"].get("image_path")
+            for c in chunks
+            if c["metadata"].get("content_type") == "figure"
+            and c["metadata"].get("image_path")
+        ]
+
+        result = generate_answer(
+            query=request.question,
+            chunks=chunks,
+            chat_history=chat_history,
+            image_paths=image_paths if image_paths else None,
+        )
+
+        # Update memory
+        memory.add("user", request.question)
+        memory.add("assistant", result.get("answer", ""))
+
         latency_ms = round((time.time() - start) * 1000, 2)
 
         citations = [
