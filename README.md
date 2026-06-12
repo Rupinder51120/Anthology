@@ -1,228 +1,74 @@
 # Anthology
 
-> **The Story Behind Every Discovery**
+### The Story Behind Every Discovery
 
-Anthology is a local-first Retrieval-Augmented Generation (RAG) system for academic literature. It enables users to ingest research papers, retrieve relevant evidence through hybrid search, and generate citation-grounded answers using local language models.
+Anthology is an AI Research Intelligence System designed to help researchers explore, retrieve, and understand academic literature through citation-grounded question answering.
 
-Built to explore modern information retrieval techniques, Anthology combines dense retrieval, lexical retrieval, reranking, query expansion, and evaluation into a single end-to-end research assistant.
+Built as an end-to-end Retrieval-Augmented Generation (RAG) platform, Anthology combines research paper ingestion, retrieval, evaluation, and production deployment into a unified research assistant capable of searching and reasoning across a corpus of scientific papers.
 
----
-
-## Overview
-
-Researchers often work with hundreds of papers spread across multiple domains, making knowledge retrieval difficult and time-consuming.
-
-Anthology addresses this problem by:
-
-* Ingesting and indexing research papers
-* Retrieving relevant passages using hybrid search
-* Generating answers grounded in retrieved evidence
-* Providing citations for transparency
-* Evaluating retrieval quality using IR metrics
-
-The entire system runs locally, allowing private and reproducible research workflows.
+The project began as a research-focused RAG system and evolved into a production-ready platform featuring benchmarking, evaluation, API deployment, and an upcoming multimodal pipeline for understanding figures, tables, and diagrams within research papers.
 
 ---
 
-## Features
+## Live Deployment
 
-### Retrieval
+**API:** `https://anthology-api.onrender.com`
 
-* Dense semantic retrieval with FAISS
-* Lexical retrieval with BM25
-* Hybrid retrieval via Reciprocal Rank Fusion (RRF)
-* Cross-encoder reranking
-* HyDE query expansion
-
-### Generation
-
-* Local LLM inference through Ollama
-* Streaming responses
-* Citation-grounded answers
-* Multi-turn conversation memory
-
-### Research Tools
-
-* Research paper recommendations
-* ArXiv paper ingestion
-* Library management
-* Retrieval benchmarking
-
-### Evaluation
-
-* Hit@K
-* Mean Reciprocal Rank (MRR)
-* nDCG@K
-* Retrieval configuration comparison
+**Swagger Documentation:** `https://anthology-api.onrender.com/docs`
 
 ---
 
-## Architecture
+# Key Features
 
-```text
-Research Papers (PDFs)
-          │
-          ▼
-      PyMuPDF
-          │
-          ▼
- Section-Aware Chunking
-          │
- ┌────────┴────────┐
- ▼                 ▼
-FAISS            BM25
-(Dense)        (Lexical)
- └────────┬────────┘
-          ▼
-Reciprocal Rank Fusion
-          ▼
- Cross-Encoder Reranker
-          ▼
-      HyDE Expansion
-          ▼
- Context Construction
-          ▼
- Ollama
-          ▼
- Citation-Grounded Answer
-```
+## Research Paper Intelligence
+
+* Research paper ingestion and indexing
+* Citation-grounded question answering
+* Academic search and retrieval
+* Paper metadata management
+* Research recommendation workflows
+* ArXiv paper integration
 
 ---
 
-## Retrieval Pipeline
+## Retrieval System
 
-```text
-User Query
-    │
-    ▼
-Intent Detection
-    │
-    ▼
-Hybrid Retrieval
-(FAISS + BM25)
-    │
-    ▼
-Reciprocal Rank Fusion
-    │
-    ▼
-Cross-Encoder Reranking
-    │
-    ▼
-Context Construction
-    │
-    ▼
-LLM Generation
-    │
-    ▼
-Citation Formatting
-```
+### Current Production Retrieval
 
----
+* PostgreSQL Full-Text Search (FTS)
+* Reciprocal Rank Fusion (RRF)
+* Context-aware retrieval pipeline
+* Citation tracking and source attribution
 
-## Tech Stack
+### Historical Retrieval Experiments
 
-### AI & Retrieval
+Anthology includes a benchmarking framework that compares multiple retrieval architectures:
 
-* FAISS
 * BM25
-* Sentence Transformers
+* FAISS Dense Retrieval
+* Hybrid Retrieval
 * Cross-Encoder Reranking
-* HyDE
-* Ollama
-* Hugging Face Transformers
-
-### Backend
-
-* Python
-* FastAPI
-* PostgreSQL
-* Redis
-* SQLAlchemy
-* Alembic
-
-### Frontend
-
-* Streamlit
-
-### Infrastructure
-
-* Docker
-* Docker Compose
-* Railway / Render
-
-### Data Processing
-
-* PyMuPDF
-* ArXiv API
-* Pandas
+* HyDE Query Expansion
+* Reciprocal Rank Fusion
 
 ---
 
-## Project Structure
+## Generation
 
-```text
-Anthology/
-│
-├── app.py
-├── api/
-├── src/
-│   ├── ingestion/
-│   ├── retrieval/
-│   ├── generation/
-│   ├── evaluation/
-│   ├── download/
-│   └── ui/
-│
-├── scripts/
-├── data/
-├── alembic/
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
-```
+* Citation-grounded answer generation
+* Structured research responses
+* Multi-document reasoning
+* Local LLM support via Ollama
+* API-based LLM integration
+* Conversation memory support
 
 ---
 
-## Local Setup
+## Evaluation Framework
 
-### Clone Repository
+Anthology includes a dedicated retrieval and answer-quality evaluation framework.
 
-```bash
-git clone https://github.com/Rupinder51120/Anthology.git
-cd Anthology
-```
-
-### Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-### Start Infrastructure
-
-```bash
-docker compose up -d
-```
-
-### Run Application
-
-```bash
-streamlit run app.py
-```
-
----
-
-## Evaluation
-
-Anthology includes a retrieval evaluation framework for comparing different retrieval configurations and measuring search quality across academic corpora.
-
-Metrics include:
+### Retrieval Metrics
 
 * Hit@1
 * Hit@3
@@ -230,19 +76,283 @@ Metrics include:
 * Mean Reciprocal Rank (MRR)
 * nDCG@5
 
+### Answer Quality Metrics
+
+* Faithfulness
+* Relevance
+* Completeness
+
+### Benchmarking
+
+* Retrieval configuration comparison
+* Automated QA benchmark generation
+* QASPER-style evaluation datasets
+* End-to-end pipeline benchmarking
+
 ---
 
-## Roadmap
+# Architecture
 
-* Automated testing
-* GitHub Actions CI/CD
-* Retrieval observability
-* LLM guardrails
-* Expanded evaluation metrics
-* Production deployment
+```text
+Research Papers (PDFs)
+          │
+          ▼
+     Ingestion Layer
+          │
+          ▼
+  Section-Aware Chunking
+          │
+          ▼
+      PostgreSQL
+          │
+          ▼
+     Retrieval Layer
+          │
+          ▼
+ Context Construction
+          │
+          ▼
+     LLM Generation
+          │
+          ▼
+ Citation Grounding
+          │
+          ▼
+ Research Answer
+```
 
 ---
 
-## License
+# System Components
+
+```text
+Anthology
+│
+├── Research Paper Ingestion
+├── Retrieval Engine
+├── Generation Engine
+├── Evaluation Framework
+├── Recommendation System
+├── REST API Layer
+├── Database Layer
+└── Deployment Infrastructure
+```
+
+---
+
+# Technology Stack
+
+## AI & Retrieval
+
+* Retrieval-Augmented Generation (RAG)
+* PostgreSQL Full-Text Search
+* FAISS (Benchmarking)
+* BM25 (Benchmarking)
+* Reciprocal Rank Fusion
+* Cross-Encoder Reranking
+* HyDE Query Expansion
+* Ollama
+* Hugging Face
+
+---
+
+## Backend
+
+* Python
+* FastAPI
+* PostgreSQL
+* SQLAlchemy
+* Alembic
+* AsyncIO
+
+---
+
+## Frontend
+
+* Streamlit
+
+---
+
+## Infrastructure
+
+* Docker
+* Docker Compose
+* Render
+* GitHub
+
+---
+
+## Data Processing
+
+* PyMuPDF
+* ArXiv API
+* Pandas
+* NumPy
+
+---
+
+# Project Structure
+
+```text
+Anthology/
+│
+├── api/
+│   ├── routers/
+│   ├── services/
+│   ├── models/
+│   └── core/
+│
+├── src/
+│   ├── ingestion/
+│   ├── retrieval/
+│   ├── generation/
+│   ├── evaluation/
+│   ├── recommendation/
+│   └── ui/
+│
+├── scripts/
+├── data/
+├── indexes/
+├── alembic/
+├── multimodal/
+│
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+```
+
+---
+
+# Evaluation Results
+
+Historical benchmark results across a 100-question evaluation set:
+
+| Configuration   | Hit@5    | MRR        | Mean Score |
+| --------------- | -------- | ---------- | ---------- |
+| BM25            | 0.94     | 0.8378     | 3.7767     |
+| FAISS           | 0.93     | 0.8712     | 3.8033     |
+| Hybrid          | **0.96** | **0.8925** | **3.8800** |
+| Hybrid + Rerank | 0.95     | 0.8562     | 3.7700     |
+| Hybrid + HyDE   | 0.94     | 0.8443     | 3.7633     |
+
+Best-performing historical configuration:
+
+```text
+Hit@5  : 96%
+MRR    : 0.8925
+nDCG@5 : 0.8923
+```
+
+---
+
+# Local Development
+
+## Clone Repository
+
+```bash
+git clone https://github.com/Rupinder51120/Anthology.git
+cd Anthology
+```
+
+## Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+## Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+## Run Database
+
+```bash
+docker compose up -d
+```
+
+## Start API
+
+```bash
+uvicorn api.main:app --reload
+```
+
+## Open Documentation
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+# Current Status
+
+### Production
+
+* Deployed FastAPI backend
+* PostgreSQL database
+* Public REST API
+* Swagger documentation
+* Research paper corpus
+* Citation-grounded QA
+
+### Research Infrastructure
+
+* Retrieval benchmarking
+* Evaluation framework
+* QASPER-style benchmarks
+* Retrieval experimentation
+
+### In Progress
+
+* Multimodal document understanding
+* Figure analysis
+* Table understanding
+* Diagram interpretation
+* Chart reasoning
+* Multimodal retrieval
+
+---
+
+# Resume Highlights
+
+Anthology demonstrates experience with:
+
+* Retrieval-Augmented Generation (RAG)
+* Information Retrieval Systems
+* FastAPI Backend Development
+* PostgreSQL Database Design
+* Production Deployment
+* Evaluation & Benchmarking
+* Research Data Processing
+* API Development
+* Asynchronous Python
+* AI System Architecture
+
+---
+
+# Future Roadmap
+
+### Short-Term
+
+* Multimodal PDF understanding
+* Figure retrieval
+* Table retrieval
+* Diagram explanation
+* Enhanced answer quality
+
+### Long-Term
+
+* Research workspace
+* Collaboration features
+* Citation graph exploration
+* Advanced evaluation dashboards
+* Production-scale multimodal deployment
+
+---
+
+# License
 
 MIT License

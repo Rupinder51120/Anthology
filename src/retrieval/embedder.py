@@ -44,9 +44,19 @@ def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
 
 
 def embed_chunks(chunks: list[dict], batch_size: int = 32) -> np.ndarray:
+    content_type_prefix = {
+        "text":     "",
+        "table":    "Table: ",
+        "figure":   "Figure: ",
+        "equation": "Equation: ",
+    }
     texts = []
     for c in chunks:
-        prefix = f"{c['metadata']['title']}. {c['metadata']['section']}. "
+        meta   = c["metadata"]
+        ctype  = meta.get("content_type", "text")
+        prefix = content_type_prefix.get(ctype, "")
+        if ctype == "text":
+            prefix = f"{meta['title']}. {meta.get('section', '')}. "
         texts.append(prefix + c["text"])
     return embed_texts(texts, batch_size=batch_size)
 

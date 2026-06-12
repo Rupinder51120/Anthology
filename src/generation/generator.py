@@ -107,6 +107,38 @@ def detect_response_type(query: str) -> str:
     return "explanation"
 
 
+def _call_groq_vision(messages: list[dict], image_paths: list[str]) -> str:
+    """Call Groq vision model with images encoded as base64."""
+    import base64
+    client = _get_groq_client()
+    image_contents = []
+    for path in image_paths[:3]:  # max 3 images
+        try:
+            with open(path, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"}
+            })
+        except Exception:
+            continue
+    if not image_contents:
+        return _call_groq(messages)
+    # Inject images into last user message
+    last = messages[-1]
+    vision_messages = messages[:-1] + [{
+        "role": "user",
+        "content": image_contents + [{"type": "text", "text": last["content"]}]
+    }]
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=vision_messages,
+        max_tokens=3000,
+        temperature=0.2,
+    )
+    return response.choices[0].message.content.strip()
+
+
 def _call_groq(messages: list[dict]) -> str:
     """Call Groq API and return response text."""
     client = _get_groq_client()
@@ -144,6 +176,7 @@ def generate_answer(
     query:        str,
     chunks:       list[dict],
     chat_history: list[dict] = None,
+    image_paths:  list[str] | None = None,
 ) -> dict:
     if not chunks:
         return {
@@ -174,7 +207,10 @@ def generate_answer(
 
     try:
         if _is_groq_enabled():
-            answer = _call_groq(messages)
+            if image_paths:
+                answer = _call_groq_vision(messages, image_paths)
+            else:
+                answer = _call_groq(messages)
             tokens_used = 0
         else:
             resp = _call_ollama(messages, stream=False)
@@ -187,6 +223,14 @@ def generate_answer(
         answer      = f"Generation failed: {e}"
         tokens_used = 0
 
+    if not _is_grounded(answer, context):
+        return {
+            "answer":        "I could not find a reliable answer grounded in your papers for this query.",
+            "citations":     [],
+            "chunks_used":   0,
+            "response_type": "ungrounded",
+            "tokens_used":   0,
+        }
     return {
         "answer":        answer,
         "citations":     citations,
@@ -200,6 +244,7 @@ def generate_answer_streaming(
     query:        str,
     chunks:       list[dict],
     chat_history: list[dict] = None,
+    image_paths:  list[str] | None = None,
 ):
     """Yields answer tokens one by one."""
     if not chunks:
@@ -252,3 +297,36 @@ def generate_answer_streaming(
 
     except Exception as e:
         yield f"Generation failed: {e}"
+
+
+def _is_grounded(answer: str, context: str) -> bool:
+    """Quick faithfulness check — returns False if answer is hallucinated."""
+    prompt = f"""Does the following answer contain ONLY information that is explicitly stated in the context below?
+Answer YES or NO only.
+
+Context:
+{context[:3000]}
+
+Answer:
+{answer[:1000]}"""
+    try:
+        if _is_groq_enabled():
+            client = _get_groq_client()
+            resp = client.chat.completions.create(
+                model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=5,
+                temperature=0.0,
+            )
+            verdict = resp.choices[0].message.content.strip().upper()
+        else:
+            resp = requests.post(
+                OLLAMA_URL,
+                json={"model": OLLAMA_MODEL, "messages": [{"role": "user", "content": prompt}],
+                      "stream": False, "options": {"temperature": 0.0, "num_predict": 5}},
+                timeout=30,
+            )
+            verdict = resp.json()["message"]["content"].strip().upper()
+        return verdict.startswith("YES")
+    except Exception:
+        return True  # fail open

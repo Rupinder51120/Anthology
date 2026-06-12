@@ -55,64 +55,17 @@ _ORIGINAL_RETRIEVE = _ret_module.retrieve
 
 def patch_retriever_mode(mode: str):
     import src.retrieval.retriever as ret
-    ret.USE_RERANKER = False
-
-    if mode == "bm25_only":
-        def retrieve_bm25(query, top_k=5, **_):
-            from src.retrieval.retriever import bm25_search, load_chunks, boost_by_section_priority
-            chunks = load_chunks()
-            ids    = bm25_search(query, chunks, top_k=top_k)
-            result = [chunks[i] for i in ids[:top_k]]
-            for c in result:
-                c["metadata"]["rerank_score"] = None
-            return result
-        ret.retrieve = retrieve_bm25
-
-    elif mode == "faiss_only":
-        def retrieve_faiss(query, top_k=5, **_):
-            from src.retrieval.retriever import faiss_search, load_chunks, boost_by_section_priority
-            from src.retrieval.embedder import embed_texts
-            chunks = load_chunks()
-            emb    = embed_texts([query])[0]
-            ids    = faiss_search(emb, top_k=top_k)
-            result = [chunks[i] for i in ids[:top_k] if i < len(chunks)]
-            for c in result:
-                c["metadata"]["rerank_score"] = None
-            return boost_by_section_priority(result)[:top_k]
-        ret.retrieve = retrieve_faiss
-
-    elif mode == "hybrid_no_rerank":
-        def retrieve_hybrid(query, top_k=5, **_):
-            from src.retrieval.retriever import (faiss_search, bm25_search,
-                                       reciprocal_rank_fusion,
-                                       deduplicate_candidates,
-                                       boost_by_section_priority,
-                                       load_chunks)
-            from src.retrieval.embedder import embed_texts
-            chunks = load_chunks()
-            emb    = embed_texts([query])[0]
-            f_ids  = faiss_search(emb, top_k=25)
-            b_ids  = bm25_search(query, chunks, top_k=25)
-            fused  = reciprocal_rank_fusion(f_ids, b_ids)[:20]
-            cands  = [chunks[i] for i in fused if i < len(chunks)]
-            cands  = deduplicate_candidates(cands)
-            for c in cands:
-                c["metadata"]["rerank_score"] = None
-            return boost_by_section_priority(cands)[:top_k]
-        ret.retrieve = retrieve_hybrid
-
-    elif mode == "hybrid_rerank":
+    if mode == "hybrid_rerank":
         ret.USE_RERANKER = True
-        def retrieve_rerank(query, top_k=5, **_):
-            return _ORIGINAL_RETRIEVE(query, top_k=top_k, use_hyde=False)
+        async def retrieve_rerank(query, top_k=5, db=None, **_):
+            return await _ORIGINAL_RETRIEVE(query, top_k=top_k, db=db)
         ret.retrieve = retrieve_rerank
 
     elif mode == "full":
         ret.USE_RERANKER = True
-        def retrieve_full(query, top_k=5, **_):
-            return _ORIGINAL_RETRIEVE(query, top_k=top_k, use_hyde=True)
+        async def retrieve_full(query, top_k=5, db=None, **_):
+            return await _ORIGINAL_RETRIEVE(query, top_k=top_k, db=db)
         ret.retrieve = retrieve_full
-
 
 def _safe_label(label: str) -> str:
     return label.replace(" ", "_").replace("+", "plus").replace("/", "_")
@@ -332,26 +285,28 @@ If no chunk answers the question, set is_answerable to false."""
 # ─────────────────────────────────────────────────────────────
 
 def make_retriever_fn(mode: str, top_k: int = 10):
-    """
-    Wraps your existing patched retriever into the signature
-    the metrics layer expects:
-        question -> list[str]   (paper source filenames)
-
-    We use source filename as the ID because your chunks don't
-    have explicit IDs but do have metadata["source"].
-    """
     patch_retriever_mode(mode)
     import src.retrieval.retriever as ret
-    # Capture the patched function right now so it doesn't get
-    # overwritten by the next patch_retriever_mode call.
     captured = ret.retrieve
 
     def retriever_fn(question: str) -> list[str]:
-        results = captured(question, top_k=top_k)
+        import asyncio
+        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.orm import sessionmaker
+        import os
+
+        async def _run():
+            engine = create_async_engine(os.environ["DATABASE_URL"])
+            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            async with async_session() as session:
+                results = await captured(question, top_k=top_k, db=session)
+            await engine.dispose()
+            return results
+
+        results = asyncio.run(_run())
         return [r["metadata"]["source"] for r in results]
 
     return retriever_fn
-
 
 # ─────────────────────────────────────────────────────────────
 # METRICS  (self-contained, no extra files needed)
@@ -403,8 +358,6 @@ def run_qasper_eval(
 
     # ── retriever configs to compare ─────────────────────────
     retriever_configs = [
-        ("BM25",          "bm25_only"),
-        ("FAISS",         "faiss_only"),
         ("Hybrid",        "hybrid_no_rerank"),
         ("Hybrid+Rerank", "hybrid_rerank"),
         ("Hybrid+HyDE",   "full"),
@@ -610,8 +563,6 @@ def main():
         print(f"QA dataset exists: {n} questions ({qa_path})")
 
     configs = [
-        ("BM25 baseline",    "bm25_only",       False),
-        ("FAISS only",       "faiss_only",       False),
         ("Hybrid",           "hybrid_no_rerank", False),
         ("Hybrid + rerank",  "hybrid_rerank",    False),
         ("Hybrid + HyDE",  "full",             True),  # skip — slow on CPU
