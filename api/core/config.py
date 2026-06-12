@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     pythonpath: str = "."
 
     # Database
-    database_url: str = "postgresql+asyncpg://anthology:anthology@localhost:5432/anthology"
+    database_url: str = "postgresql+asyncpg://anthology:anthology@localhost:5433/anthology"
 
     # Redis (optional)
     redis_url: str = "redis://localhost:6379"
