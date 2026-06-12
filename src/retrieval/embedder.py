@@ -3,7 +3,7 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 import os
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+MODEL_NAME = "allenai/specter2_base"
 
 def get_model() -> SentenceTransformer:
     if not hasattr(get_model, "_instance"):
@@ -87,6 +87,7 @@ if __name__ == "__main__":
     papers     = load_all_papers("data/papers")
     chunks     = chunk_all_papers(papers)
     chunk_embs = embed_chunks(chunks)
+    save_embeddings(chunk_embs, "indexes/chunk_embeddings.npy")
 
     paper_embs, meta = embed_papers_for_recommendation(papers)
     save_embeddings(paper_embs, "indexes/paper_embeddings.npy")
