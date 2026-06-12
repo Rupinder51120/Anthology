@@ -1,16 +1,23 @@
 """
 src/retrieval/retriever.py
-pgvector-only retrieval: vector search + PostgreSQL FTS + RRF + Cross-Encoder
+pgvector + FTS + RRF (section-priority weighted) + Cross-Encoder
+HyDE disabled — Ollama too slow on CPU for real-time use
 """
 
-import os
 import numpy as np
 from src.retrieval.embedder import embed_texts
 
 RRF_K = 60
 
+_cross_encoder = None
 
-# ── pgvector search ───────────────────────────────────────────────────
+def _get_cross_encoder():
+    global _cross_encoder
+    if _cross_encoder is None:
+        from sentence_transformers import CrossEncoder
+        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return _cross_encoder
+
 
 async def pgvector_search(query_embedding: list[float], top_k: int, db) -> list[dict]:
     from sqlalchemy import text
@@ -43,26 +50,21 @@ async def pgvector_search(query_embedding: list[float], top_k: int, db) -> list[
     ]
 
 
-# ── postgres FTS search ───────────────────────────────────────────────
-
 async def postgres_fts_search(query: str, top_k: int, db) -> list[dict]:
     from sqlalchemy import text
-    clean_query = " & ".join(w for w in query.split() if len(w) > 2)
-    if not clean_query:
-        return []
     result = await db.execute(
         text(f"""
             SELECT
                 chunk_id, source, title, authors, year,
                 section, section_priority, chunk_type, text,
                 ts_rank(to_tsvector('english', text),
-                        to_tsquery('english', :query)) as rank
+                        plainto_tsquery('english', :query)) as rank
             FROM chunks
-            WHERE to_tsvector('english', text) @@ to_tsquery('english', :query)
+            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
             ORDER BY rank DESC
             LIMIT {top_k}
         """),
-        {"query": clean_query}
+        {"query": query}
     )
     return [
         {
@@ -83,27 +85,24 @@ async def postgres_fts_search(query: str, top_k: int, db) -> list[dict]:
     ]
 
 
-# ── RRF fusion ────────────────────────────────────────────────────────
-
 def rrf_fuse(vec_results: list[dict], fts_results: list[dict], top_k: int) -> list[dict]:
     all_chunks = {r["metadata"]["chunk_id"]: r for r in vec_results + fts_results}
     scores = {}
     for rank, r in enumerate(vec_results):
-        cid = r["metadata"]["chunk_id"]
-        scores[cid] = scores.get(cid, 0) + 1 / (RRF_K + rank + 1)
+        cid      = r["metadata"]["chunk_id"]
+        priority = r["metadata"].get("section_priority", 0.5)
+        scores[cid] = scores.get(cid, 0) + (1 / (RRF_K + rank + 1)) * priority
     for rank, r in enumerate(fts_results):
-        cid = r["metadata"]["chunk_id"]
-        scores[cid] = scores.get(cid, 0) + 1 / (RRF_K + rank + 1)
+        cid      = r["metadata"]["chunk_id"]
+        priority = r["metadata"].get("section_priority", 0.5)
+        scores[cid] = scores.get(cid, 0) + (1 / (RRF_K + rank + 1)) * priority
     top_ids = sorted(scores, key=scores.get, reverse=True)[:top_k]
     return [all_chunks[cid] for cid in top_ids if cid in all_chunks]
 
 
-# ── cross-encoder reranker ────────────────────────────────────────────
-
 def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
     try:
-        from sentence_transformers import CrossEncoder
-        ce = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+        ce     = _get_cross_encoder()
         pairs  = [(query, c["text"]) for c in chunks]
         scores = ce.predict(pairs)
         ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
@@ -115,26 +114,7 @@ def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
         return chunks[:top_k]
 
 
-# ── intent detection ──────────────────────────────────────────────────
-
-def detect_query_intent(query: str) -> str:
-    q = query.lower()
-    if any(w in q for w in ["recommend", "suggest", "find papers", "similar to"]):
-        return "recommendation"
-    if any(w in q for w in ["compare", "difference", "versus", "vs", "better"]):
-        return "comparison"
-    if any(w in q for w in ["summarize", "summary", "overview", "explain"]):
-        return "explanation"
-    return "factual"
-
-
-# ── main retrieve function ────────────────────────────────────────────
-
 async def retrieve(query: str, top_k: int = 5, db=None) -> list[dict]:
-    """
-    pgvector + PostgreSQL FTS + RRF + Cross-Encoder.
-    db is required — always called from FastAPI with an active session.
-    """
     if db is None:
         raise ValueError("db session required for pgvector retrieval")
 

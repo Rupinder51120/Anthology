@@ -1,3 +1,4 @@
+import re
 """
 src/hyde.py — Fixed HyDE implementation
 
