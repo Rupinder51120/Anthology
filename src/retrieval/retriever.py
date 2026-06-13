@@ -3,7 +3,9 @@ src/retrieval/retriever.py
 SPECTER2 + pgvector + FTS + modality-boosted RRF + Cross-Encoder
 """
 
+import os
 import numpy as np
+import cohere
 from src.retrieval.embedder import embed_texts
 
 RRF_K = 60
@@ -93,16 +95,26 @@ def rrf_fuse(vec_results: list[dict], fts_results: list[dict], top_k: int, modal
     return [all_chunks[cid] for cid in top_ids if cid in all_chunks]
 
 
-def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
+async def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
+    api_key = os.getenv("COHERE_API_KEY")
+    if not api_key or not chunks:
+        return sorted(chunks, key=lambda x: x["metadata"].get("rerank_score", 0), reverse=True)[:top_k]
     try:
-        ce     = _get_cross_encoder()
-        pairs  = [(query, c["text"]) for c in chunks]
-        scores = ce.predict(pairs)
-        ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
-        result = [c for _, c in ranked[:top_k]]
-        for i, (score, _) in enumerate(ranked[:top_k]):
-            result[i]["metadata"]["rerank_score"] = float(score)
-        return result
+        co = cohere.AsyncClient(api_key)
+        docs = [c.get("text") or "" for c in chunks]
+        response = await co.rerank(
+            model="rerank-v3.5",
+            query=query,
+            documents=docs,
+            top_n=top_k,
+        )
+        await co.close()
+        reranked = []
+        for result in response.results:
+            chunk = chunks[result.index].copy()
+            chunk["metadata"]["rerank_score"] = result.relevance_score
+            reranked.append(chunk)
+        return reranked
     except Exception:
         return chunks[:top_k]
 
@@ -148,10 +160,12 @@ async def retrieve(
         embeddings = embed_texts([query] + hyde_docs)
         query_emb = np.mean(embeddings, axis=0).tolist()
     else:
-        query_emb = embed_texts([query])[0].tolist()
+        import asyncio, functools
+        loop = asyncio.get_event_loop()
+        query_emb = await loop.run_in_executor(None, functools.partial(lambda q: embed_texts([q])[0].tolist(), query))
 
     vec_results = await pgvector_search(query_emb, top_k=top_k * 3, db=db, content_type=content_type)
     fts_results = await postgres_fts_search(query, top_k=top_k * 3, db=db, content_type=content_type)
 
-    fused = rrf_fuse(vec_results, fts_results, top_k=top_k * 2, modality_boosts=modality_boosts)
-    return rerank(query, fused, top_k=top_k)
+    fused = rrf_fuse(vec_results, fts_results, top_k=top_k, modality_boosts=modality_boosts)
+    return await rerank(query, fused, top_k=top_k)

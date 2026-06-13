@@ -5,8 +5,8 @@ Fallback when Ollama unavailable.
 import base64
 import os
 from dotenv import load_dotenv
-load_dotenv()
 from pathlib import Path
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 def caption_figure_groq(image_path: str, paper_title: str, figure_number: str) -> str:
