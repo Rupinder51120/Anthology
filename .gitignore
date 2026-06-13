@@ -125,3 +125,4 @@ alembic/versions/**pycache**/
 node_modules/
 .next/
 out/
+data/figures/

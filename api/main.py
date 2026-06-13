@@ -14,6 +14,9 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         await create_tables()
+        # Preload models to avoid cold start latency
+        from src.retrieval.embedder import get_model
+        get_model()
         print(f"Anthology API v{settings.app_version} started")
     except Exception as e:
         print(f"Startup warning: {e}")
