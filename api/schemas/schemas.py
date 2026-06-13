@@ -11,6 +11,7 @@ class QueryRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     use_hyde: bool = False
     retrieval_mode: str = Field(default="hybrid")
+    session_id: Optional[str] = Field(default="default")
 
 
 class CitationOut(BaseModel):

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     use_groq: bool = False
     groq_model: str = "llama-3.1-8b-instant"
+    cohere_api_key: str = ""
 
     # pgvector
 

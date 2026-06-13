@@ -57,16 +57,15 @@ def patch_retriever_mode(mode: str):
     import src.retrieval.retriever as ret
     if mode == "hybrid_rerank":
         ret.USE_RERANKER = True
-        def retrieve_rerank(query, top_k=5, **_):
-            return _ORIGINAL_RETRIEVE(query, top_k=top_k, use_hyde=False)
+        async def retrieve_rerank(query, top_k=5, db=None, **_):
+            return await _ORIGINAL_RETRIEVE(query, top_k=top_k, db=db)
         ret.retrieve = retrieve_rerank
 
     elif mode == "full":
         ret.USE_RERANKER = True
-        def retrieve_full(query, top_k=5, **_):
-            return _ORIGINAL_RETRIEVE(query, top_k=top_k, use_hyde=True)
+        async def retrieve_full(query, top_k=5, db=None, **_):
+            return await _ORIGINAL_RETRIEVE(query, top_k=top_k, db=db)
         ret.retrieve = retrieve_full
-
 
 def _safe_label(label: str) -> str:
     return label.replace(" ", "_").replace("+", "plus").replace("/", "_")
@@ -286,26 +285,28 @@ If no chunk answers the question, set is_answerable to false."""
 # ─────────────────────────────────────────────────────────────
 
 def make_retriever_fn(mode: str, top_k: int = 10):
-    """
-    Wraps your existing patched retriever into the signature
-    the metrics layer expects:
-        question -> list[str]   (paper source filenames)
-
-    We use source filename as the ID because your chunks don't
-    have explicit IDs but do have metadata["source"].
-    """
     patch_retriever_mode(mode)
     import src.retrieval.retriever as ret
-    # Capture the patched function right now so it doesn't get
-    # overwritten by the next patch_retriever_mode call.
     captured = ret.retrieve
 
     def retriever_fn(question: str) -> list[str]:
-        results = captured(question, top_k=top_k)
+        import asyncio
+        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.orm import sessionmaker
+        import os
+
+        async def _run():
+            engine = create_async_engine(os.environ["DATABASE_URL"])
+            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            async with async_session() as session:
+                results = await captured(question, top_k=top_k, db=session)
+            await engine.dispose()
+            return results
+
+        results = asyncio.run(_run())
         return [r["metadata"]["source"] for r in results]
 
     return retriever_fn
-
 
 # ─────────────────────────────────────────────────────────────
 # METRICS  (self-contained, no extra files needed)
