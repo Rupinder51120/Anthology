@@ -12,20 +12,23 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 VLM_MODEL = "llava:7b"
 
 
-def caption_figure(image_path: str, paper_title: str, figure_number: str) -> str:
+def caption_figure(image_path: str, paper_title: str, figure_number: str) -> dict:
     """
-    Generate a detailed caption for a figure using Qwen2-VL via Ollama.
-    Returns placeholder string on failure.
+    Try DePlot for charts, fall back to Groq vision for other figures.
+    Returns dict with keys: caption, table_data (if chart)
     """
     if not image_path or not Path(image_path).exists():
-        return f"{figure_number} — image not available"
-
+        return {"caption": f"{figure_number} — image not available", "table_data": None}
     try:
-        return _caption_with_ollama(image_path, paper_title, figure_number)
-    except Exception as e:
-        print(f"Ollama unavailable for {figure_number}, trying Groq...")
-        from src.ingestion.figure_captioner_groq import caption_figure_groq
-        return caption_figure_groq(image_path, paper_title, figure_number)
+        from src.ingestion.graph_parser import parse_chart
+        table_data = parse_chart(image_path)
+        if table_data:
+            return {"caption": f"{figure_number}: Chart data extracted.", "table_data": table_data}
+    except Exception:
+        pass
+    from src.ingestion.figure_captioner_groq import caption_figure_groq
+    caption = caption_figure_groq(image_path, paper_title, figure_number)
+    return {"caption": caption, "table_data": None}
 
 
 def _caption_with_ollama(image_path: str, paper_title: str, figure_number: str) -> str:

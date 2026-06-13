@@ -41,8 +41,8 @@ def run_pipeline(force: bool = False, no_vlm: bool = False):
         return
 
     print(f"\nFound {len(pdf_files)} PDFs")
-    ollama_ok = is_ollama_available() and not no_vlm
-    print(f"VLM captioning: {'enabled' if ollama_ok else 'disabled'}")
+    ollama_ok = not no_vlm
+    print(f"Figure captioning: {'enabled (DePlot + Groq)' if ollama_ok else 'disabled'}")
 
     all_chunks = []
     stats = {"papers": 0, "text": 0, "figures": 0, "tables": 0, "errors": 0}
@@ -67,14 +67,18 @@ def run_pipeline(force: bool = False, no_vlm: bool = False):
 
             # Enhance figures and tables
             for block in blocks:
-                if block.content_type == "figure" and block.image_path and ollama_ok:
+                if block.content_type == "figure" and block.image_path:
                     try:
-                        caption = caption_figure(
+                        result = caption_figure(
                             block.image_path,
                             meta.get("title", ""),
                             block.figure_number or "Figure"
                         )
-                        block.content = caption
+                        block.content = result["caption"]
+                        if result["table_data"]:
+                            block.table_markdown = result["table_data"]
+                            block.content_type = "table"
+                            print(f"  Chart parsed → table: {block.figure_number}")
                     except Exception as e:
                         print(f"  Caption failed: {e}")
 
