@@ -8,6 +8,14 @@ from sqlalchemy import select, func
 from api.models.tables import Query
 from api.schemas.schemas import QueryRequest, QueryResponse, CitationOut
 from src.retrieval.retriever import retrieve
+from langfuse import Langfuse
+
+def _get_langfuse():
+    return Langfuse(
+        public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+        secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+        host=os.getenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com"),
+    )
 from src.generation.generator import generate_answer, format_citations
 from src.generation.memory import ConversationMemory
 
@@ -61,11 +69,16 @@ class RAGService:
         memory       = _get_memory(session_id)
         chat_history = memory.get()
 
+        lf = _get_langfuse()
+        trace = lf.trace(name="anthology-query", input={"question": request.question})
+
+        t0 = time.time()
         chunks = await retrieve(
             query=request.question,
             top_k=request.top_k,
             db=db,
         )
+        trace.span(name="retrieve", input={"query": request.question}, output={"chunks": len(chunks)}, metadata={"latency_ms": round((time.time()-t0)*1000,2)})
 
         image_paths = [
             c["metadata"].get("image_path")
@@ -85,6 +98,8 @@ class RAGService:
         memory.add("assistant", result.get("answer", ""))
 
         latency_ms = round((time.time() - start) * 1000, 2)
+        trace.update(output={"answer": result.get("answer", "")[:200]}, metadata={"latency_ms": latency_ms})
+        lf.flush()
 
         citations = [
             CitationOut(
