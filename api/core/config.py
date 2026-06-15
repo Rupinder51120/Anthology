@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     pythonpath: str = "."
 
     # Database
-    database_url: str = "postgresql+asyncpg://anthology:anthology@localhost:5433/anthology"
+    # FIX: default port corrected to 5432 (docker-compose maps 5432:5432)
+    database_url: str = "postgresql+asyncpg://anthology:anthology@localhost:5432/anthology"
 
     # Redis (optional)
     redis_url: str = "redis://localhost:6379"
@@ -19,17 +20,22 @@ class Settings(BaseSettings):
     indexes_dir: str = "indexes"
     papers_dir: str = "data/papers"
     registry_path: str = "data/download_registry.json"
+    chunks_path: str = "indexes/chunks_metadata.json"  # FIX: was missing, caused paper_service crash
 
     # Groq
     groq_api_key: str = ""
     use_groq: bool = False
     groq_model: str = "llama-3.1-8b-instant"
     cohere_api_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://us.cloud.langfuse.com"
 
-    # pgvector
-
-    # CORS
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8501"]
+    # CORS — FIX: added Vite dev server (5173), removed Streamlit (8501)
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ]
 
     class Config:
         env_file = ".env"
