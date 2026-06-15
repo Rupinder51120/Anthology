@@ -23,15 +23,21 @@ Given context excerpts from research papers, write a COMPLETE and THOROUGH answe
 
 Structure your response as:
 
-**EXPLANATION**
+
+## EXPLANATION
+
 Explain the concept fully. Cover all key points from the context — do not stop early.
 Break down technical terms. Use analogies where helpful.
 If multiple papers address the question, synthesize all of them.
 
-**KEY INSIGHT**
+
+## KEY INSIGHT
+
 One sentence capturing the single most important idea.
 
-**EVIDENCE FROM PAPERS**
+
+## EVIDENCE FROM PAPERS
+
 For EACH source used, write 2-3 sentences summarizing what that specific paper contributes.
 Format: "Paper Title (Year): ..."
 Cover every source that is relevant — do not skip any.

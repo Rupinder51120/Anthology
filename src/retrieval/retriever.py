@@ -1,6 +1,7 @@
 """
 src/retrieval/retriever.py
-SPECTER2 + pgvector + FTS + modality-boosted RRF + Cross-Encoder
+SPECTER2 + pgvector + FTS + modality-boosted RRF + Cohere rerank
+FIX: SQL injection removed — all queries use bound parameters
 """
 
 import os
@@ -36,30 +37,60 @@ def _detect_modality_boost(query: str) -> dict[str, float]:
     return boosts
 
 
-async def pgvector_search(query_embedding: list[float], top_k: int, db, content_type: str | None = None) -> list[dict]:
+async def pgvector_search(
+    query_embedding: list[float],
+    top_k: int,
+    db,
+    content_type: str | None = None,
+) -> list[dict]:
     from sqlalchemy import text
+
+    # Vector passed as parameter and cast using CAST(:vec AS vector)
     query_vec = "[" + ",".join(str(x) for x in query_embedding) + "]"
-    type_filter = f"AND content_type = '{content_type}'" if content_type else ""
-    result = await db.execute(text(f"""
-        SELECT
-            chunk_id, source, title, authors, year,
-            section, section_priority, chunk_type, content_type,
-            text, page_number, figure_number, image_path,
-            table_markdown, table_summary,
-            1 - (embedding <=> '{query_vec}'::vector) as similarity
-        FROM chunks
-        WHERE embedding IS NOT NULL {type_filter}
-        ORDER BY embedding <=> '{query_vec}'::vector
-        LIMIT {top_k}
-    """))
+
+    if content_type:
+        sql = text("""
+            SELECT
+                chunk_id, source, title, authors, year,
+                section, section_priority, chunk_type, content_type,
+                text, page_number, figure_number, image_path,
+                table_markdown, table_summary,
+                1 - (embedding <=> CAST(:vec AS vector)) as similarity
+            FROM chunks
+            WHERE embedding IS NOT NULL
+                AND content_type = :ct
+            ORDER BY embedding <=> CAST(:vec AS vector)
+            LIMIT :k
+        """)
+        result = await db.execute(sql, {"vec": query_vec, "ct": content_type, "k": top_k})
+    else:
+        sql = text("""
+            SELECT
+                chunk_id, source, title, authors, year,
+                section, section_priority, chunk_type, content_type,
+                text, page_number, figure_number, image_path,
+                table_markdown, table_summary,
+                1 - (embedding <=> CAST(:vec AS vector)) as similarity
+            FROM chunks
+            WHERE embedding IS NOT NULL
+            ORDER BY embedding <=> CAST(:vec AS vector)
+            LIMIT :k
+        """)
+        result = await db.execute(sql, {"vec": query_vec, "k": top_k})
+
     return [_row_to_dict(r) for r in result.fetchall()]
 
 
-async def postgres_fts_search(query: str, top_k: int, db, content_type: str | None = None) -> list[dict]:
+async def postgres_fts_search(
+    query: str,
+    top_k: int,
+    db,
+    content_type: str | None = None,
+) -> list[dict]:
     from sqlalchemy import text
-    type_filter = f"AND content_type = '{content_type}'" if content_type else ""
-    result = await db.execute(
-        text(f"""
+
+    if content_type:
+        sql = text("""
             SELECT
                 chunk_id, source, title, authors, year,
                 section, section_priority, chunk_type, content_type,
@@ -69,16 +100,36 @@ async def postgres_fts_search(query: str, top_k: int, db, content_type: str | No
                         plainto_tsquery('english', :query)) as similarity
             FROM chunks
             WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
-            {type_filter}
+              AND content_type = :ct
             ORDER BY similarity DESC
-            LIMIT {top_k}
-        """),
-        {"query": query}
-    )
+            LIMIT :k
+        """)
+        result = await db.execute(sql, {"query": query, "ct": content_type, "k": top_k})
+    else:
+        sql = text("""
+            SELECT
+                chunk_id, source, title, authors, year,
+                section, section_priority, chunk_type, content_type,
+                text, page_number, figure_number, image_path,
+                table_markdown, table_summary,
+                ts_rank(to_tsvector('english', text),
+                        plainto_tsquery('english', :query)) as similarity
+            FROM chunks
+            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
+            ORDER BY similarity DESC
+            LIMIT :k
+        """)
+        result = await db.execute(sql, {"query": query, "k": top_k})
+
     return [_row_to_dict(r) for r in result.fetchall()]
 
 
-def rrf_fuse(vec_results: list[dict], fts_results: list[dict], top_k: int, modality_boosts: dict = None, ) -> list[dict]:
+def rrf_fuse(
+    vec_results: list[dict],
+    fts_results: list[dict],
+    top_k: int,
+    modality_boosts: dict = None,
+) -> list[dict]:
     all_chunks = {r["metadata"]["chunk_id"]: r for r in vec_results + fts_results}
     scores = {}
     for rank, r in enumerate(vec_results):
@@ -123,21 +174,21 @@ def _row_to_dict(row) -> dict:
     return {
         "text": row.text,
         "metadata": {
-            "chunk_id":       row.chunk_id,
-            "source":         row.source,
-            "title":          row.title,
-            "authors":        row.authors or "",
-            "year":           row.year,
-            "section":        row.section or "",
+            "chunk_id":         row.chunk_id,
+            "source":           row.source,
+            "title":            row.title,
+            "authors":          row.authors or "",
+            "year":             row.year,
+            "section":          row.section or "",
             "section_priority": row.section_priority or 0.5,
-            "chunk_type":     row.chunk_type or "general",
-            "content_type":   row.content_type or "text",
-            "page_number":    row.page_number,
-            "figure_number":  row.figure_number,
-            "image_path":     row.image_path,
-            "table_markdown": row.table_markdown,
-            "table_summary":  row.table_summary,
-            "rerank_score":   float(row.similarity),
+            "chunk_type":       row.chunk_type or "general",
+            "content_type":     row.content_type or "text",
+            "page_number":      row.page_number,
+            "figure_number":    row.figure_number,
+            "image_path":       row.image_path,
+            "table_markdown":   row.table_markdown,
+            "table_summary":    row.table_summary,
+            "rerank_score":     float(row.similarity),
         }
     }
 
@@ -153,16 +204,18 @@ async def retrieve(
         raise ValueError("db session required")
 
     modality_boosts = _detect_modality_boost(query)
+
     if use_hyde:
         from src.retrieval.hyde import expand_query_with_hyde
-        import numpy as np
         _, hyde_docs, _ = expand_query_with_hyde(query, n_docs=2)
         embeddings = embed_texts([query] + hyde_docs)
         query_emb = np.mean(embeddings, axis=0).tolist()
     else:
         import asyncio, functools
         loop = asyncio.get_event_loop()
-        query_emb = await loop.run_in_executor(None, functools.partial(lambda q: embed_texts([q])[0].tolist(), query))
+        query_emb = await loop.run_in_executor(
+            None, functools.partial(lambda q: embed_texts([q])[0].tolist(), query)
+        )
 
     vec_results = await pgvector_search(query_emb, top_k=top_k * 3, db=db, content_type=content_type)
     fts_results = await postgres_fts_search(query, top_k=top_k * 3, db=db, content_type=content_type)
