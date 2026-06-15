@@ -14,7 +14,7 @@
 
 *A production RAG platform for citation-grounded question answering over scientific literature.*
 
-**[Live API](https://anthology-api.onrender.com)** · **[Swagger Docs](https://anthology-api.onrender.com/docs)**
+
 
 </div>
 
@@ -25,15 +25,6 @@
 Anthology is a full-stack Retrieval-Augmented Generation system that lets researchers ask questions about scientific papers and receive answers grounded in citations.
 
 It is not a wrapper around an LLM. It is an end-to-end information retrieval and generation pipeline — built from scratch — covering ingestion, embedding, hybrid search, reranking, generation, evaluation, and observability.
-
-The system went through five retrieval architectures before reaching its current design:
-
-```
-BM25  →  FAISS Dense  →  Hybrid  →  Hybrid + HyDE  →  pgvector + FTS + RRF + Cohere rerank
-```
-
-Each iteration was benchmarked on a 100-question evaluation set. The current production stack achieves **Hit@5 = 0.96, MRR = 0.8925**.
-
 ---
 
 ## System Design
