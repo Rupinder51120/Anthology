@@ -6,11 +6,39 @@ from sqlalchemy import text
 from api.core.database import get_db
 from api.schemas.schemas import PaperOut, PaperListResponse
 from api.services.paper_service import PaperService
-from api.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1", tags=["Papers"])
 paper_service = PaperService()
-settings = get_settings()
+
+
+@router.post("/papers/upload")
+async def upload_paper(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a PDF and ingest it into the system."""
+    from api.services.ingest_service import ingest_single_paper
+
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files supported")
+
+    if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
+        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+
+    dest = Path("data/papers") / file.filename
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    content = await file.read()
+    with open(dest, "wb") as f_out:
+        f_out.write(content)
+
+    try:
+        # FIX: directly await — no nested asyncio.run() inside executor
+        result = await ingest_single_paper(str(dest), db)
+        return {"success": True, **result}
+    except Exception as e:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/papers", response_model=PaperListResponse)
@@ -39,6 +67,7 @@ async def vector_search(
     top_k: int = 5,
     db: AsyncSession = Depends(get_db),
 ):
+    # FIX: parameterized query — no f-string SQL injection
     result = await db.execute(text("""
         SELECT chunk_id, source, title, text,
                ts_rank_cd(to_tsvector('english', text),
@@ -49,7 +78,14 @@ async def vector_search(
         LIMIT :k
     """), {"q": query, "k": top_k})
     rows = result.fetchall()
-    results = [{"chunk_id": r.chunk_id, "source": r.source,
-                "title": r.title, "text": r.text,
-                "similarity": float(r.rank)} for r in rows]
+    results = [
+        {
+            "chunk_id": r.chunk_id,
+            "source": r.source,
+            "title": r.title,
+            "text": r.text,
+            "similarity": float(r.rank),
+        }
+        for r in rows
+    ]
     return {"query": query, "results": results, "total": len(results)}

@@ -19,22 +19,50 @@ async def query(
 
 
 @router.post("/query/stream")
-async def query_stream(request: QueryRequest):
-    """Stream answer tokens one by one."""
+async def query_stream(
+    request: QueryRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream answer tokens via SSE as they arrive from Groq."""
+    import asyncio
     from src.retrieval.retriever import retrieve
     from src.generation.generator import generate_answer_streaming
 
-    chunks = retrieve(
+    chunks = await retrieve(
         request.question,
         top_k=request.top_k,
-        use_hyde=request.use_hyde,
+        db=db,
+        use_hyde=getattr(request, "use_hyde", False),
     )
 
-    def token_generator():
-        for token in generate_answer_streaming(request.question, chunks):
-            yield token
+    async def token_stream():
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def _produce():
+            try:
+                for token in generate_answer_streaming(request.question, chunks):
+                    loop.call_soon_threadsafe(queue.put_nowait, token)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, None)  # sentinel
+
+        loop.run_in_executor(None, _produce)
+
+        while True:
+            token = await queue.get()
+            if token is None:
+                break
+            # SSE format — React EventSource reads data: lines
+            yield f"data: {token}\n\n"
+
+        yield "data: [DONE]\n\n"
 
     return StreamingResponse(
-        token_generator(),
-        media_type="text/plain",
+        token_stream(),
+        media_type="text/event-stream",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )

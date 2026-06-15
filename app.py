@@ -17,7 +17,7 @@ _cached_model = load_embedding_model()
 from src.retrieval.embedder import set_model
 set_model(_cached_model)
 
-from src.retrieval.retriever import retrieve, detect_query_intent
+from src.retrieval.retriever import retrieve
 from src.generation.generator import generate_answer_streaming, format_citations
 from src.ui.recommender import recommend_by_query, recommend_arxiv
 from src.generation.memory import ConversationMemory
