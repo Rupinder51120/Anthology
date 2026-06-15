@@ -23,6 +23,6 @@ class StatsService:
             total_papers=total_papers,
             total_chunks=total_chunks,
             vector_chunks=vector_chunks,
-            embedding_dim=1024,
+            embedding_dim=768,   # FIX: was 1024 — SPECTER2 is 768d
             total_queries=total_queries,
         )
