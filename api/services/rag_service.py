@@ -10,23 +10,36 @@ from api.schemas.schemas import QueryRequest, QueryResponse, CitationOut
 from src.retrieval.retriever import retrieve
 from langfuse import Langfuse
 
+from src.generation.generator import generate_answer, format_citations
+from src.generation.memory import ConversationMemory
+
+CACHE_TTL = 3600        # 1 hour
+MAX_SESSIONS = 1000     # FIX: evict oldest sessions beyond this cap
+
+
 def _get_langfuse():
     return Langfuse(
         public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
         secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
         host=os.getenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com"),
     )
-from src.generation.generator import generate_answer, format_citations
-from src.generation.memory import ConversationMemory
 
-CACHE_TTL = 3600  # 1 hour
 
 _sessions: dict[str, ConversationMemory] = {}
+_session_access: dict[str, float] = {}  # FIX: track last access for LRU eviction
 
 
 def _get_memory(session_id: str) -> ConversationMemory:
+    # FIX: evict LRU sessions when cap reached
+    if session_id not in _sessions and len(_sessions) >= MAX_SESSIONS:
+        oldest = min(_session_access, key=_session_access.get)
+        _sessions.pop(oldest, None)
+        _session_access.pop(oldest, None)
+
     if session_id not in _sessions:
         _sessions[session_id] = ConversationMemory(session_id=session_id)
+
+    _session_access[session_id] = time.time()
     return _sessions[session_id]
 
 
@@ -57,14 +70,19 @@ class RAGService:
         redis = await _get_redis()
         cache_key = _cache_key(request.question, request.top_k)
         if redis:
-            cached = await redis.get(cache_key)
-            if cached:
-                data = json.loads(cached)
-                data["latency_ms"] = round((time.time() - start) * 1000, 2)
-                data["query_id"]   = str(uuid.uuid4())
-                return QueryResponse(**data)
+            try:
+                cached = await redis.get(cache_key)
+                if cached:
+                    data = json.loads(cached)
+                    data["latency_ms"] = round((time.time() - start) * 1000, 2)
+                    data["query_id"]   = str(uuid.uuid4())
+                    await redis.aclose()  # FIX: always close after use
+                    return QueryResponse(**data)
+            except Exception:
+                pass  # redis failure is non-fatal
+            finally:
+                pass
 
-        # Memory
         session_id   = getattr(request, "session_id", "default") or "default"
         memory       = _get_memory(session_id)
         chat_history = memory.get()
@@ -78,7 +96,12 @@ class RAGService:
             top_k=request.top_k,
             db=db,
         )
-        trace.span(name="retrieve", input={"query": request.question}, output={"chunks": len(chunks)}, metadata={"latency_ms": round((time.time()-t0)*1000,2)})
+        trace.span(
+            name="retrieve",
+            input={"query": request.question},
+            output={"chunks": len(chunks)},
+            metadata={"latency_ms": round((time.time() - t0) * 1000, 2)},
+        )
 
         image_paths = [
             c["metadata"].get("image_path")
@@ -98,7 +121,10 @@ class RAGService:
         memory.add("assistant", result.get("answer", ""))
 
         latency_ms = round((time.time() - start) * 1000, 2)
-        trace.update(output={"answer": result.get("answer", "")[:200]}, metadata={"latency_ms": latency_ms})
+        trace.update(
+            output={"answer": result.get("answer", "")[:200]},
+            metadata={"latency_ms": latency_ms},
+        )
         lf.flush()
 
         citations = [
@@ -127,7 +153,8 @@ class RAGService:
             latency_ms=latency_ms,
         )
         db.add(db_query)
-        await db.commit()
+        # FIX: remove explicit commit here — get_db() commits on exit to avoid double-commit
+        # await db.commit()  ← removed
 
         response = QueryResponse(
             question=request.question,
@@ -140,18 +167,21 @@ class RAGService:
             query_id=query_id,
         )
 
-        # Store in Redis
         if redis:
-            cache_data = {
-                "question":      request.question,
-                "answer":        result.get("answer", ""),
-                "citations":     [c.model_dump() for c in citations],
-                "chunks_used":   result.get("chunks_used", 0),
-                "response_type": result.get("response_type", "explanation"),
-                "tokens_used":   result.get("tokens_used", 0),
-            }
-            await redis.setex(cache_key, CACHE_TTL, json.dumps(cache_data))
-            await redis.aclose()
+            try:
+                cache_data = {
+                    "question":      request.question,
+                    "answer":        result.get("answer", ""),
+                    "citations":     [c.model_dump() for c in citations],
+                    "chunks_used":   result.get("chunks_used", 0),
+                    "response_type": result.get("response_type", "explanation"),
+                    "tokens_used":   result.get("tokens_used", 0),
+                }
+                await redis.setex(cache_key, CACHE_TTL, json.dumps(cache_data))
+            except Exception:
+                pass
+            finally:
+                await redis.aclose()
 
         return response
 
