@@ -42,42 +42,34 @@ async def pgvector_search(
     top_k: int,
     db,
     content_type: str | None = None,
+    paper_id: str | None = None,
 ) -> list[dict]:
     from sqlalchemy import text
 
-    # Vector passed as parameter and cast using CAST(:vec AS vector)
     query_vec = "[" + ",".join(str(x) for x in query_embedding) + "]"
 
+    filters = "WHERE embedding IS NOT NULL"
+    params: dict = {"vec": query_vec, "k": top_k}
     if content_type:
-        sql = text("""
-            SELECT
-                chunk_id, source, title, authors, year,
-                section, section_priority, chunk_type, content_type,
-                text, page_number, figure_number, image_path,
-                table_markdown, table_summary,
-                1 - (embedding <=> CAST(:vec AS vector)) as similarity
-            FROM chunks
-            WHERE embedding IS NOT NULL
-                AND content_type = :ct
-            ORDER BY embedding <=> CAST(:vec AS vector)
-            LIMIT :k
-        """)
-        result = await db.execute(sql, {"vec": query_vec, "ct": content_type, "k": top_k})
-    else:
-        sql = text("""
-            SELECT
-                chunk_id, source, title, authors, year,
-                section, section_priority, chunk_type, content_type,
-                text, page_number, figure_number, image_path,
-                table_markdown, table_summary,
-                1 - (embedding <=> CAST(:vec AS vector)) as similarity
-            FROM chunks
-            WHERE embedding IS NOT NULL
-            ORDER BY embedding <=> CAST(:vec AS vector)
-            LIMIT :k
-        """)
-        result = await db.execute(sql, {"vec": query_vec, "k": top_k})
+        filters += " AND content_type = :ct"
+        params["ct"] = content_type
+    if paper_id:
+        filters += " AND source = :pid"
+        params["pid"] = paper_id
 
+    sql = text("""
+        SELECT
+            chunk_id, source, title, authors, year,
+            section, section_priority, chunk_type, content_type,
+            text, page_number, figure_number, image_path,
+            table_markdown, table_summary,
+            1 - (embedding <=> CAST(:vec AS vector)) as similarity
+        FROM chunks
+        {filters}
+        ORDER BY embedding <=> CAST(:vec AS vector)
+        LIMIT :k
+    """.format(filters=filters))
+    result = await db.execute(sql, params)
     return [_row_to_dict(r) for r in result.fetchall()]
 
 
@@ -86,41 +78,33 @@ async def postgres_fts_search(
     top_k: int,
     db,
     content_type: str | None = None,
+    paper_id: str | None = None,
 ) -> list[dict]:
     from sqlalchemy import text
 
+    filters = "WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)"
+    params: dict = {"query": query, "k": top_k}
     if content_type:
-        sql = text("""
-            SELECT
-                chunk_id, source, title, authors, year,
-                section, section_priority, chunk_type, content_type,
-                text, page_number, figure_number, image_path,
-                table_markdown, table_summary,
-                ts_rank(to_tsvector('english', text),
-                        plainto_tsquery('english', :query)) as similarity
-            FROM chunks
-            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
-              AND content_type = :ct
-            ORDER BY similarity DESC
-            LIMIT :k
-        """)
-        result = await db.execute(sql, {"query": query, "ct": content_type, "k": top_k})
-    else:
-        sql = text("""
-            SELECT
-                chunk_id, source, title, authors, year,
-                section, section_priority, chunk_type, content_type,
-                text, page_number, figure_number, image_path,
-                table_markdown, table_summary,
-                ts_rank(to_tsvector('english', text),
-                        plainto_tsquery('english', :query)) as similarity
-            FROM chunks
-            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', :query)
-            ORDER BY similarity DESC
-            LIMIT :k
-        """)
-        result = await db.execute(sql, {"query": query, "k": top_k})
+        filters += " AND content_type = :ct"
+        params["ct"] = content_type
+    if paper_id:
+        filters += " AND source = :pid"
+        params["pid"] = paper_id
 
+    sql = text("""
+        SELECT
+            chunk_id, source, title, authors, year,
+            section, section_priority, chunk_type, content_type,
+            text, page_number, figure_number, image_path,
+            table_markdown, table_summary,
+            ts_rank(to_tsvector('english', text),
+                    plainto_tsquery('english', :query)) as similarity
+        FROM chunks
+        {filters}
+        ORDER BY similarity DESC
+        LIMIT :k
+    """.format(filters=filters))
+    result = await db.execute(sql, params)
     return [_row_to_dict(r) for r in result.fetchall()]
 
 
@@ -199,6 +183,7 @@ async def retrieve(
     db=None,
     content_type: str | None = None,
     use_hyde: bool = False,
+    paper_id: str | None = None,
 ) -> list[dict]:
     if db is None:
         raise ValueError("db session required")
@@ -217,8 +202,8 @@ async def retrieve(
             None, functools.partial(lambda q: embed_texts([q])[0].tolist(), query)
         )
 
-    vec_results = await pgvector_search(query_emb, top_k=top_k * 3, db=db, content_type=content_type)
-    fts_results = await postgres_fts_search(query, top_k=top_k * 3, db=db, content_type=content_type)
+    vec_results = await pgvector_search(query_emb, top_k=top_k * 3, db=db, content_type=content_type, paper_id=paper_id)
+    fts_results = await postgres_fts_search(query, top_k=top_k * 3, db=db, content_type=content_type, paper_id=paper_id)
 
     fused = rrf_fuse(vec_results, fts_results, top_k=top_k, modality_boosts=modality_boosts)
     return await rerank(query, fused, top_k=top_k)

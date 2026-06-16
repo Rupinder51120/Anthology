@@ -34,7 +34,7 @@ export interface Paper {
   filename: string
   chunk_count: number
   indexed: boolean
-  upload_date: string
+  created_at: string
   url?: string
   arxiv_id?: string
 }
@@ -59,8 +59,8 @@ export interface StatsResponse {
 
 // ── Query ────────────────────────────────────────────────────
 
-export const queryPapers = (question: string, top_k = 5, session_id = 'default') =>
-  api.post<QueryResponse>('/query', { question, top_k, session_id }).then(r => r.data)
+export const queryPapers = (question: string, top_k = 5, session_id = 'default', paper_id?: string) =>
+  api.post<QueryResponse>('/query', { question, top_k, session_id, paper_id }).then(r => r.data)
 
 export const streamQuery = (question: string, top_k = 5): EventSource => {
   // POST-based SSE via fetch
@@ -72,11 +72,13 @@ export const streamQueryFetch = async (
   top_k = 5,
   onToken: (token: string) => void,
   onDone: () => void,
+  paper_id?: string,
+  onStatus?: (text: string) => void,
 ) => {
   const res = await fetch('/api/v1/query/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, top_k }),
+    body: JSON.stringify({ question, top_k, paper_id }),
   })
   const reader = res.body!.getReader()
   const decoder = new TextDecoder()
@@ -87,9 +89,13 @@ export const streamQueryFetch = async (
     const lines = chunk.split('\n')
     for (const line of lines) {
       if (line.startsWith('data: ')) {
-        const token = line.slice(6)
-        if (token === '[DONE]') { onDone(); return }
-        onToken(token)
+        const raw = line.slice(6)
+        if (raw === '[DONE]') { onDone(); return }
+        try {
+          const evt = JSON.parse(raw)
+          if (evt.type === 'status') { onStatus?.(evt.text) }
+          else if (evt.type === 'token') { onToken(evt.text) }
+        } catch { onToken(raw) }
       }
     }
   }
@@ -142,3 +148,63 @@ export const submitFeedback = (query_id: string, rating: number, comment?: strin
 
 export const generateFlowchart = (query: string, explanation: string) =>
   api.post<{ diagram: string; success: boolean }>('/flowchart', { query, explanation }).then(r => r.data)
+
+// ── Sessions ─────────────────────────────────────────────────
+
+export interface Session {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SessionMessage {
+  id: string
+  role: string
+  content: string
+  created_at: string
+}
+
+export const createSession = (title = 'New Session') =>
+  api.post<Session>('/sessions', { title }).then(r => r.data)
+
+export const listSessions = () =>
+  api.get<Session[]>('/sessions').then(r => r.data)
+
+export const getSessionMessages = (id: string) =>
+  api.get<SessionMessage[]>(`/sessions/${id}/messages`).then(r => r.data)
+
+export const addSessionMessage = (id: string, role: string, content: string) =>
+  api.post(`/sessions/${id}/messages`, { role, content }).then(r => r.data)
+
+export const deleteSession = (id: string) =>
+  api.delete(`/sessions/${id}`).then(r => r.data)
+
+// ── Collections ───────────────────────────────────────────────
+
+export interface CollectionItem {
+  id: string
+  name: string
+  description?: string
+  color: string
+  paper_count: number
+  created_at: string
+}
+
+export const listCollections = () =>
+  api.get<CollectionItem[]>('/collections').then(r => r.data)
+
+export const createCollection = (name: string, description?: string, color?: string) =>
+  api.post<CollectionItem>('/collections', { name, description, color }).then(r => r.data)
+
+export const deleteCollection = (id: string) =>
+  api.delete(`/collections/${id}`).then(r => r.data)
+
+export const getCollectionPapers = (id: string) =>
+  api.get<Paper[]>(`/collections/${id}/papers`).then(r => r.data)
+
+export const addPaperToCollection = (col_id: string, paper_id: string) =>
+  api.post(`/collections/${col_id}/papers/${paper_id}`).then(r => r.data)
+
+export const removePaperFromCollection = (col_id: string, paper_id: string) =>
+  api.delete(`/collections/${col_id}/papers/${paper_id}`).then(r => r.data)
