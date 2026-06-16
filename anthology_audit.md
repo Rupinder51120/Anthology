@@ -1,739 +1,943 @@
-# Anthology — Production Readiness Audit
+# Anthology Repository Audit
 
-> **Auditor**: Principal Software Engineer  
-> **Date**: 2026-06-14  
-> **Verdict**: **PARTIALLY WORKING** — Core query pipeline functions; upload pipeline has a critical runtime bug; multiple claimed features are broken or unreachable.
+Auditor: Principal Software Architect / Staff Engineer / Security Auditor / SRE  
+Date: 2026-06-16  
+Scope: first-party source, hidden/config files, manifests/locks, migrations, scripts, Docker/Compose, frontend, generated graph/index metadata, checked-in runtime artifacts, local data artifacts, and vendored/generated directory inventory.
 
----
+Verdict: **NOT PRODUCTION READY**. The core RAG path is recognizable and partially functional, but production deployment is blocked by a broken Dockerfile, no passing frontend build, weak/no auth, fragile migrations, silent startup degradation, and operationally expensive local model assumptions.
 
-## Phase 1: Repository Map
+## Audit Method
 
-```
+I enumerated files with `rg --files -uu` and `find`, including hidden files. The repository contains first-party code plus large generated/vendor/runtime directories: `.venv` (~1.3G), `frontend/node_modules` (~196M), `data` (~922M), `indexes` (~69M), and `graphify-out` (~2M). I reviewed first-party source, manifests, migrations, scripts, docs, generated metadata summaries, and artifact inventory. Vendored dependencies and binary/PDF/PNG assets were treated as supply-chain, storage, and repository-hygiene inputs, not line-by-line code.
+
+Verification commands:
+
+- `pytest -q`: **failed** because `pytest` is not on PATH in the active shell.
+- `npm run build` in `frontend`: **failed** with TypeScript errors.
+- `find . -maxdepth 2 -name requirements-cloud.txt -o -name start.sh`: returned no files, confirming Dockerfile missing inputs.
+- `git status --short`: clean before audit rewrite.
+
+## Phase 1: Project Understanding
+
+Anthology is an AI research assistant for a local corpus of academic papers. It ingests PDFs, parses text/figures/tables, chunks content, embeds chunks with SPECTER2, stores chunks in PostgreSQL/pgvector, retrieves relevant chunks with pgvector plus PostgreSQL full-text search, optionally reranks with Cohere, and generates grounded answers using Groq or local Ollama. The active user-facing app is a React/Vite frontend backed by FastAPI. There is also a large legacy Streamlit app.
+
+Likely users:
+
+- Students/researchers asking questions across a local paper corpus.
+- A maintainer ingesting PDFs and rebuilding indexes.
+- A developer running offline retrieval/generation evaluation.
+
+Primary workflows:
+
+- Upload PDF -> parse -> chunk -> embed -> insert chunks/paper row.
+- Ask question -> retrieve chunks -> generate answer -> return citations -> persist query.
+- Browse/search papers.
+- Discover/recommend papers from local index and external APIs.
+- Run offline benchmark/evaluation scripts.
+
+Core features:
+
+- FastAPI backend, React frontend, PostgreSQL pgvector storage.
+- RAG query endpoint and streaming query endpoint.
+- PDF upload and ingestion pipeline.
+- Local paper library, search, recommendations, flowchart, TTS, feedback, stats.
+- Offline indexing and benchmark scripts.
+
+Maturity level: **prototype to early beta**. There is real domain logic and some recent fixes, but the system still relies on local state, local models, hidden runtime assumptions, weak operational controls, and no test gate.
+
+## Phase 2: Repository Map
+
+Repository tree, abbreviated to meaningful ownership boundaries:
+
+```text
 anthology/
-├── api/
-│   ├── __init__.py                       (empty, package marker)
-│   ├── main.py                           Purpose: FastAPI entrypoint
-│   │                                     Imported by: uvicorn (runtime)
-│   │                                     Imports: config, database, all 10 routers
-│   │                                     Status: ✅ Working
-│   │
-│   ├── dependencies.py                   Purpose: FastAPI dependency helpers
-│   │                                     Imported by: NOTHING — never used
-│   │                                     Imports: get_db, get_settings
-│   │                                     Status: ⚠️ Dead code — no router imports it
-│   │
-│   ├── core/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── config.py                     Purpose: Pydantic Settings with lru_cache
-│   │   │                                 Imported by: main, database, health, papers, paper_service, stats_service
-│   │   │                                 Imports: pydantic_settings
-│   │   │                                 Status: ⚠️ Partially working — missing `chunks_path` attribute (see Phase 4)
-│   │   │
-│   │   └── database.py                   Purpose: AsyncPG engine, session factory, Base
-│   │                                     Imported by: main, health, papers, query, feedback, stats, alembic/env
-│   │                                     Imports: config
-│   │                                     Status: ✅ Working
-│   │
-│   ├── models/
-│   │   ├── __init__.py                   (empty)
-│   │   └── tables.py                     Purpose: SQLAlchemy ORM models (Paper, Query, Feedback, Chunk)
-│   │                                     Imported by: feedback, paper_service, stats_service, alembic/env
-│   │                                     Imports: database.Base, pgvector
-│   │                                     Status: ✅ Working
-│   │
-│   ├── schemas/
-│   │   ├── __init__.py                   (empty)
-│   │   └── schemas.py                    Purpose: Pydantic request/response models
-│   │                                     Imported by: all routers
-│   │                                     Status: ✅ Working
-│   │
-│   ├── routers/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── health.py                     Status: ✅ Working
-│   │   ├── query.py                      Status: ✅ Working (non-streaming), ❌ Broken (streaming — see Phase 3)
-│   │   ├── papers.py                     Status: ❌ Broken (upload) / ✅ Working (list/get/sync partial)
-│   │   ├── search.py                     Status: ❌ Broken (calls old sync `retrieve` signature)
-│   │   ├── recommend.py                  Status: ⚠️ Partially working (depends on pre-built index files)
-│   │   ├── tts.py                        Status: ⚠️ macOS-only — broken on Linux/cloud
-│   │   ├── flowchart.py                  Status: ⚠️ Requires local Ollama
-│   │   ├── benchmark.py                  Status: ✅ Working (reads static JSON)
-│   │   ├── feedback.py                   Status: ✅ Working
-│   │   └── stats.py                      Status: ✅ Working
-│   │
-│   └── services/
-│       ├── __init__.py                   (empty)
-│       ├── rag_service.py                Status: ✅ Working — core query pipeline
-│       ├── ingest_service.py             Status: ⚠️ Implemented but unreachable from upload route
-│       ├── paper_service.py              Status: ❌ Broken — `settings.chunks_path` does not exist
-│       ├── vector_service.py             Status: ⚠️ Dead code — never imported by any router or service
-│       └── stats_service.py              Status: ⚠️ Hardcoded wrong embedding_dim (1024 vs 768)
-│
-├── src/
-│   ├── __init__.py                       (empty)
-│   ├── ingestion/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── ingest.py                     Purpose: PDF loading, metadata, section extraction
-│   │   │                                 Imported by: ingest_service, build_index, embedder(__main__)
-│   │   │                                 Status: ✅ Working
-│   │   ├── parser.py                     Purpose: Docling/PyMuPDF parser → ParsedBlock
-│   │   │                                 Imported by: ingest_service, build_index
-│   │   │                                 Status: ✅ Working
-│   │   ├── chunker.py                    Purpose: Section-aware chunking with priority
-│   │   │                                 Imported by: ingest_service, build_index, embedder(__main__)
-│   │   │                                 Status: ✅ Working
-│   │   ├── figure_captioner.py           Purpose: DePlot + Groq figure captioning
-│   │   │                                 Imported by: ingest_service, build_index
-│   │   │                                 Status: ✅ Working (graceful fallback)
-│   │   ├── figure_captioner_groq.py      Purpose: Groq vision captioning fallback
-│   │   │                                 Imported by: figure_captioner
-│   │   │                                 Status: ✅ Working
-│   │   ├── graph_parser.py               Purpose: DePlot chart→table extraction
-│   │   │                                 Imported by: figure_captioner
-│   │   │                                 Status: ✅ Working (optional)
-│   │   ├── table_summarizer.py           Purpose: Ollama table summary
-│   │   │                                 Imported by: ingest_service, build_index
-│   │   │                                 Status: ⚠️ Requires local Ollama
-│   │   └── utils.py                      Purpose: Math preservation, checkpoint, quality filter
-│   │                                     Imported by: NOTHING
-│   │                                     Status: ⚠️ Dead code — never imported at runtime
-│   │
-│   ├── retrieval/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── retriever.py                  Purpose: Hybrid pgvector+FTS retrieval, RRF, Cohere rerank
-│   │   │                                 Imported by: rag_service, query(stream), search, pipeline_runner
-│   │   │                                 Status: ✅ Working (async path via rag_service)
-│   │   ├── embedder.py                   Purpose: SPECTER2 embedding, model caching
-│   │   │                                 Imported by: retriever, main(lifespan), build_index, recommender, app.py
-│   │   │                                 Status: ✅ Working
-│   │   └── hyde.py                       Purpose: Hypothetical Document Embeddings
-│   │                                     Imported by: retriever (conditionally)
-│   │                                     Status: ⚠️ Requires local Ollama (qwen2.5:7b)
-│   │
-│   ├── generation/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── generator.py                  Purpose: Groq/Ollama LLM answer generation
-│   │   │                                 Imported by: rag_service, query(stream), pipeline_runner
-│   │   │                                 Status: ✅ Working (Groq path)
-│   │   └── memory.py                     Purpose: In-memory conversation history
-│   │                                     Imported by: rag_service, app.py
-│   │                                     Status: ✅ Working
-│   │
-│   ├── evaluation/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── evaluator.py                  Purpose: Retrieval metrics + Ollama judge
-│   │   │                                 Imported by: run_benchmark (script)
-│   │   │                                 Status: ✅ Working (offline script)
-│   │   ├── benchmarker.py                Purpose: QA dataset generation
-│   │   │                                 Imported by: run_benchmark (script)
-│   │   │                                 Status: ✅ Working (offline script)
-│   │   ├── retrieval_metrics.py          Purpose: Pure-Python retrieval metric library
-│   │   │                                 Imported by: NOTHING at runtime
-│   │   │                                 Status: ⚠️ Dead code — complete but never wired in
-│   │   ├── generation_metrics.py         Purpose: LLM-as-judge generation metrics
-│   │   │                                 Imported by: NOTHING at runtime
-│   │   │                                 Status: ⚠️ Dead code — complete but never wired in
-│   │   └── pipeline_runner.py            Purpose: Run pipeline over QA dataset
-│   │                                     Imported by: run_benchmark (script)
-│   │                                     Status: ❌ Broken — calls `retrieve()` with old sync signature
-│   │
-│   ├── download/
-│   │   ├── __init__.py                   (empty)
-│   │   ├── arxiv_downloader.py           Purpose: ArXiv paper download CLI
-│   │   │                                 Imported by: arxiv_fetcher
-│   │   │                                 Status: ✅ Working (standalone CLI)
-│   │   └── arxiv_fetcher.py              Purpose: Re-export shim
-│   │                                     Imported by: app.py (Streamlit)
-│   │                                     Status: ✅ Working
-│   │
-│   └── ui/
-│       ├── __init__.py                   (empty)
-│       ├── recommender.py                Purpose: Embedding-based paper recommendations
-│       │                                 Imported by: recommend router, app.py
-│       │                                 Status: ⚠️ Partially working — requires pre-built index files
-│       ├── tts.py                        Purpose: macOS `say` command TTS
-│       │                                 Imported by: tts router, app.py
-│       │                                 Status: ⚠️ macOS-only — fails silently on Linux/Docker
-│       └── flowchart.py                  Purpose: LLM→Mermaid flowchart gen
-│                                         Imported by: flowchart router, app.py
-│                                         Status: ⚠️ Requires local Ollama
-│
-├── scripts/
-│   ├── build_index.py                    Purpose: Full ingestion + pgvector sync
-│   │                                     Status: ✅ Working (offline pipeline)
-│   └── run_benchmark.py                  Purpose: Benchmark runner
-│                                         Status: ⚠️ Partially working — uses old retriever signature
-│
-├── app.py                                Purpose: Streamlit UI (2203 lines, 87KB)
-│                                         Status: ❌ Broken — imports `detect_query_intent` which doesn't exist
-│
-├── multimodal/                           Purpose: Planned multimodal pipeline
-│                                         Status: ❌ Empty directories — no code
-│
-├── data/                                 (papers, configs, registry)
-├── indexes/                              (pre-built FAISS, BM25, embeddings, metadata)
-├── alembic/                              (async migrations)
-│
-├── Dockerfile                            Status: ❌ Broken — references missing `requirements-cloud.txt` and `start.sh`
-├── docker-compose.yml                    Status: ✅ Working (local dev)
-├── .env                                  Status: ❌ CRITICAL — contains hardcoded real API keys
-├── .env.example                          Status: ⚠️ Incomplete — missing Groq, Cohere, Langfuse keys
-└── requirements.txt                      Status: ✅ Present
+  api/
+    main.py                 FastAPI app, router registration, startup model preload.
+    core/
+      config.py             Pydantic settings and env defaults.
+      database.py           SQLAlchemy async engine/session and create_tables.
+    models/tables.py        ORM models for Paper, Query, Feedback, Chunk.
+    schemas/schemas.py      Pydantic API schemas.
+    routers/                FastAPI endpoints.
+    services/               RAG, ingestion, paper, stats, vector services.
+  src/
+    ingestion/              PDF parsing, metadata, chunking, figure/table helpers.
+    retrieval/              Embedding, pgvector/FTS retrieval, HyDE.
+    generation/             Groq/Ollama answer generation and conversation memory.
+    discovery/              ArXiv/Semantic Scholar search.
+    ui/                     Legacy/non-React helpers: recommend, TTS, flowchart.
+    evaluation/             Offline benchmark and metric code.
+    download/               ArXiv downloader.
+  frontend/
+    src/                    React/Vite app.
+    package.json            Frontend scripts/deps.
+    package-lock.json       Frontend lock.
+  scripts/                  Offline indexing, migration, benchmark scripts.
+  alembic/                  Database migrations.
+  data/                     PDFs, uploads, figures, registry/config/report.
+  indexes/                  FAISS/BM25/embeddings/metadata/eval outputs.
+  graphify-out/             Generated code graph/cache/report.
+  Dockerfile                Container build, currently broken.
+  docker-compose.yml        Local API/db/redis stack, currently blocked by Dockerfile.
+  .env.example              Incomplete env template.
+  .gitignore                Ignores many generated dirs, but local artifacts still exist.
+  README.md                 Product/dev docs.
+  app.py                    Legacy Streamlit app, 2202 lines.
 ```
 
----
+Important file status:
 
-## Phase 2: Startup Trace
+| File | Purpose | Status |
+|---|---|---|
+| `api/main.py` | Runtime entrypoint | Reachable; swallows startup failures. |
+| `api/services/rag_service.py` | Main non-streaming RAG orchestration | Reachable; core path but has cache/session/observability issues. |
+| `src/retrieval/retriever.py` | pgvector + FTS + RRF + Cohere | Reachable; filters by `source` for `paper_id`, likely wrong. |
+| `src/generation/generator.py` | LLM prompt/call logic | Reachable; fallback to local Ollama not production-safe. |
+| `api/routers/query.py` | Query endpoints | Reachable; streaming bypasses `RAGService` persistence/cache/memory/citations. |
+| `api/routers/papers.py` | Paper/upload/vector endpoints | Reachable; upload filename/path handling is unsafe. |
+| `api/core/database.py` | DB sessions | Reachable; dependency commits while services also commit. |
+| `alembic/versions/*.py` | Migrations | Reachable operationally; schema history is inconsistent. |
+| `frontend/src/*` | Main UI | Reachable; build fails. |
+| `app.py` | Streamlit app | Potentially reachable if run manually; legacy/god file. |
+| `Dockerfile` | Deployment | Broken. |
+| `.env` | Local env | Present locally with secret variables; not tracked, but must be rotated if shared. |
 
-Starting from [api/main.py](file:///Users/riri/resume_projects/anthology/api/main.py):
+## Phase 3: Architecture Truth Report
 
-### Initialization Order
+What developers likely think the architecture is:
 
-```
-1. Module-level: settings = get_settings()                    [L9]
-   → loads .env via pydantic_settings BaseSettings           [config.py:L37-38]
-   → lru_cached singleton                                    [config.py:L42-44]
-
-2. Module-level: engine = create_async_engine(...)            [database.py:L21-27]
-   → pool_size=1, max_overflow=0 (extremely conservative)    [database.py:L25-26]
-   → pool_pre_ping=True                                      [database.py:L24]
-
-3. Module-level: AsyncSessionLocal = async_sessionmaker(...)  [database.py:L29-33]
-
-4. app = FastAPI(lifespan=lifespan)                           [main.py:L28-33]
-
-5. CORS middleware registered                                 [main.py:L36-42]
-   → origins: ["http://localhost:3000", "http://localhost:8501"]
-
-6. 10 routers registered                                      [main.py:L45-54]
-   → health, query, papers, search, recommend, tts,
-     flowchart, benchmark, feedback, stats
-
-7. Root "/" endpoint registered                               [main.py:L57-64]
-
-8. LIFESPAN startup:                                          [main.py:L12-23]
-   a. await create_tables()                                   [main.py:L16]
-      → Base.metadata.create_all — creates tables if missing
-   b. from src.retrieval.embedder import get_model            [main.py:L18]
-      get_model() → loads allenai/specter2_base              [embedder.py:L8-13]
-   c. print startup message
-   d. ALL exceptions during startup are CAUGHT and SWALLOWED  [main.py:L21-22]
-      → "Startup warning: {e}" — app starts in degraded state silently
+```text
+React frontend -> FastAPI routers -> services -> pgvector/Postgres + Redis + LLM providers
+offline scripts -> ingestion/retrieval/evaluation modules
 ```
 
-> [!CAUTION]
-> **Startup swallows ALL exceptions** ([main.py:L21-22](file:///Users/riri/resume_projects/anthology/api/main.py#L21-L22)). If the database is unreachable or the embedding model fails to load, the app starts anyway with no error propagation. This means the health endpoint could report "ok" while the system is fundamentally broken.
+What it actually is:
 
-### Missing from Startup
-- No structured logging setup
-- No graceful shutdown logic (just a print)
-- No database migration check (relies on `create_tables` which may not match Alembic schema)
-- No readiness probe (health endpoint checks pgvector index, not basic connectivity)
+```text
+React frontend
+  -> FastAPI route handlers that sometimes call services and sometimes inline business logic
+  -> global in-process state for sessions/model caches
+  -> Postgres used both through ORM and raw SQL
+  -> Redis created per request
+  -> external LLM APIs and local Ollama mixed behind env flags
 
----
+Legacy Streamlit app
+  -> directly imports retrieval/generation/download/ui modules
+  -> has its own UI flows and assumptions
 
-## Phase 3: Router Audit
-
-### Route Table
-
-| Route | Method | Request Model | Response Model | DB | Service | External |
-|---|---|---|---|---|---|---|
-| `/` | GET | — | dict | — | — | — |
-| `/health` | GET | — | `HealthResponse` | ✅ | — | pgvector |
-| `/api/v1/query` | POST | `QueryRequest` | `QueryResponse` | ✅ | `RAGService` | pgvector, Groq/Ollama, Cohere, Redis, Langfuse |
-| `/api/v1/query/stream` | POST | `QueryRequest` | StreamingResponse | — | — | pgvector(?), Groq/Ollama |
-| `/api/v1/papers` | GET | — | `PaperListResponse` | ✅ | `PaperService` | — |
-| `/api/v1/papers/{id}` | GET | UUID | `PaperOut` | ✅ | `PaperService` | — |
-| `/api/v1/papers/upload` | POST | UploadFile | dict | ✅ | `ingest_single_paper` | Groq, DePlot |
-| `/api/v1/papers/sync` | POST | — | dict | ✅ | `PaperService` | — |
-| `/api/v1/vectors/search` | POST | query params | dict | ✅ | — (raw SQL) | PostgreSQL FTS |
-| `/api/v1/search` | POST | `SearchRequest` | `SearchResponse` | — | — | FAISS/pgvector |
-| `/api/v1/recommend` | POST | `RecommendRequest` | `RecommendResponse` | — | — | ArXiv API, numpy |
-| `/api/v1/tts` | POST | `TTSRequest` | audio/wav | — | — | macOS `say` |
-| `/api/v1/flowchart` | POST | `FlowchartRequest` | `FlowchartResponse` | — | — | Ollama |
-| `/api/v1/benchmark` | GET | — | dict (JSON file) | — | — | filesystem |
-| `/api/v1/benchmark/report` | GET | — | dict (JSON file) | — | — | filesystem |
-| `/api/v1/feedback` | POST | `FeedbackRequest` | `FeedbackResponse` | ✅ | — | — |
-| `/api/v1/feedback/{id}` | GET | query_id | dict | ✅ | — | — |
-| `/api/v1/stats` | GET | — | `StatsResponse` | ✅ | `StatsService` | — |
-
-### Broken Routes
-
-#### 1. `/api/v1/query/stream` — **BROKEN**
-
-At [query.py:L27](file:///Users/riri/resume_projects/anthology/api/routers/query.py#L27), the streaming route calls `retrieve()` with the **old synchronous signature**:
-```python
-chunks = retrieve(request.question, top_k=request.top_k, use_hyde=request.use_hyde)
-```
-But [retriever.py:L145-153](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L145-L153) defines `retrieve` as `async def retrieve(query, top_k, db=None, ...)` and **raises `ValueError("db session required")`** if `db` is None. The streaming route never passes `db`. **This will crash at runtime.**
-
-#### 2. `/api/v1/search` — **BROKEN**
-
-Same issue. [search.py:L12-16](file:///Users/riri/resume_projects/anthology/api/routers/search.py#L12-L16) calls `retrieve()` synchronously without `db` and without `await`. The retriever is an `async def`. **Will crash at runtime.**
-
-#### 3. `/api/v1/papers/sync` — **BROKEN**
-
-[paper_service.py:L24](file:///Users/riri/resume_projects/anthology/api/services/paper_service.py#L24) references `settings.chunks_path`, but `chunks_path` is **not defined** in [config.py](file:///Users/riri/resume_projects/anthology/api/core/config.py). Pydantic will raise an `AttributeError` at runtime.
-
-#### 4. `/api/v1/tts` — **NOT PORTABLE**
-
-[tts.py:L96](file:///Users/riri/resume_projects/anthology/src/ui/tts.py#L96) uses `shutil.which("say")`. The `say` command only exists on macOS. On the Render deployment (Linux), this always returns `None` → HTTP 500.
-
----
-
-## Phase 4: Upload Pipeline Investigation
-
-### `POST /api/v1/papers/upload` — End-to-End Trace
-
-| Step | Implemented | Wired | Reachable | Status |
-|---|---|---|---|---|
-| 1. Request received | ✅ | ✅ | ✅ | FastAPI UploadFile |
-| 2. PDF validation | ✅ | ✅ | ✅ | `.pdf` extension check |
-| 3. File storage | ✅ | ✅ | ✅ | Written to `data/papers/` |
-| 4. PDF processing | ✅ | ✅ | ❌ | **Never reached due to step 4a** |
-| 5. Chunking | ✅ | ✅ | ❌ | Depends on step 4 |
-| 6. Embedding | ✅ | ✅ | ❌ | Depends on step 5 |
-| 7. Vector indexing | ✅ | ✅ | ❌ | pgvector INSERT |
-| 8. Metadata persistence | ⚠️ | — | ❌ | No Paper table row created |
-| 9. Background jobs | ❌ | — | — | Everything is synchronous |
-| 10. Response | ✅ | ✅ | ❌ | Never reached |
-
-### Critical Bug: Nested Event Loop Deadlock
-
-[papers.py:L33-34](file:///Users/riri/resume_projects/anthology/api/routers/papers.py#L33-L34):
-```python
-loop = asyncio.get_event_loop()
-result = await loop.run_in_executor(None, lambda: asyncio.run(ingest_single_paper(str(dest), db)))
+Offline scripts
+  -> use direct asyncpg/SQLAlchemy and monkeypatch retriever behavior
 ```
 
-This does `asyncio.run()` **inside** a `run_in_executor()` thread, but passes the **async SQLAlchemy session** (`db`) from the main loop to a new event loop in a different thread. This will:
-1. Create a **new event loop** in the executor thread (`asyncio.run()`)
-2. Try to use the `db` session which is **bound to the original event loop**
-3. **Crash** with `RuntimeError` or `asyncio` errors
+Boundary violations:
 
-> [!CAUTION]
-> **Verdict: BROKEN** — The upload pipeline will crash at runtime due to async event loop misuse. The file is written to disk (step 3), but everything after that fails.
+- **VERIFIED**: Streaming query endpoint duplicates RAG orchestration instead of using `RAGService`. Evidence: `api/routers/query.py:31-39` retrieves/builds messages directly; `api/routers/query.py:41-58` calls Groq directly.
+- **VERIFIED**: Services and routers own commits despite `get_db()` already committing. Evidence: dependency commits at `api/core/database.py:35-44`; `api/routers/feedback.py:38` commits; `api/services/ingest_service.py:105` commits; `api/services/paper_service.py:63` commits.
+- **VERIFIED**: Business logic lives in routers (`api/routers/papers.py:64-91` raw vector/text search) and services (`api/services/rag_service.py`) and scripts (`scripts/build_index.py`).
+- **VERIFIED**: State lives in globals: model cache in `src/retrieval/embedder.py:8-13`, `_sessions` and `_session_access` in `api/services/rag_service.py:27-28`, CrossEncoder cache in `src/retrieval/retriever.py:13`.
+- **VERIFIED**: Side effects occur at import/startup and request time: startup loads DB/model in `api/main.py:13-23`; upload writes files in `api/routers/papers.py:28-33`; generation calls external services in `src/generation/generator.py:73-123`.
 
-### Missing Implementations
-- **No Paper table row** is created during upload — only chunks are inserted
-- **No background job** — ingestion is fully synchronous and blocks the request
-- **No file size validation** — a 500MB PDF will be accepted
-- **No duplicate detection** — uploading the same file overwrites silently
+God files/services:
 
----
+- **VERIFIED**: `app.py` is 2202 lines and mixes Streamlit UI, CSS, API calls, Mermaid rendering, chat, upload, search, benchmark display, and helpers.
+- **VERIFIED**: `scripts/run_benchmark.py` is 601 lines and includes benchmark generation, monkeypatching, evaluation, cleanup, and CLI.
+- **VERIFIED**: `src/generation/generator.py` is a god service for prompts, provider routing, streaming, grounding, citations, and response typing.
+- **VERIFIED**: `src/ingestion/ingest.py` is 303 lines of PDF metadata extraction, loading, section extraction, and CLI behavior.
 
-## Phase 5: RAG Pipeline Audit
+## Phase 4: Architecture Analysis
 
-### Capability Matrix
-
-| Capability | Claimed (README) | Code Exists | Wired into Runtime | Actually Used | Status |
-|---|---|---|---|---|---|
-| PDF ingestion | ✅ | ✅ | ✅ (build_index.py) | ✅ (offline) | **Working (offline only)** |
-| Section-aware chunking | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Metadata extraction | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Citation tracking | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Embedding generation (SPECTER2) | ✅ | ✅ | ✅ | ✅ | **Working** |
-| pgvector dense retrieval | ✅ | ✅ | ✅ | ✅ | **Working** |
-| PostgreSQL FTS | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Reciprocal Rank Fusion | ✅ | ✅ | ✅ | ✅ | **Working** |
-| BM25 (rank_bm25 library) | ✅ (README) | ❌ (no code in API) | — | Only in offline `indexes/bm25_index.pkl` | **Not in runtime** |
-| Cross-encoder reranking | ✅ (README) | ✅ [retriever.py:L22-27](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L22-L27) | ❌ | Never called | **Dead code** |
-| Cohere reranking | Not claimed | ✅ [retriever.py:L98-119](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L98-L119) | ✅ | ✅ | **Working** |
-| HyDE query expansion | ✅ | ✅ | ✅ (opt-in) | ✅ | **Working** (requires Ollama) |
-| Context building | ✅ | ✅ | ✅ | ✅ | **Working** |
-| LLM answer generation | ✅ | ✅ | ✅ | ✅ | **Working** (Groq) |
-| Conversation memory | ✅ | ✅ | ✅ | ✅ | **Working** (in-process only) |
-| Evaluation framework | ✅ | ✅ | ❌ (offline only) | Script-only | **Working offline** |
-| Feedback loops | ✅ | ✅ | ✅ | ✅ (DB storage) | **Working** (no re-training) |
-| FAISS retrieval | ✅ (README) | ❌ (removed from API) | — | Only in pre-built index files | **Not in runtime** |
-| Multimodal retrieval | ✅ (README) | ❌ | — | — | **Not implemented** |
-| Figure analysis | ✅ (README) | ✅ (ingestion) | ✅ (build_index) | Offline only | **Working offline** |
-| Streaming responses | ✅ | ✅ [query.py:L21-40](file:///Users/riri/resume_projects/anthology/api/routers/query.py#L21-L40) | ❌ | **Broken** | **Broken wiring** |
-| Redis caching | Not in README | ✅ [rag_service.py:L38-45](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L38-L45) | ✅ (optional) | ✅ if Redis up | **Working** |
-| Langfuse tracing | Not in README | ✅ [rag_service.py:L13-18](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L13-L18) | ✅ | ✅ | **Working** |
-
-### Dead Code in Retrieval
-
-The **cross-encoder** model (`cross-encoder/ms-marco-MiniLM-L-6-v2`) is loaded via `_get_cross_encoder()` at [retriever.py:L22-27](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L22-L27) but this function is **never called** anywhere. The runtime uses **Cohere rerank** instead ([retriever.py:L98-119](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L98-L119)).
-
----
-
-## Phase 6: Dependency Graph
-
-### Module Dependency Flow
+High-level architecture:
 
 ```mermaid
-graph TD
-    A["api/main.py"] --> B["api/core/config.py"]
-    A --> C["api/core/database.py"]
-    A --> R1["routers/health"]
-    A --> R2["routers/query"]
-    A --> R3["routers/papers"]
-    A --> R4["routers/search"]
-    A --> R5["routers/recommend"]
-    A --> R6["routers/tts"]
-    A --> R7["routers/flowchart"]
-    A --> R8["routers/benchmark"]
-    A --> R9["routers/feedback"]
-    A --> R10["routers/stats"]
-    
-    R2 --> S1["services/rag_service"]
-    R3 --> S2["services/ingest_service"]
-    R3 --> S3["services/paper_service"]
-    R10 --> S4["services/stats_service"]
-    
-    S1 --> RET["src/retrieval/retriever"]
-    S1 --> GEN["src/generation/generator"]
-    S1 --> MEM["src/generation/memory"]
-    
-    RET --> EMB["src/retrieval/embedder"]
-    RET --> HYD["src/retrieval/hyde"]
-    
-    S2 --> PAR["src/ingestion/parser"]
-    S2 --> CHK["src/ingestion/chunker"]
-    S2 --> ING["src/ingestion/ingest"]
-    S2 --> EMB
-    
-    style S5["services/vector_service"] fill:#ff6b6b,stroke:#c0392b
-    style DEP["api/dependencies.py"] fill:#ff6b6b,stroke:#c0392b
+flowchart LR
+  UI[React/Vite frontend] --> API[FastAPI]
+  Legacy[Streamlit app.py] -. manual/legacy .-> Src[src modules]
+  API --> Routers[routers]
+  Routers --> Services[services]
+  Services --> Retrieval[src/retrieval]
+  Services --> Generation[src/generation]
+  Retrieval --> PG[(Postgres + pgvector)]
+  Retrieval --> Cohere[Cohere rerank]
+  Generation --> Groq[Groq]
+  Generation --> Ollama[Local Ollama fallback]
+  Services --> Redis[(Redis optional cache)]
+  Scripts[offline scripts] --> PG
+  Scripts --> Indexes[indexes/*]
+  Ingestion[src/ingestion] --> Data[data/*]
 ```
 
-### Issues Found
+Request lifecycle for non-streaming query:
 
-| Issue | Severity | Location |
-|---|---|---|
-| **`api/dependencies.py` is dead code** — defines `get_settings_dep()` but no router imports it | Low | [dependencies.py](file:///Users/riri/resume_projects/anthology/api/dependencies.py) |
-| **`services/vector_service.py` is dead code** — complete pgvector service, never imported | Medium | [vector_service.py](file:///Users/riri/resume_projects/anthology/api/services/vector_service.py) |
-| **`src/ingestion/utils.py` is dead code** — `preserve_math`, `filter_chunks` never called | Low | [utils.py](file:///Users/riri/resume_projects/anthology/src/ingestion/utils.py) |
-| **`src/evaluation/retrieval_metrics.py` is dead code** — complete library, never imported at runtime | Low | [retrieval_metrics.py](file:///Users/riri/resume_projects/anthology/src/evaluation/retrieval_metrics.py) |
-| **`src/evaluation/generation_metrics.py` is dead code** — complete library, never imported at runtime | Low | [generation_metrics.py](file:///Users/riri/resume_projects/anthology/src/evaluation/generation_metrics.py) |
-| **Global mutable state** — `_sessions` dict in [rag_service.py:L24](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L24) grows unboundedly | Medium | Memory leak |
-| **Global mutable state** — `_registry_cache` in [ingest.py:L19](file:///Users/riri/resume_projects/anthology/src/ingestion/ingest.py#L19) | Low | Singleton |
-| **Service locator** — Routers use inline `from ... import` inside route handlers (lazy imports) | Low | search.py, recommend.py, tts.py, flowchart.py |
-| **No circular imports detected** | — | — |
-| **No dependency injection** — services instantiated at module level as globals | Low | All services |
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant FastAPI
+  participant RAG
+  participant Retriever
+  participant DB
+  participant LLM
+  participant Redis
 
----
-
-## Phase 7: Database Audit
-
-### ORM Models ([tables.py](file:///Users/riri/resume_projects/anthology/api/models/tables.py))
-
-| Table | Columns | Foreign Keys | Status |
-|---|---|---|---|
-| `papers` | 13 columns (id, arxiv_id, filename, title, ...) | — | ✅ |
-| `queries` | 11 columns (id, question, answer, ...) | — | ✅ |
-| `feedback` | 5 columns (id, query_id, rating, comment, ...) | `query_id → queries.id` | ✅ |
-| `chunks` | 18 columns (id, chunk_id, source, ..., embedding Vector(768)) | — | ⚠️ No FK to papers |
-
-### Schema Issues
-
-1. **`chunks` has no foreign key to `papers`** — The `source` field stores the filename as a string, matching `papers.filename` by convention, not by constraint. Orphaned chunks are possible.
-
-2. **Dual table creation paths** — [database.py:L48-50](file:///Users/riri/resume_projects/anthology/api/core/database.py#L48-L50) uses `Base.metadata.create_all` at startup, while Alembic migrations also exist. These can conflict — Alembic may expect to own the schema.
-
-3. **`embedding_dim` mismatch** — [stats_service.py:L26](file:///Users/riri/resume_projects/anthology/api/services/stats_service.py#L26) hardcodes `embedding_dim=1024`, but the ORM defines `Vector(768)` at [tables.py:L86](file:///Users/riri/resume_projects/anthology/api/models/tables.py#L86) and SPECTER2 produces 768-dimensional embeddings.
-
-### Alembic Migrations
-
-4 migration files exist in `alembic/versions/`:
-- `fcfca052c549_initial_tables.py`
-- `5890fefb391a_add_chunks_table_with_pgvector.py`
-- `multimodal_columns.py`
-- `specter2_migration.py`
-
-> [!WARNING]
-> `alembic.ini` line 89 sets `sqlalchemy.url = %(DATABASE_URL)s` which expects a `DATABASE_URL` environment variable, but `alembic/env.py` also reads `DATABASE_URL` from `os.getenv`. The `%(...)s` interpolation in alembic.ini will fail if `DATABASE_URL` is not a ConfigParser variable.
-
-### Connection Pool
-
-[database.py:L25-26](file:///Users/riri/resume_projects/anthology/api/core/database.py#L25-L26):
-```python
-pool_size=1,
-max_overflow=0,
+  Browser->>FastAPI: POST /api/v1/query
+  FastAPI->>RAG: query(request, db)
+  RAG->>Redis: get cache key
+  Redis-->>RAG: cached or miss
+  RAG->>Retriever: retrieve(question, top_k, db, paper_id)
+  Retriever->>DB: pgvector search
+  Retriever->>DB: FTS search
+  Retriever-->>RAG: reranked chunks
+  RAG->>LLM: generate_answer(chunks, history)
+  LLM-->>RAG: answer
+  RAG->>DB: add Query
+  RAG->>Redis: set cache
+  RAG-->>FastAPI: QueryResponse
+  FastAPI-->>Browser: JSON
 ```
-This means **exactly 1 database connection** for the entire application. Under any concurrent load, queries will serialize. This is acceptable for a single-user demo but will not scale.
 
----
+Database architecture:
 
-## Phase 8: Vector Store Audit
+- SQLAlchemy models define `papers`, `queries`, `feedback`, `chunks`.
+- Migrations are incomplete/drifted relative to models.
+- Runtime startup calls `Base.metadata.create_all`, which bypasses Alembic as the source of truth.
+- Retrieval uses raw SQL for pgvector and FTS.
 
-### Active: pgvector (PostgreSQL)
+Authentication/authorization architecture:
 
-| Aspect | Implementation | Status |
-|---|---|---|
-| Index creation | `create_tables()` creates the `chunks` table with `Vector(768)` column | ✅ |
-| Data insertion | `ingest_service.py` inserts with `::vector` cast | ✅ |
-| Query | Cosine distance `<=>` operator in raw SQL | ✅ |
-| Persistence | PostgreSQL (Docker volume) | ✅ |
-| Index type | **No HNSW or IVFFlat index created** — brute-force scan | ⚠️ |
+- **VERIFIED**: None. No auth dependency is used by routers. `api/dependencies.py` only exposes settings dependency and is not imported by routers. All upload, query, feedback, discovery, benchmark, and stats endpoints are unauthenticated.
 
-> [!WARNING]
-> No vector index is created. All similarity searches are **brute-force sequential scans** over the embedding column. For ~10K chunks this is acceptable; for larger corpora it will become a bottleneck. Add: `CREATE INDEX ON chunks USING hnsw (embedding vector_cosine_ops)`.
+Event/background architecture:
 
-### Legacy: FAISS (offline only)
+- **VERIFIED**: No queue/worker/scheduler is defined in first-party code. Long PDF ingestion and model calls run inside request/script flows.
 
-Pre-built files exist in `indexes/`:
-- `faiss_index.bin` (11MB)
-- `chunk_embeddings.npy` (39MB)
-- `bm25_index.pkl` (4MB)
+Deployment architecture:
 
-These are **not loaded by the API** — they're artifacts from the old retrieval pipeline. The API uses pgvector exclusively. They are used by [scripts/run_benchmark.py](file:///Users/riri/resume_projects/anthology/scripts/run_benchmark.py) and the legacy `app.py`.
+- Docker Compose intends `api + db + redis`, but API image cannot currently build.
 
-### Dimension Check
-- SPECTER2 (`allenai/specter2_base`) → 768 dimensions ✅
-- `Vector(768)` in ORM → matches ✅
-- `StatsService` reports `embedding_dim=1024` → **WRONG** ❌
+## Phase 5: Feature Inventory
 
-> [!IMPORTANT]
-> The Streamlit app ([app.py:L14](file:///Users/riri/resume_projects/anthology/app.py#L14)) loads `BAAI/bge-small-en-v1.5` (384 dimensions) and injects it via `set_model()`, overriding SPECTER2. This means **the Streamlit app uses a DIFFERENT embedding model than the API**, and would produce 384-dim vectors that are incompatible with the 768-dim pgvector column. The Streamlit app is a completely separate, incompatible path.
-
----
-
-## Phase 9: Configuration Audit
-
-### `.env` — CRITICAL SECURITY ISSUE
-
-[.env](file:///Users/riri/resume_projects/anthology/.env) is committed to git and contains:
-
-| Key | Value | Risk |
-|---|---|---|
-| `GROQ_API_KEY` | `gsk_lBvHdfyy...` (real key) | 🔴 **CRITICAL** |
-| `COHERE_API_KEY` | `2RP7QZ66p6...` (real key) | 🔴 **CRITICAL** |
-| `LANGFUSE_SECRET_KEY` | `sk-lf-45d5afdb-...` (real key) | 🔴 **CRITICAL** |
-| `LANGFUSE_PUBLIC_KEY` | `pk-lf-dc6755bc-...` (real key) | 🟡 Medium |
-| `DATABASE_URL` | `postgresql+asyncpg://anthology:anthology@localhost:5432/anthology` | 🟢 Local only |
-
-> [!CAUTION]
-> **THREE production API keys are committed in plaintext.** The `.env` file is tracked in git. These keys should be immediately rotated.
-
-### `.env.example` — Incomplete
-
-Missing: `GROQ_API_KEY`, `USE_GROQ`, `GROQ_MODEL`, `COHERE_API_KEY`, `LANGFUSE_*` keys.
-
-### Dockerfile — BROKEN
-
-[Dockerfile:L14](file:///Users/riri/resume_projects/anthology/Dockerfile#L14): `COPY requirements-cloud.txt .` — This file **does not exist** in the repository. The Docker build will fail at this step.
-
-[Dockerfile:L19](file:///Users/riri/resume_projects/anthology/Dockerfile#L19): `RUN chmod +x start.sh` — `start.sh` **does not exist**. Build fails.
-
-### docker-compose.yml
-
-Uses `pgvector/pgvector:pg16` image — correct. Port mapping is `5432:5432`, but `.env` has port `5432` while [config.py](file:///Users/riri/resume_projects/anthology/api/core/config.py#L13) defaults to port `5433`. Mismatch.
-
----
-
-## Phase 10: Error Handling Audit
-
-### Critical
-
-| Finding | Location | Impact |
-|---|---|---|
-| **Startup swallows all exceptions** | [main.py:L21-22](file:///Users/riri/resume_projects/anthology/api/main.py#L21-L22) | App starts in unknown state |
-| **SQL injection via f-string** | [vector_service.py:L14](file:///Users/riri/resume_projects/anthology/api/services/vector_service.py#L14), [retriever.py:L42-53](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L42-L53) | `content_type` and `query_vec` interpolated into SQL |
-| **Unbounded memory growth** | [rag_service.py:L24](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L24) | `_sessions` dict never evicts |
-
-### High
-
-| Finding | Location | Impact |
-|---|---|---|
-| **Bare `except Exception` with silent `pass`** | [figure_captioner.py:L28](file:///Users/riri/resume_projects/anthology/src/ingestion/figure_captioner.py#L28) | Caption errors silently ignored |
-| **No request timeout for LLM calls** | [generator.py:L70-76](file:///Users/riri/resume_projects/anthology/src/generation/generator.py#L70-L76) | Groq client has `max_retries=0` but no timeout |
-| **Redis connection never closed on cache miss** | [rag_service.py:L57](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L57) | Connection leak if Redis is up but cache misses |
-| **Double commit** | [papers.py→get_db](file:///Users/riri/resume_projects/anthology/api/core/database.py#L36-L45) + [rag_service.py:L130](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L130) | `rag_service` commits, then `get_db` commits again |
-
-### Medium
-
-| Finding | Location | Impact |
-|---|---|---|
-| `datetime.utcnow()` deprecated | [tables.py:L26,L42,L54,L87](file:///Users/riri/resume_projects/anthology/api/models/tables.py#L26) | Should use `datetime.now(UTC)` |
-| No input size limit on upload | [papers.py:L14-15](file:///Users/riri/resume_projects/anthology/api/routers/papers.py#L14-L15) | Unbounded memory on large PDFs |
-| No retry on Cohere rerank | [retriever.py:L118](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L118) | Falls back silently on any error |
-| `hashlib.md5` for cache keys | [rag_service.py:L34](file:///Users/riri/resume_projects/anthology/api/services/rag_service.py#L34) | Not a security issue here, but md5 is deprecated |
-
-### Low
-
-| Finding | Location | Impact |
-|---|---|---|
-| `import re` duplicated | [hyde.py:L1,L13](file:///Users/riri/resume_projects/anthology/src/retrieval/hyde.py#L1) | Cosmetic |
-| No CORS origin for production domain | [config.py:L35](file:///Users/riri/resume_projects/anthology/api/core/config.py#L35) | Only `localhost:3000` and `localhost:8501` |
-
----
-
-## Phase 11: Production Readiness Scoring
-
-| Category | Score | Reasoning |
-|---|---|---|
-| **Architecture** | 6/10 | Clean separation between API, retrieval, generation, evaluation. But two incompatible frontends (Streamlit+FastAPI), dead code modules, and the upload pipeline is fundamentally broken. |
-| **Code Quality** | 5/10 | Readable, consistent style. But SQL injection vectors, dead code, duplicate imports, hardcoded values, and mixing sync/async patterns. |
-| **Reliability** | 3/10 | Three routes crash at runtime. Startup swallows errors. No retries on external calls. Unbounded memory growth in session dict. |
-| **Observability** | 4/10 | Langfuse tracing on the query path is good. But no structured logging anywhere — all output is `print()`. No error tracking (Sentry etc). |
-| **Security** | 1/10 | Three API keys committed in plaintext. SQL injection via f-string. No auth on any endpoint. No rate limiting. |
-| **Scalability** | 2/10 | pool_size=1. No vector index on pgvector. In-process memory (not shared across workers). Synchronous LLM calls block the event loop via run_in_executor. |
-| **Maintainability** | 5/10 | Good module structure. But significant dead code (5+ modules). Two incompatible retrieval paths (Streamlit vs API). No tests. |
-| **Deployment Readiness** | 2/10 | Dockerfile broken (missing files). No CI/CD. No Kubernetes manifests. CORS only allows localhost. |
-| **Testing** | 0/10 | Zero test files. No unit tests, integration tests, or e2e tests. |
-| **Documentation** | 4/10 | README is well-written but overclaims. No API documentation beyond Swagger auto-gen. No architecture decision records. |
-
-**Overall: 3.2/10**
-
----
-
-## Phase 12: Reality Check
-
-| Feature | README Claims | Code Exists | Runtime Reachable | Status |
+| Feature | Entry points | Storage | Status | Evidence |
 |---|---|---|---|---|
-| Research paper ingestion | ✅ | ✅ | ✅ (offline build_index.py) | **Working (offline)** |
-| Citation-grounded QA | ✅ | ✅ | ✅ | **Working** |
-| PostgreSQL FTS | ✅ | ✅ | ✅ | **Working** |
-| Reciprocal Rank Fusion | ✅ | ✅ | ✅ | **Working** |
-| Cross-encoder reranking | ✅ | ✅ (defined) | ❌ (never called) | **Dead code** |
-| Cohere reranking | ❌ (not in README) | ✅ | ✅ | **Working (undocumented)** |
-| HyDE query expansion | ✅ | ✅ | ✅ (requires Ollama) | **Working (Ollama only)** |
-| BM25 | ✅ | ❌ (not in API) | ❌ | **Not in runtime** |
-| FAISS dense retrieval | ✅ | ❌ (not in API) | ❌ | **Not in runtime** |
-| Hybrid retrieval | ✅ | ✅ (pgvector+FTS) | ✅ | **Working** |
-| Local LLM (Ollama) | ✅ | ✅ | ✅ (fallback) | **Working (local only)** |
-| API-based LLM (Groq) | ✅ | ✅ | ✅ | **Working** |
-| Conversation memory | ✅ | ✅ | ✅ | **Working (in-process)** |
-| Evaluation framework | ✅ | ✅ | ❌ (scripts only) | **Working offline** |
-| QASPER-style benchmarks | ✅ | ✅ | ❌ | **Working offline** |
-| Multimodal document understanding | ✅ ("In Progress") | ❌ | ❌ | **Empty directories** |
-| Figure analysis | ✅ | ✅ (ingestion) | ❌ (not in retrieval) | **Ingestion only** |
-| Table understanding | ✅ | ✅ (ingestion) | ❌ (not in retrieval) | **Ingestion only** |
-| Streaming responses | Implied | ✅ | ❌ | **Broken wiring** |
-| Paper upload | Implied | ✅ | ❌ | **Broken (async bug)** |
-| Deployed API | ✅ | ✅ | ❌ (Dockerfile broken) | **Cannot build Docker** |
-| Streamlit frontend | ✅ | ✅ | ❌ (imports missing function) | **Broken import** |
+| Health | `GET /health` | chunks table | Partial | `api/routers/health.py:13-25`; only checks indexed chunks and hardcodes `ollama=False`. |
+| Query | `POST /api/v1/query` | queries, chunks, Redis | Partial | `api/routers/query.py:12-18`, `api/services/rag_service.py:62-188`. |
+| Streaming query | `POST /api/v1/query/stream` | chunks only | Partial/Broken behavior | `api/routers/query.py:21-68`; no citations, no persistence, Groq-only. |
+| Paper list/detail | `GET /papers`, `GET /papers/{id}` | papers | Partial | `api/routers/papers.py:44-55`. |
+| PDF upload/ingest | `POST /papers/upload` | data/papers, chunks, papers | Risky | `api/routers/papers.py:14-41`, `api/services/ingest_service.py`. |
+| Vector/text search | `POST /vectors/search` | chunks | Partial | `api/routers/papers.py:64-91`; actually FTS, not vector. |
+| Semantic search | `POST /search` | chunks | Partial | `api/routers/search.py:9-41`. |
+| Recommendations | `POST /recommend` | indexes, ArXiv | Partial | depends on local index files and external ArXiv. |
+| Discovery | `POST /discover` | external APIs | Partial | ArXiv/S2 unauthenticated outbound calls. |
+| Flowchart | `POST /flowchart` | none | Experimental | local Ollama required. |
+| TTS | `POST /tts` | temp files | Platform-specific | macOS `say` command only. |
+| Feedback | `POST/GET /feedback` | feedback | Partial | double-commit risk. |
+| Benchmark report | `GET /benchmark*` | indexes JSON | Static/Partial | returns files if present. |
+| Legacy Streamlit UI | `streamlit run app.py` | API + local files | Legacy/High debt | `app.py` god file. |
 
----
+## Phase 6: Dead Code and Artifact Candidates
 
-## Phase 13: Final Findings
+| Item | Confidence | Evidence | Safe to delete? | Impact |
+|---|---:|---|---|---|
+| `multimodal/*` empty directories | VERIFIED | `find` reports empty `multimodal/ingestion`, `storage`, `retrieval`, `worker`. | Yes, if not planned. | Removes abandoned architecture signal. |
+| `__pycache__` checked/local artifacts | VERIFIED | Many `.pyc` files found outside `.venv`. | Yes. | Reduces noise. |
+| `frontend/src/pages/Stubs.tsx` duplicate upload page | LIKELY | Defines another `UploadPage`; `App.tsx` imports only `CollectionsPage`, `SettingsPage`. | Partial. | Keep stubs or split real pages. |
+| `api/dependencies.py` | LIKELY | Only defines unused settings dependency. | Yes after search. | Low. |
+| `api/services/vector_service.py` | LIKELY | No first-party import found except itself. | Maybe. | Could be future service for `/vectors/search`. |
+| `src/ingestion/utils.py` | LIKELY | No first-party imports found. | Maybe. | Utility functions can be revived. |
+| `src/evaluation/generation_metrics.py` | LIKELY | Not imported by scripts currently found. | No until evaluation scope decided. | Offline evaluation loss. |
+| `src/evaluation/retrieval_metrics.py` | Potentially reachable | Imported by `scripts/run_benchmark.py`. | No. | Benchmark breaks. |
+| `app.py` | Potentially reachable | Manual Streamlit entrypoint; not used by FastAPI/React. | No unless product drops Streamlit. | Removes legacy UI. |
+| `graphify-out/cache/*` | VERIFIED generated | Generated graph cache. | Yes, regenerate. | Low. |
+| `data/figures/*.png` | VERIFIED generated | Figure extraction outputs. | Maybe. | Needed for multimodal citations if image paths reference them. |
+| `indexes/*.npy`, `*.bin`, `*.pkl` | VERIFIED generated | Vector/BM25/metadata indexes. | No unless rebuild pipeline is reliable. | App/recommend/eval can break. |
+| `.venv/`, `frontend/node_modules/` | VERIFIED vendored local deps | Large local dirs; ignored by `.gitignore`. | Yes locally if reinstallable. | Frees ~1.5G. |
 
-### 1. Critical Bugs
+## Phase 7: Bug Analysis
 
-| # | Bug | Location | Impact |
-|---|---|---|---|
-| 1 | **API keys committed in plaintext** | [.env](file:///Users/riri/resume_projects/anthology/.env) | Security breach |
-| 2 | **Upload pipeline crashes** — nested `asyncio.run()` inside executor with cross-loop db session | [papers.py:L33-34](file:///Users/riri/resume_projects/anthology/api/routers/papers.py#L33-L34) | Upload unusable |
-| 3 | **SQL injection** — f-string SQL with unescaped `content_type` | [retriever.py:L42](file:///Users/riri/resume_projects/anthology/src/retrieval/retriever.py#L42), [vector_service.py:L14](file:///Users/riri/resume_projects/anthology/api/services/vector_service.py#L14) | Data breach |
-| 4 | **Streamlit app broken** — imports `detect_query_intent` which doesn't exist in `retriever.py` | [app.py:L20](file:///Users/riri/resume_projects/anthology/app.py#L20) | Streamlit won't start |
+### Critical / High
 
-### 2. Broken Routes
+1. **VERIFIED - Docker build is broken**
+   - Severity: Critical
+   - Evidence: `Dockerfile:14-15` copies/installs `requirements-cloud.txt`; `Dockerfile:19-23` chmods/runs `start.sh`; neither file exists.
+   - Repro: `docker compose up --build` will fail at copy or chmod.
+   - Fix: use `requirements.txt` or create `requirements-cloud.txt`, add `start.sh`, or change `CMD` to `uvicorn api.main:app --host 0.0.0.0 --port 8000`.
 
-| Route | Issue |
-|---|---|
-| `POST /api/v1/query/stream` | Calls async `retrieve()` synchronously without `db` |
-| `POST /api/v1/search` | Same issue |
-| `POST /api/v1/papers/upload` | Nested event loop crash |
-| `POST /api/v1/papers/sync` | `settings.chunks_path` undefined |
-| `POST /api/v1/tts` | macOS-only, fails on Linux |
+2. **VERIFIED - Frontend cannot build**
+   - Severity: Critical
+   - Evidence: `npm run build` failed with TS6133 unused imports in `Chat.tsx`, `PaperView.tsx`, `Search.tsx`, `Stubs.tsx`, `Upload.tsx`, and TS2352 at `frontend/src/pages/Home.tsx:121`.
+   - Repro: run `npm run build` in `frontend`.
+   - Fix: remove unused imports and replace `(stats as Record<string, number>)[s.key]` with a typed key approach.
 
-### 3. Dead Code
+3. **VERIFIED - Startup hides fatal dependency failures**
+   - Severity: High
+   - Evidence: `api/main.py:13-23` wraps `create_tables()` and model preload in broad `except` and continues.
+   - Repro: point `DATABASE_URL` at a dead DB; app may start and later fail requests.
+   - Fix: fail startup for required dependencies; split liveness and readiness.
 
-| Module | Lines | Purpose |
-|---|---|---|
-| `api/dependencies.py` | 9 | Dependency helpers — never imported |
-| `api/services/vector_service.py` | 51 | pgvector service — never imported |
-| `src/ingestion/utils.py` | 47 | Math preservation, quality filter — never imported |
-| `src/evaluation/retrieval_metrics.py` | 382 | Complete retrieval metrics library — never imported at runtime |
-| `src/evaluation/generation_metrics.py` | 378 | Complete generation metrics library — never imported at runtime |
-| `src/retrieval/retriever._get_cross_encoder()` | ~6 | Cross-encoder model — never called |
-| `multimodal/` | 0 | 6 empty directories |
+4. **VERIFIED - Alembic migrations do not create the embedding column before altering it**
+   - Severity: High
+   - Evidence: `alembic/versions/5890fefb391a...py:29-47` creates `chunks` but omits `embedding`; `specter2_migration.py:15` alters `chunks.embedding`.
+   - Repro: run Alembic from empty DB instead of `create_tables`; `ALTER COLUMN embedding` can fail.
+   - Fix: add `sa.Column('embedding', Vector(1024 or 768))` in the original migration or create an explicit add-column migration.
 
-**Total dead code: ~873 lines + 6 empty directories**
+5. **VERIFIED - Runtime schema and migration schema drift**
+   - Severity: High
+   - Evidence: ORM `Chunk.chunk_id` is `String(32)` in `api/models/tables.py`, migration uses `String(20)` at `alembic/versions/5890...py:31`; ORM `Paper` has `figure_count`/`table_count`, migration lacks them; migration has `updated_at`, ORM lacks it.
+   - Fix: make Alembic the source of truth, generate a reconciliation migration, stop relying on `create_all` in production.
 
-### 4. Missing Implementations
+6. **VERIFIED - Upload allows path traversal / arbitrary filename write under project-relative path**
+   - Severity: High
+   - Evidence: `api/routers/papers.py:22` checks only suffix; `api/routers/papers.py:28` uses `Path("data/papers") / file.filename`.
+   - Repro: multipart filename like `../x.pdf` or path separators can escape intended naming rules depending server normalization.
+   - Fix: use `Path(file.filename).name`, generate server-side UUID names, validate MIME/signature, store original name separately.
 
-- No authentication / authorization
-- No rate limiting
-- No request validation (file size, content-type verification)
-- No health check for external dependencies (Groq, Cohere, Redis)
-- No structured logging (all `print()`)
-- No test suite
-- No CI/CD pipeline
-- No pgvector HNSW index
-- Missing `requirements-cloud.txt` and `start.sh` for Docker build
-- No CORS config for production domain
+7. **VERIFIED - No authentication or authorization**
+   - Severity: High
+   - Evidence: routers use `Depends(get_db)` but no user/auth dependency; all APIs are registered in `api/main.py:45-55`.
+   - Impact: anyone with network access can upload files, query private papers, view benchmark/status, and submit feedback.
+   - Fix: add auth middleware/dependencies and authorization checks by corpus/user.
 
-### 5. Refactoring Priorities
+8. **LIKELY - `paper_id` filtering is semantically wrong**
+   - Severity: High
+   - Evidence: `QueryRequest.paper_id` is optional; retriever filters `source = :pid` in `src/retrieval/retriever.py:55-57` and `91-93`, while paper IDs are UUIDs and chunk `source` is filename.
+   - Repro: PaperView sends UUID as `paper_id`; retrieval returns no chunks.
+   - Fix: add `paper_id` FK to chunks and filter on it, or pass filename/source from frontend.
 
-1. **Fix the three broken routes** (search, stream, upload)
-2. **Parameterize all raw SQL** — eliminate f-string SQL injection
-3. **Add `chunks_path` to Settings** or fix `paper_service.sync_registry_to_db`
-4. **Remove dead code** — dependencies.py, vector_service.py, utils.py, cross-encoder
-5. **Unify embedding model** — Streamlit uses bge-small, API uses SPECTER2
-6. **Add pgvector HNSW index** for scalable similarity search
-7. **Increase connection pool** from 1 to at least 5
-8. **Add session eviction** to `_sessions` dict to prevent memory leak
+9. **VERIFIED - Streaming query bypasses citations, cache, query persistence, memory, Langfuse, fallback**
+   - Severity: Medium/High
+   - Evidence: `api/routers/query.py:31-58` implements its own retrieve/Groq stream.
+   - Impact: streamed chat lacks DB records and citations; Groq errors are emitted as normal SSE data.
+   - Fix: move streaming into `RAGService` and share retrieval/memory/persistence.
 
-### 6. Technical Debt Summary
+10. **VERIFIED - Double transaction ownership**
+    - Severity: Medium
+    - Evidence: `get_db` commits at `api/core/database.py:39`; feedback commits at `api/routers/feedback.py:38`; ingest commits at `api/services/ingest_service.py:105`; paper sync commits at `api/services/paper_service.py:63`.
+    - Fix: one owner. Prefer dependency-managed commit for request scope; services flush only.
 
-| Category | Items |
-|---|---|
-| **Security** | API keys in git, SQL injection, no auth, no rate limiting |
-| **Reliability** | Swallowed startup errors, broken routes, no retries |
-| **Architecture** | Two incompatible frontends, dead code, dual schema management |
-| **Operations** | No tests, no CI, broken Dockerfile, no monitoring |
-| **Data integrity** | No FK from chunks→papers, no vector index, dimension mismatch in stats |
+### Medium / Low
 
-### 7. Fastest Path to Production Stability
+- **VERIFIED**: Redis connection is opened and closed per query in `api/services/rag_service.py:51-58`, adding overhead. Use app-level pool/client.
+- **VERIFIED**: Cache key ignores `paper_id`, `session_id`, `use_hyde`, and `retrieval_mode` in `api/services/rag_service.py:46-49`, which can serve wrong answers across scopes.
+- **VERIFIED**: Health reports `ollama=False` unconditionally in `api/routers/health.py:21-25`, so the field is not a real dependency check.
+- **VERIFIED**: `frontend/src/api/client.ts:65-68` defines an EventSource GET for a POST-only streaming route; currently unused but misleading.
+- **VERIFIED**: `frontend/src/api/client.ts:27-39` expects `upload_date`, while backend `PaperOut` exposes `created_at` in `api/schemas/schemas.py:40-52`.
+- **VERIFIED**: `api/routers/papers.py:64-91` endpoint is named `/vectors/search` but performs FTS only.
 
----
+## Phase 8: Security Audit
 
-### What works today
-- `POST /api/v1/query` — Full RAG pipeline: embed → pgvector + FTS → RRF → Cohere rerank → Groq generation → Langfuse trace → DB persist → Redis cache
-- `GET /api/v1/papers` — List papers from DB
-- `GET /api/v1/papers/{id}` — Get single paper
-- `POST /api/v1/feedback` — Submit feedback
-- `GET /api/v1/feedback/{id}` — Get feedback
-- `GET /api/v1/stats` — System statistics (wrong embedding_dim)
-- `GET /health` — Health check
-- `GET /api/v1/benchmark` — Read benchmark JSON
-- `POST /api/v1/recommend` — Recommendations (if index files exist)
-- Offline pipeline: `scripts/build_index.py` → parse → chunk → embed → sync to pgvector
+Security findings:
 
-### What appears to work but actually doesn't
-- **Upload pipeline** — File saves, then crashes on async event loop misuse
-- **Streaming query** — Route exists but crashes because `retrieve()` is async and needs `db`
-- **Search endpoint** — Same async/sync mismatch
-- **Paper sync** — Crashes on `settings.chunks_path` AttributeError
-- **TTS endpoint** — Returns 500 on any non-macOS system
-- **Cross-encoder reranking** — Function defined but never called; Cohere is used instead
-- **Streamlit app** — Won't start due to missing `detect_query_intent` import
-- **Docker deployment** — Build fails on missing files
+| Severity | Confidence | Finding | Evidence | Fix |
+|---|---|---|---|---|
+| Critical | VERIFIED | Local `.env` contains secret variable names and likely live values. | `.env` keys include `GROQ_API_KEY`, `COHERE_API_KEY`, `LANGFUSE_SECRET_KEY`. Values intentionally not reproduced. | Rotate keys if this workspace was shared; keep `.env` untracked; use secret manager. |
+| High | VERIFIED | No auth/authorization on API. | All routers registered publicly in `api/main.py:45-55`; no auth dependencies. | Add authentication and corpus ownership. |
+| High | VERIFIED | Upload filename/path traversal and untrusted PDF processing. | `api/routers/papers.py:22-33`. | Sanitize/generate filenames, content-type sniffing, AV/sandbox parsing, size and page count limits. |
+| High | VERIFIED | CORS allows credentials. | `api/main.py:36-42` has `allow_credentials=True`. | Disable credentials unless cookie auth is implemented; restrict prod origins. |
+| Medium | VERIFIED | Sensitive provider errors can be returned to users. | `api/routers/query.py:56-57`, `src/generation/generator.py:225-227`. | Log internal errors, return generic message with correlation ID. |
+| Medium | VERIFIED | Benchmark/static report endpoints may expose internal eval data. | `api/routers/benchmark.py`. | Gate behind auth or disable in prod. |
+| Medium | VERIFIED | External API calls use user-controlled query. | `src/discovery/*.py`. | Add rate limits, request budgets, allowlist destinations, abuse prevention. |
+| Medium | VERIFIED | Prompt injection / data exfiltration risk in RAG. | Raw chunks inserted into prompt in `src/generation/generator.py:183-193`. | Add prompt-injection mitigations, source isolation, citations validation. |
+| Medium | LIKELY | Dependency surface is very large. | `requirements.txt` includes cloud, notebook, test, Streamlit, FastAPI, LLM, vector, and heavy ML packages. | Split prod/dev/eval requirements; run `pip-audit`/Dependabot. |
+| Low | VERIFIED | `window.open` without `rel` in Library. | `frontend/src/pages/Library.tsx:100`. | Use `noopener,noreferrer`. |
 
-### What is completely missing
-- Authentication and authorization
-- Test suite (unit, integration, e2e)
-- CI/CD pipeline
-- Structured logging
-- Error monitoring (Sentry, etc.)
-- pgvector index (HNSW/IVFFlat)
-- Multimodal retrieval (empty directories)
-- Production Dockerfile
-- CORS for production domain
-- Request rate limiting
-- File upload size limits
+Secret rotation checklist:
 
-### What I would fix first if given one week
+- Rotate Groq, Cohere, Langfuse keys.
+- Revoke any keys exposed in screenshots, attachments, local logs, or chat transcripts.
+- Replace local `.env` with new values after rotation.
+- Confirm `.env` is untracked with `git ls-files .env`.
+- Add production secrets through platform secret manager.
 
-**Day 1-2: Stop the bleeding**
-1. Rotate all API keys, remove `.env` from git, add to `.gitignore`
-2. Fix SQL injection — parameterize all raw SQL queries
-3. Fix upload route — remove nested `asyncio.run()`, call `ingest_single_paper` directly as `await`
-4. Fix search/stream routes — pass `db` session, properly `await` async retriever
-5. Add `chunks_path` to Settings class
+Safe `.gitignore` additions:
 
-**Day 3-4: Stabilize**
-6. Fix `stats_service` embedding_dim to 768
-7. Add pgvector HNSW index
-8. Increase pool_size to 5
-9. Add session eviction with max size to `_sessions`
-10. Delete dead code (dependencies.py, vector_service.py, etc.)
-11. Fix CORS to include production domain
+- `*.tsbuildinfo`
+- `frontend/dist/`
+- `data/uploads/`
+- `data/figures/`
+- `*.pdf`
+- `*.pkl`
+- `*.npy`
+- `*.bin`
+- `*.pyc` and `__pycache__/` are already intended but local artifacts remain.
 
-**Day 5: Operations**
-12. Create working Dockerfile and start.sh
-13. Add basic pytest suite (health, query, feedback endpoints)
-14. Add structured logging (replace all `print()` with `logging`)
-15. Don't swallow startup exceptions — fail fast
+Production security checklist:
+
+- AuthN/AuthZ, rate limits, request body limits, upload sandboxing.
+- HTTPS-only, strict CORS, no credentials unless needed.
+- Structured logs without secrets.
+- Dependency scanning for Python and npm.
+- Secret manager and key rotation procedure.
+- RAG prompt-injection and data-boundary tests.
+
+## Phase 9: Environment Audit
+
+| Variable | Used | Required | Secret | Description |
+|---|---|---|---|---|
+| `DATABASE_URL` | Yes | Yes | Yes-ish | Postgres URL; contains credentials. |
+| `REDIS_URL` | Yes | No | Sometimes | Optional cache URL. |
+| `DEBUG` | Yes | No | No | Controls SQL echo. |
+| `PYTHONPATH` | Yes | Dev/deploy | No | Import path. |
+| `GROQ_API_KEY` | Yes | If `USE_GROQ=true` or streaming | Yes | Groq API key. |
+| `USE_GROQ` | Yes | No | No | Switch Groq vs Ollama. |
+| `GROQ_MODEL` | Yes | No | No | Text model name. |
+| `COHERE_API_KEY` | Yes | No | Yes | Optional reranker key. |
+| `LANGFUSE_PUBLIC_KEY` | Yes | No | No | Observability public key. |
+| `LANGFUSE_SECRET_KEY` | Yes | No | Yes | Observability secret. |
+| `LANGFUSE_HOST` | Yes | No | No | Langfuse host. |
+| `OLLAMA_URL` | Partially | No | No | Used by ingestion helpers, not generator. |
+| `TOKENIZERS_PARALLELISM` | Yes-ish | No | No | Tokenizer warning control. |
+| `HF_HUB_DISABLE_SYMLINKS_WARNING` | Example only | No | No | HF warning control. |
+
+`.env.example` is incomplete. A better template:
+
+```env
+DATABASE_URL=postgresql+asyncpg://anthology:anthology@localhost:5432/anthology
+REDIS_URL=redis://localhost:6379
+DEBUG=false
+PYTHONPATH=.
+
+USE_GROQ=false
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.1-8b-instant
+
+COHERE_API_KEY=
+
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://us.cloud.langfuse.com
+
+OLLAMA_URL=http://localhost:11434
+TOKENIZERS_PARALLELISM=false
+HF_HUB_DISABLE_SYMLINKS_WARNING=1
+```
+
+## Phase 10: API Analysis
+
+| Method | Path | Auth | Request | Response | Status |
+|---|---|---|---|---|---|
+| GET | `/` | None | none | dict | OK |
+| GET | `/health` | None | none | `HealthResponse` | Partial |
+| POST | `/api/v1/query` | None | `QueryRequest` | `QueryResponse` | Partial |
+| POST | `/api/v1/query/stream` | None | `QueryRequest` | SSE | Partial |
+| GET | `/api/v1/papers` | None | none | `PaperListResponse` | OK |
+| GET | `/api/v1/papers/{paper_id}` | None | UUID | `PaperOut` | OK |
+| POST | `/api/v1/papers/upload` | None | multipart PDF | dict | Risky |
+| POST | `/api/v1/papers/sync` | None | none | dict | Risky |
+| POST | `/api/v1/vectors/search` | None | query params | dict | Misnamed |
+| POST | `/api/v1/search` | None | `SearchRequest` | `SearchResponse` | Partial |
+| POST | `/api/v1/recommend` | None | `RecommendRequest` | `RecommendResponse` | Partial |
+| POST | `/api/v1/tts` | None | `TTSRequest` | WAV | Platform-specific |
+| POST | `/api/v1/flowchart` | None | `FlowchartRequest` | `FlowchartResponse` | Experimental |
+| GET | `/api/v1/benchmark` | None | none | JSON file | Static |
+| GET | `/api/v1/benchmark/report` | None | none | JSON file | Static |
+| POST | `/api/v1/feedback` | None | `FeedbackRequest` | `FeedbackResponse` | Partial |
+| GET | `/api/v1/feedback/{query_id}` | None | path string | dict | Type mismatch risk |
+| GET | `/api/v1/stats` | None | none | `StatsResponse` | OK |
+| POST | `/api/v1/discover` | None | `DiscoveryRequest` | dict | Partial |
+
+Undocumented/broken/misaligned:
+
+- `/api/v1/vectors/search` is FTS, not vector.
+- Streaming endpoint sends no structured error event and no citations.
+- All endpoints are unauthenticated.
+- Frontend build failure prevents reliable API consumption.
+
+## Phase 11: Database Review
+
+Schema:
+
+- `papers`: paper metadata, unique filename/arxiv.
+- `chunks`: chunk metadata, text, multimodal fields, vector embedding.
+- `queries`: persisted Q/A.
+- `feedback`: rating/comment per query.
+
+Issues:
+
+- **VERIFIED**: Migration drift, as described above.
+- **VERIFIED**: Runtime `create_all` in `api/core/database.py:47-49` can mask missing migrations.
+- **VERIFIED**: No explicit index for FTS expression despite repeated `to_tsvector('english', text)` queries.
+- **LIKELY**: Missing `paper_id` relationship on chunks forces filename/source coupling and breaks UUID filtering.
+- **LIKELY**: No cascade behavior on feedback/query deletion.
+- **LIKELY**: JSON citations are untyped; long-term analytics will be harder.
+
+Recommended fixes:
+
+1. Stop `create_all` in production; run Alembic migrations.
+2. Reconcile migrations with ORM models.
+3. Add `chunks.paper_id` FK and backfill.
+4. Add GIN index on `to_tsvector('english', text)`.
+5. Add HNSW/IVFFlat pgvector index in migrations, not ad hoc scripts.
+
+## Phase 12: Frontend Review
+
+Architecture:
+
+- React 19, Vite, TypeScript, TanStack Query, Zustand.
+- Routes in `frontend/src/App.tsx`.
+- API wrapper in `frontend/src/api/client.ts`.
+- Heavy inline styles and shared CSS variables.
+
+Findings:
+
+- **VERIFIED**: Build fails under `tsconfig.app.json:19-20` strict unused checks and type check at `Home.tsx:121`.
+- **VERIFIED**: Streaming client ignores HTTP non-OK and assumes `res.body!` at `frontend/src/api/client.ts:77-83`.
+- **VERIFIED**: UI hardcodes "122 papers indexed" in `frontend/src/pages/Chat.tsx:169` and `:428`.
+- **VERIFIED**: API `Paper` type expects `upload_date`, backend returns `created_at`.
+- **LIKELY**: Search input on home does not pass the typed query to `/search`; it only navigates.
+- **LIKELY**: Accessibility gaps from many custom buttons without labels/tooltips and inline focus handling.
+
+## Phase 13: Backend Review
+
+Backend strengths:
+
+- Clear FastAPI router separation.
+- Pydantic validation for main inputs.
+- SQL queries use bound parameters in current retrieval/search paths.
+- Recent fixes improved DB pool and search route behavior.
+
+Backend risks:
+
+- No auth/rate limiting.
+- Broad exception swallowing.
+- Request-time long tasks for upload and generation.
+- Mixed ORM and raw SQL.
+- Inconsistent transaction ownership.
+- Env access split between settings and direct `os.getenv`.
+- Global mutable state for sessions/models.
+
+## Phase 14: Performance Review
+
+Main bottlenecks:
+
+- **VERIFIED**: SPECTER2 model loads at startup in `api/main.py:18-19`; expensive cold start and memory footprint.
+- **VERIFIED**: Embedding query runs in executor per request in `src/retrieval/retriever.py:199-205`.
+- **VERIFIED**: Full-text search computes `to_tsvector` at query time in `src/retrieval/retriever.py:83-109` and `api/routers/papers.py:71-79`.
+- **VERIFIED**: Redis client/ping per query in `api/services/rag_service.py:51-58`.
+- **VERIFIED**: Upload reads whole file into memory at `api/routers/papers.py:31`.
+- **LIKELY**: Large index/data files in repo increase clone/build/deploy time.
+
+Optimizations:
+
+- App-level Redis pool.
+- Streaming file writes.
+- Background ingestion queue.
+- Generated FTS column or expression GIN index.
+- Model warmup/readiness separate from liveness.
+- Cache key includes scope and retrieval mode.
+
+## Phase 15: Cost Analysis
+
+Cost drivers:
+
+- Groq generation and vision model calls.
+- Cohere rerank per query.
+- Langfuse traces.
+- CPU/RAM for SPECTER2 and optional CrossEncoder.
+- Storage for PDFs, figures, embeddings, generated metadata.
+- Postgres vector index/storage.
+
+Waste:
+
+- `requirements.txt` pulls cloud/notebook/test/Streamlit dependencies into likely API image.
+- Vendored local `.venv` and `node_modules` occupy ~1.5G locally.
+- Streaming and non-streaming query duplicate paths and may duplicate provider calls during debugging.
+
+Savings:
+
+- Split prod/dev/eval requirements.
+- Cache embeddings and rerank results carefully by scoped key.
+- Make Cohere optional per route/user tier.
+- Move artifacts to object storage or ignored local cache.
+
+## Phase 16: AI/LLM Audit
+
+RAG implementation:
+
+- Embeddings: SPECTER2 (`allenai/specter2_base`) with 768-dim vectors.
+- Retrieval: pgvector search + PostgreSQL FTS + RRF.
+- Reranking: optional Cohere.
+- Generation: Groq or Ollama.
+- Context: max 4000 chars in `src/generation/generator.py:126-141`.
+- Memory: in-process per-session `ConversationMemory`.
+
+Risks:
+
+- **VERIFIED**: Prompt claims "Cover EVERY source" but context truncation can silently omit chunks.
+- **VERIFIED**: `_is_grounded` is a lexical overlap heuristic in `src/generation/generator.py:171-180`, not factual grounding.
+- **VERIFIED**: Streaming endpoint does not use same fallback/provider routing as `generate_answer`.
+- **LIKELY**: Prompt injection in papers can affect answers.
+- **LIKELY**: Token/cost tracking is incomplete for Groq (`tokens_used = 0`).
+
+Recommendations:
+
+- Centralize prompt templates and version them.
+- Add source-span citation validation.
+- Add eval set for hallucination/refusal/insufficient-context.
+- Track provider token usage.
+- Add RAGAS or similar evaluation as CI/nightly, not request path.
+
+## Phase 17: Testing Review
+
+Current evidence:
+
+- No `tests/` directory was found in first-party file listing.
+- `pytest -q` could not run because `pytest` is not on PATH in the active environment, despite being listed in `requirements.txt`.
+- Frontend build fails.
+
+Missing tests:
+
+- API route tests with test DB.
+- Retrieval unit tests and integration tests with seeded chunks.
+- Upload security tests for filename/path traversal and malformed PDFs.
+- Migration test from empty DB.
+- Frontend build/type check in CI.
+- RAG golden-answer tests.
+- Auth tests after auth is added.
+
+## Phase 18: CI/CD and Deployment Review
+
+Findings:
+
+- **VERIFIED**: No `.github/workflows` found in file inventory.
+- **VERIFIED**: Dockerfile is broken.
+- **VERIFIED**: Compose depends on API build, so compose is broken until Dockerfile is fixed.
+- **VERIFIED**: No Kubernetes/Terraform found.
+- **VERIFIED**: No production start command exists because `start.sh` is missing.
+
+Ideal deployment:
+
+- Backend image built from slim prod requirements.
+- Managed Postgres with pgvector.
+- Managed Redis.
+- Object storage for PDFs/figures.
+- Background worker for ingestion.
+- CI: Python lint/type/test, Alembic migration test, frontend lint/build, dependency scan, Docker build.
+
+## Phase 19: Production Readiness Review
+
+What breaks first:
+
+- Docker build fails immediately.
+- If bypassed, frontend build fails.
+- If run locally, startup can hide DB/model failures.
+- Under load, upload/query latency and memory pressure rise.
+- During restart, in-memory sessions vanish.
+- During third-party outages, Groq/Cohere/Langfuse failures degrade inconsistently.
+
+Failure scenarios:
+
+| Scenario | Impact | Likelihood | Fix |
+|---|---|---:|---|
+| Fresh Docker deploy | No API image | High | Fix Dockerfile/start command. |
+| Frontend CI build | No deployable frontend | High | Fix TS errors. |
+| DB migration from empty DB | Migration failure/drift | High | Reconcile Alembic. |
+| User uploads malicious filename | File write outside intended path | Medium/High | Sanitize/generate filenames. |
+| Groq key missing and no Ollama | Query generation fails | High in cloud | Make provider config explicit and readiness-checked. |
+| Redis down | Cache disabled silently | Medium | Log and expose degraded dependency state. |
+| Large PDF upload | Memory spike/request timeout | Medium | Stream upload and async ingestion. |
+
+## Phase 20: Code Quality Review
+
+| Priority | Refactor | Effort | Impact |
+|---|---|---:|---|
+| P0 | Fix Dockerfile/start command | 1 hour | Enables deploy. |
+| P0 | Fix frontend TS build | 1-2 hours | Enables frontend CI/deploy. |
+| P0 | Reconcile migrations | 1 day | Prevents DB bootstrap failure. |
+| P0 | Secure upload filenames | 1-2 hours | Closes high security risk. |
+| P1 | Add auth/rate limits | 2-5 days | Makes API safe to expose. |
+| P1 | Move streaming into `RAGService` | 1-2 days | Removes behavior drift. |
+| P1 | Background ingestion worker | 3-5 days | Improves reliability. |
+| P1 | Split prod/dev/eval dependencies | 1 day | Smaller images and less risk. |
+| P2 | Replace `app.py` or clearly mark legacy | 2-5 days | Reduces confusion. |
+| P2 | Add typed repositories/services | 1-2 weeks | Cleaner boundaries. |
+
+## Phase 21: Improvement Roadmap
+
+Phase 1: safe improvements, 1-2 days
+
+- Fix Dockerfile and add `start.sh` or direct `uvicorn` command.
+- Fix frontend build errors.
+- Update `.env.example`.
+- Sanitize upload filenames.
+- Add basic Makefile/task docs for backend/frontend.
+- Add health/readiness distinction.
+
+Phase 2: medium-risk improvements, 1-2 weeks
+
+- Reconcile Alembic migrations and remove prod `create_all`.
+- Add CI pipeline.
+- Add auth/rate limiting.
+- Add tests for query/search/upload/migrations.
+- Centralize settings instead of scattered `os.getenv`.
+- Fix streaming/non-streaming parity.
+
+Phase 3: major refactors, 1-2 months
+
+- Add ingestion worker/queue.
+- Add object storage abstraction.
+- Add `papers`/`chunks` FK and repository layer.
+- Version prompts and model configs.
+- Decompose legacy Streamlit or remove it.
+
+Phase 4: architecture modernization
+
+- Multi-tenant corpus model with authorization.
+- Observability: traces, metrics, structured logs.
+- Evaluation pipeline as scheduled job.
+- Artifact registry for indexes.
+- Production RAG guardrails and cost controls.
+
+## Phase 22: Documentation Generation Plan
+
+The repository should have these docs generated or rewritten:
+
+- `README.md`: quickstart, architecture overview, dev commands, env setup, known limitations.
+- `docs/architecture.md`: diagrams from this audit, request/data flows, service boundaries.
+- `docs/api.md`: endpoint table, schemas, auth, examples.
+- `docs/security.md`: threat model, upload handling, secrets, auth, RAG risks.
+- `docs/deployment.md`: Docker/Compose/cloud deploy, migrations, readiness, rollback.
+- `docs/developer-onboarding.md`: read order, local setup, test strategy.
+- `docs/troubleshooting.md`: DB, pgvector, model, Groq/Ollama, Redis failures.
+- `docs/decision-log.md`: why pgvector, why SPECTER2, why Groq/Ollama, future worker.
+
+Immediate doc warning to add: "This app is not safe to expose publicly until auth, upload hardening, and deployment fixes are complete."
+
+## Phase 23: Knowledge Transfer Report
+
+Most confusing things for a new team:
+
+1. FastAPI/React is active, but `app.py` is a huge legacy Streamlit app.
+2. Migrations and ORM disagree.
+3. Some indexes are source of truth for features, others are generated outputs.
+4. Streaming and non-streaming query behave differently.
+5. `paper_id` appears to be a UUID but retrieval filters by filename/source.
+6. Local Ollama is assumed by many helpers.
+7. `.env.example` omits important variables.
+8. Docker does not match repo files.
+
+10 most important files:
+
+1. `api/main.py`
+2. `api/core/config.py`
+3. `api/core/database.py`
+4. `api/models/tables.py`
+5. `api/services/rag_service.py`
+6. `src/retrieval/retriever.py`
+7. `src/generation/generator.py`
+8. `api/services/ingest_service.py`
+9. `frontend/src/api/client.ts`
+10. `Dockerfile`
+
+10 most dangerous files to modify:
+
+1. `api/models/tables.py`
+2. `alembic/versions/*.py`
+3. `src/retrieval/retriever.py`
+4. `src/retrieval/embedder.py`
+5. `src/generation/generator.py`
+6. `api/core/database.py`
+7. `scripts/build_index.py`
+8. `indexes/chunks_metadata.json`
+9. `data/download_registry.json`
+10. `.env`
+
+Read first:
+
+1. `README.md`
+2. `api/main.py`
+3. `api/routers/query.py`
+4. `api/services/rag_service.py`
+5. `src/retrieval/retriever.py`
+6. `src/generation/generator.py`
+7. `api/models/tables.py`
+8. `alembic/versions/*.py`
+9. `frontend/src/api/client.ts`
+10. `Dockerfile`
+
+## Phase 24: Final Verdict
+
+1. This system is a local/hosted academic-paper RAG assistant.
+2. The actual architecture is FastAPI + React plus legacy Streamlit, Postgres/pgvector, Redis optional cache, local/generated artifacts, and mixed cloud/local LLM calls.
+3. The architecture is plausible for a prototype but not disciplined enough for production yet.
+4. Dead code candidates include empty `multimodal/*`, pycache artifacts, generated graph caches, unused dependencies/service modules, and legacy Streamlit if React is the product.
+5. Unfinished areas: auth, deployment, migrations, upload security, CI/tests, docs, background jobs.
+6. Biggest bugs: Docker build failure, frontend build failure, migration drift, wrong `paper_id` filter, streaming/non-streaming drift.
+7. Biggest security risks: no auth, unsafe upload filename handling, local secrets, broad exposed APIs, RAG prompt injection.
+8. This cannot go to production today.
+9. Fix first: Dockerfile, frontend build, migrations, upload sanitization, auth/rate limits.
+10. First 30 days: stabilize deploy/test/migration/auth, then refactor RAG/ingestion boundaries, then add observability/evaluation/cost controls.
+
+## Scores
+
+| Area | Score |
+|---|---:|
+| Architecture | 55 |
+| Code Quality | 52 |
+| Security | 25 |
+| Performance | 45 |
+| Maintainability | 48 |
+| Testing | 10 |
+| Documentation | 45 |
+| Scalability | 35 |
+| Production Readiness | 20 |
+
+## Top Lists
+
+Top 20 issues:
+
+1. Dockerfile references missing `requirements-cloud.txt`.
+2. Dockerfile references missing `start.sh`.
+3. Frontend build fails.
+4. No API auth.
+5. Unsafe upload filename handling.
+6. Alembic migrations omit/alter missing embedding column.
+7. ORM/migration schema drift.
+8. Startup swallows fatal failures.
+9. Streaming query bypasses service behavior.
+10. Wrong/likely wrong paper ID filtering.
+11. Double commit ownership.
+12. Incomplete `.env.example`.
+13. No CI pipeline.
+14. No tests found/runnable.
+15. No background ingestion worker.
+16. Local Ollama assumptions in cloud.
+17. FTS without evident expression index.
+18. Huge local artifacts in workspace.
+19. Legacy god-file Streamlit app.
+20. Cache key ignores scope.
+
+Top 20 bugs:
+
+1. Docker build failure.
+2. Frontend TS2352 at `Home.tsx:121`.
+3. Unused imports causing TS6133 build failures.
+4. Migration `specter2_768` alters absent embedding column.
+5. `paper_id` UUID filtered against `chunks.source`.
+6. Streaming endpoint no citations/persistence.
+7. EventSource helper uses GET against POST route.
+8. Upload reads entire file into memory.
+9. Upload extension check is case-sensitive and path-unsafe.
+10. Health `ollama` is always false.
+11. Cache key omits paper/session/retrieval mode.
+12. Query cache can return answer from different scope.
+13. Services commit inside dependency-managed session.
+14. Groq token usage recorded as 0.
+15. Frontend `Paper` type mismatches backend `created_at`.
+16. `/vectors/search` is not vector search.
+17. Docker Compose API cannot build.
+18. `create_all` can mask migration drift.
+19. Benchmark endpoints assume local files.
+20. Prompt grounding is lexical only.
+
+Top 20 security risks:
+
+1. No authentication.
+2. No authorization.
+3. Unsafe upload paths.
+4. Untrusted PDF parsing in request path.
+5. Local `.env` contains sensitive keys.
+6. No rate limits.
+7. CORS credentials enabled.
+8. Public benchmark/internal endpoints.
+9. Provider errors returned to clients.
+10. RAG prompt injection.
+11. No secret manager.
+12. No dependency scanning.
+13. Large attack surface in prod dependencies.
+14. Discovery endpoints can be abused for outbound traffic.
+15. No audit logs.
+16. No content moderation/abuse controls.
+17. No request size middleware beyond upload file size.
+18. No per-user corpus boundaries.
+19. No CSRF model documented if credentials later used.
+20. Potential reverse-tabnabbing in Library `window.open`.
+
+Top 20 improvements:
+
+1. Fix Dockerfile.
+2. Fix frontend build.
+3. Add CI.
+4. Reconcile migrations.
+5. Add auth.
+6. Sanitize uploads.
+7. Add rate limits.
+8. Add background ingestion.
+9. Split dependencies.
+10. Centralize settings.
+11. Fix `paper_id` data model.
+12. Unify query/streaming service.
+13. Add tests.
+14. Add readiness checks.
+15. Add structured logging.
+16. Add FTS/vector indexes in migrations.
+17. Improve cache key.
+18. Add prompt/version management.
+19. Document architecture/API/deploy/security.
+20. Remove/mark legacy and generated artifacts.
+
+Top 20 files needing attention:
+
+1. `Dockerfile`
+2. `frontend/src/pages/Home.tsx`
+3. `frontend/src/pages/Chat.tsx`
+4. `api/main.py`
+5. `api/routers/papers.py`
+6. `api/routers/query.py`
+7. `api/services/rag_service.py`
+8. `src/retrieval/retriever.py`
+9. `src/generation/generator.py`
+10. `api/core/database.py`
+11. `api/models/tables.py`
+12. `alembic/versions/5890fefb391a_add_chunks_table_with_pgvector.py`
+13. `alembic/versions/specter2_migration.py`
+14. `.env.example`
+15. `requirements.txt`
+16. `frontend/src/api/client.ts`
+17. `api/services/ingest_service.py`
+18. `api/services/paper_service.py`
+19. `scripts/build_index.py`
+20. `app.py`
+
+Top 20 dead code candidates:
+
+1. `multimodal/ingestion`
+2. `multimodal/storage`
+3. `multimodal/retrieval`
+4. `multimodal/worker`
+5. `data/tables`
+6. `__pycache__/`
+7. `api/**/__pycache__/`
+8. `src/**/__pycache__/`
+9. `graphify-out/cache/`
+10. `api/dependencies.py`
+11. `api/services/vector_service.py`
+12. `src/ingestion/utils.py`
+13. duplicate upload code in `frontend/src/pages/Stubs.tsx`
+14. unused `streamQuery` EventSource helper
+15. local `.venv/`
+16. local `frontend/node_modules/`
+17. generated `indexes/*` if rebuildable
+18. generated `data/figures/*` if rebuildable
+19. legacy `app.py` if React is canonical
+20. stale `anthology_audit.md` content replaced by this report
+
+Top 20 highest-risk areas:
+
+1. Public unauthenticated API.
+2. File upload and PDF parsing.
+3. Database migrations.
+4. Docker deployment.
+5. Frontend build.
+6. Query retrieval correctness.
+7. Streaming query divergence.
+8. Secret handling.
+9. LLM provider outage behavior.
+10. Local model memory/cold start.
+11. Postgres vector/FTS performance.
+12. Artifact/data management.
+13. Legacy Streamlit app.
+14. No CI/tests.
+15. Prompt injection.
+16. Transaction ownership.
+17. Redis cache correctness.
+18. Background job absence.
+19. Dependency bloat.
+20. Documentation drift.

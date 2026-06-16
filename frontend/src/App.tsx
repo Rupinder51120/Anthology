@@ -8,6 +8,7 @@ import SearchPage from './pages/Search'
 import UploadPage from './pages/Upload'
 import PaperView from './pages/PaperView'
 import { CollectionsPage, SettingsPage } from './pages/Stubs'
+import DiscoveryPage from './pages/Discovery'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } })
 
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="/library"     element={<LibraryPage />} />
               <Route path="/papers/:id"  element={<PaperView />} />
               <Route path="/search"      element={<SearchPage />} />
+              <Route path="/discover"    element={<DiscoveryPage />} />
               <Route path="/upload"      element={<UploadPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
               <Route path="/settings"    element={<SettingsPage />} />

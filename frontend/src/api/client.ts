@@ -34,7 +34,7 @@ export interface Paper {
   filename: string
   chunk_count: number
   indexed: boolean
-  upload_date: string
+  created_at: string
   url?: string
   arxiv_id?: string
 }
@@ -73,6 +73,7 @@ export const streamQueryFetch = async (
   onToken: (token: string) => void,
   onDone: () => void,
   paper_id?: string,
+  onStatus?: (text: string) => void,
 ) => {
   const res = await fetch('/api/v1/query/stream', {
     method: 'POST',
@@ -90,7 +91,11 @@ export const streamQueryFetch = async (
       if (line.startsWith('data: ')) {
         const raw = line.slice(6)
         if (raw === '[DONE]') { onDone(); return }
-        try { onToken(JSON.parse(raw)) } catch { onToken(raw) }
+        try {
+          const evt = JSON.parse(raw)
+          if (evt.type === 'status') { onStatus?.(evt.text) }
+          else if (evt.type === 'token') { onToken(evt.text) }
+        } catch { onToken(raw) }
       }
     }
   }

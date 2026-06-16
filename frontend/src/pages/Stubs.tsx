@@ -1,181 +1,47 @@
-import { useState, useCallback } from 'react'
-import { Upload, File, CheckCircle, XCircle, Loader, Layers } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { uploadPaper } from '../api/client'
-import { Button, Empty } from '../components/ui'
-import { glass, glassCard } from '../lib/theme'
-
-interface UploadItem {
-  file: File
-  status: 'pending' | 'uploading' | 'done' | 'error'
-  progress: number
-  result?: Record<string, unknown>
-  error?: string
-}
-
-export default function UploadPage() {
-  const [items, setItems] = useState<UploadItem[]>([])
-  const [dragging, setDragging] = useState(false)
-  const qc = useQueryClient()
-
-  const update = (name: string, patch: Partial<UploadItem>) =>
-    setItems(prev => prev.map(i => i.file.name === name ? { ...i, ...patch } : i))
-
-  const addFiles = useCallback((files: File[]) => {
-    const pdfs = files.filter(f => f.name.endsWith('.pdf'))
-    setItems(prev => [
-      ...prev,
-      ...pdfs.filter(f => !prev.find(i => i.file.name === f.name))
-        .map(f => ({ file: f, status: 'pending' as const, progress: 0 })),
-    ])
-  }, [])
-
-  const uploadAll = async () => {
-    const pending = items.filter(i => i.status === 'pending')
-    for (const item of pending) {
-      update(item.file.name, { status: 'uploading' })
-      try {
-        const result = await uploadPaper(item.file, pct => update(item.file.name, { progress: pct }))
-        update(item.file.name, { status: 'done', result, progress: 100 })
-        qc.invalidateQueries({ queryKey: ['papers'] })
-      } catch (e: unknown) {
-        update(item.file.name, { status: 'error', error: e instanceof Error ? e.message : 'Upload failed' })
-      }
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setDragging(false)
-    addFiles(Array.from(e.dataTransfer.files))
-  }
-
-  const pendingCount = items.filter(i => i.status === 'pending').length
-
-  return (
-    <div style={{ padding: '32px 36px', maxWidth: 700, margin: '0 auto' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Upload Papers</h1>
-        <p style={{ color: 'var(--color-muted)', fontSize: 13 }}>Add PDF papers to your research library</p>
-      </div>
-
-      {/* Drop zone */}
-      <label>
-        <input type="file" accept=".pdf" multiple onChange={e => addFiles(Array.from(e.target.files ?? []))} style={{ display: 'none' }} />
-        <div
-          onDragOver={e => { e.preventDefault(); setDragging(true) }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          style={{
-            border: `2px dashed ${dragging ? 'var(--color-accent)' : 'var(--color-border)'}`,
-            borderRadius: 'var(--radius-xl)', padding: '52px 24px',
-            textAlign: 'center', cursor: 'pointer',
-            transition: 'all 0.2s', marginBottom: 20,
-            background: dragging ? 'var(--color-accent-dim)' : 'var(--glass-bg)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-          }}
-        >
-          <Upload
-            size={36}
-            color={dragging ? 'var(--color-accent)' : 'var(--color-muted)'}
-            style={{ margin: '0 auto 14px' }}
-          />
-          <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--color-text)', fontSize: 15 }}>
-            Drag &amp; drop PDF files here
-          </div>
-          <div style={{ color: 'var(--color-muted)', fontSize: 13 }}>or click to browse</div>
-          <div style={{ color: 'var(--color-subtle)', fontSize: 11, marginTop: 8 }}>Supports PDF only · Max 50MB per file</div>
-        </div>
-      </label>
-
-      {/* File list */}
-      {items.length > 0 && (
-        <div style={{ ...glass, borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
-          <div style={{
-            padding: '14px 18px', borderBottom: '1px solid var(--color-border)',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-text)' }}>Processing Queue</div>
-            <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>{items.length} files</div>
-          </div>
-          <div style={{ padding: '6px 0' }}>
-            {items.map(item => (
-              <div key={item.file.name} style={{ padding: '10px 18px', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: item.status === 'uploading' ? 6 : 0 }}>
-                  <File size={15} color="var(--color-muted)" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text)' }}>{item.file.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{(item.file.size / 1024 / 1024).toFixed(1)} MB</div>
-                  </div>
-                  <StatusIcon status={item.status} />
-                </div>
-                {item.status === 'uploading' && (
-                  <div style={{ height: 3, background: 'var(--color-border)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${item.progress}%`, background: 'var(--color-accent)', borderRadius: 2, transition: 'width 0.3s' }} />
-                  </div>
-                )}
-                {item.status === 'done' && item.result && (
-                  <div style={{ fontSize: 11, color: 'var(--color-success)', marginTop: 4 }}>
-                    ✓ Ingested · {String(item.result.chunks ?? 0)} chunks · {String(item.result.figures ?? 0)} figures · {String(item.result.tables ?? 0)} tables
-                  </div>
-                )}
-                {item.status === 'error' && (
-                  <div style={{ fontSize: 11, color: 'var(--color-danger)', marginTop: 4 }}>✗ {item.error}</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {pendingCount > 0 && (
-        <Button onClick={uploadAll} style={{ width: '100%', justifyContent: 'center' }}>
-          <Upload size={14} /> Upload {pendingCount} file{pendingCount > 1 ? 's' : ''}
-        </Button>
-      )}
-    </div>
-  )
-}
-
-function StatusIcon({ status }: { status: UploadItem['status'] }) {
-  if (status === 'done')      return <CheckCircle size={16} color="var(--color-success)" />
-  if (status === 'error')     return <XCircle size={16} color="var(--color-danger)" />
-  if (status === 'uploading') return <Loader size={16} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
-  return <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-border)' }} />
-}
-
-// ── Stubs ────────────────────────────────────────────────────
+import { Layers, Settings } from 'lucide-react'
+import { Empty } from '../components/ui'
+import { glass } from '../lib/theme'
 
 export function CollectionsPage() {
   return (
     <div style={{ padding: '32px 36px' }}>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Collections</h1>
       <p style={{ color: 'var(--color-muted)', fontSize: 13, marginBottom: 28 }}>Group papers into research collections</p>
-      <Empty icon={<Layers size={40} />} title="No collections yet" sub="Coming soon — group papers by topic or project" />
+      <Empty icon={<Layers size={40} />} title="No collections yet" sub="Planned workspace for organizing papers by project, topic, or literature review." />
     </div>
   )
 }
 
 export function SettingsPage() {
+  const sections = [
+    { label: 'Interface', items: ['Theme: Glass UI', 'Default view: Research dashboard'] },
+    { label: 'Retrieval', items: ['Embeddings: SPECTER2', 'Search: pgvector + full-text + RRF'] },
+    { label: 'Generation', items: ['Primary LLM: Groq', 'Fallback: Ollama local models'] },
+  ]
+
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 600 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 24 }}>Settings</h1>
-      {[
-        { label: 'Appearance',         items: ['Theme: Light Glass', 'Accent Color: Blue'] },
-        { label: 'Search Preferences', items: ['Default Results: 10', 'Default Sort: Relevance'] },
-        { label: 'API Keys',           items: ['Groq API Key: configured', 'Cohere API Key: configured', 'Langfuse: enabled'] },
-      ].map(section => (
+    <div style={{ padding: '32px 36px', maxWidth: 640 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 8 }}>Settings</h1>
+      <p style={{ color: 'var(--color-muted)', fontSize: 13, marginBottom: 24 }}>Static project settings shown for portfolio clarity.</p>
+
+      {sections.map(section => (
         <div key={section.label} style={{ ...glass, borderRadius: 'var(--radius-lg)', padding: 20, marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14, color: 'var(--color-text)' }}>{section.label}</div>
-          {section.items.map(item => (
-            <div key={item} style={{
-              padding: '10px 0', borderBottom: '1px solid var(--color-border)',
-              fontSize: 13, display: 'flex', justifyContent: 'space-between',
-            }}>
-              <span style={{ color: 'var(--color-muted)' }}>{item.split(':')[0]}</span>
-              <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{item.split(':')[1]?.trim()}</span>
-            </div>
-          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, marginBottom: 14, fontSize: 14, color: 'var(--color-text)' }}>
+            <Settings size={15} color="var(--color-accent)" />
+            {section.label}
+          </div>
+          {section.items.map(item => {
+            const [name, value] = item.split(':')
+            return (
+              <div key={item} style={{
+                padding: '10px 0', borderBottom: '1px solid var(--color-border)',
+                fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 16,
+              }}>
+                <span style={{ color: 'var(--color-muted)' }}>{name}</span>
+                <span style={{ color: 'var(--color-text)', fontWeight: 500, textAlign: 'right' }}>{value?.trim()}</span>
+              </div>
+            )
+          })}
         </div>
       ))}
     </div>
