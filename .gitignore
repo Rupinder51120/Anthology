@@ -126,3 +126,5 @@ node_modules/
 .next/
 out/
 data/figures/
+
+*pinterestdemo*
