@@ -179,3 +179,32 @@ export const addSessionMessage = (id: string, role: string, content: string) =>
 
 export const deleteSession = (id: string) =>
   api.delete(`/sessions/${id}`).then(r => r.data)
+
+// ── Collections ───────────────────────────────────────────────
+
+export interface CollectionItem {
+  id: string
+  name: string
+  description?: string
+  color: string
+  paper_count: number
+  created_at: string
+}
+
+export const listCollections = () =>
+  api.get<CollectionItem[]>('/collections').then(r => r.data)
+
+export const createCollection = (name: string, description?: string, color?: string) =>
+  api.post<CollectionItem>('/collections', { name, description, color }).then(r => r.data)
+
+export const deleteCollection = (id: string) =>
+  api.delete(`/collections/${id}`).then(r => r.data)
+
+export const getCollectionPapers = (id: string) =>
+  api.get<Paper[]>(`/collections/${id}/papers`).then(r => r.data)
+
+export const addPaperToCollection = (col_id: string, paper_id: string) =>
+  api.post(`/collections/${col_id}/papers/${paper_id}`).then(r => r.data)
+
+export const removePaperFromCollection = (col_id: string, paper_id: string) =>
+  api.delete(`/collections/${col_id}/papers/${paper_id}`).then(r => r.data)

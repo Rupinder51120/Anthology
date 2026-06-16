@@ -7,7 +7,8 @@ import LibraryPage from './pages/Library'
 import SearchPage from './pages/Search'
 import UploadPage from './pages/Upload'
 import PaperView from './pages/PaperView'
-import { CollectionsPage, SettingsPage } from './pages/Stubs'
+import CollectionsPage from './pages/Collections'
+import { SettingsPage } from './pages/Stubs'
 import DiscoveryPage from './pages/Discovery'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } })
