@@ -1,39 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --color-bg:        #0f0f13;
-  --color-surface:   #16161d;
-  --color-surface2:  #1e1e28;
-  --color-border:    #2a2a38;
-  --color-accent:    #7c5cfc;
-  --color-accent-hover: #6b4ef0;
-  --color-accent-dim: #7c5cfc22;
-  --color-text:      #e8e8f0;
-  --color-muted:     #8888aa;
-  --color-success:   #22c55e;
-  --color-warning:   #f59e0b;
-  --color-danger:    #ef4444;
+:root {
+  /* Backgrounds */
+  --color-bg:           #f0f4f8;
+  --color-surface:      rgba(255, 255, 255, 0.72);
+  --color-surface2:     rgba(255, 255, 255, 0.50);
+  --color-surface-solid: #ffffff;
 
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  /* Borders */
+  --color-border:       rgba(0, 0, 0, 0.09);
+  --color-border2:      rgba(0, 0, 0, 0.05);
+
+  /* Text */
+  --color-text:         #1d1d1f;
+  --color-muted:        #86868b;
+  --color-subtle:       #aeaeb2;
+
+  /* Accent — blue (iOS style) */
+  --color-accent:       #0071e3;
+  --color-accent-hover: #0077ed;
+  --color-accent-dim:   rgba(0, 113, 227, 0.09);
+  --color-accent-border: rgba(0, 113, 227, 0.18);
+
+  /* Semantic */
+  --color-success:      #30d158;
+  --color-success-dim:  rgba(48, 209, 88, 0.09);
+  --color-warning:      #ff9f0a;
+  --color-warning-dim:  rgba(255, 159, 10, 0.09);
+  --color-danger:       #ff3b30;
+  --color-danger-dim:   rgba(255, 59, 48, 0.09);
+
+  /* Action colors */
+  --color-blue:         #0071e3;
+  --color-green:        #30d158;
+  --color-orange:       #ff9f0a;
+  --color-purple:       #bf5af2;
+  --color-blue-dim:     rgba(0, 113, 227, 0.09);
+  --color-green-dim:    rgba(48, 209, 88, 0.09);
+  --color-orange-dim:   rgba(255, 159, 10, 0.09);
+  --color-purple-dim:   rgba(191, 90, 242, 0.09);
+
+  /* Glass */
+  --glass-bg:           rgba(255, 255, 255, 0.72);
+  --glass-blur:         blur(20px) saturate(180%);
+  --glass-border:       1px solid rgba(255, 255, 255, 0.65);
+  --glass-shadow:       0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --glass-shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  /* Radii */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --radius-xl:  24px;
+
+  /* Font */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse at 20% 10%, rgba(0, 113, 227, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(48, 209, 88, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 30%, rgba(191, 90, 242, 0.04) 0%, transparent 40%);
+  background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
 ::selection { background: var(--color-accent-dim); }
+
+/* Utility classes */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+
+input:focus { outline: none; border-color: var(--color-accent) !important; box-shadow: 0 0 0 3px var(--color-accent-dim) !important; }
+textarea:focus { outline: none; border-color: var(--color-accent) !important; box-shadow: 0 0 0 3px var(--color-accent-dim) !important; }
