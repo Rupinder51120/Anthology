@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { getPaper, streamQueryFetch } from '../api/client'
-import { Button, Badge, Spinner, Empty } from '../components/ui'
+import { Badge, Spinner, Empty } from '../components/ui'
 import { glass, glassCard } from '../lib/theme'
 import type { Citation } from '../api/client'
 

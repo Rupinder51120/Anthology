@@ -4,6 +4,7 @@ import { Search, MessageSquare, Upload, BookOpen, Zap, Database, Activity, Arrow
 import { getStats, getPapers } from '../api/client'
 import { Spinner } from '../components/ui'
 import { glass, glassCard, hoverLift, hoverSlide } from '../lib/theme'
+import type { StatsResponse } from '../api/client'
 
 const actions = [
   { icon: Search,        label: 'Smart Search',  sub: 'Find papers by concept',   to: '/search',  color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)'   },
@@ -17,7 +18,14 @@ const statDef = [
   { icon: Database, label: 'Chunks',  key: 'total_chunks',  fmt: (v: number) => v.toLocaleString(),          color: 'var(--color-green)',  bg: 'var(--color-green-dim)'  },
   { icon: Zap,      label: 'Vectors', key: 'vector_chunks', fmt: (v: number) => v.toLocaleString(),          color: 'var(--color-orange)', bg: 'var(--color-orange-dim)' },
   { icon: Activity, label: 'Queries', key: 'total_queries', fmt: (v: number) => v.toString(),                color: 'var(--color-purple)', bg: 'var(--color-purple-dim)' },
-] as const
+] satisfies Array<{
+  icon: typeof BookOpen
+  label: string
+  key: keyof Pick<StatsResponse, 'total_papers' | 'total_chunks' | 'vector_chunks' | 'total_queries'>
+  fmt: (v: number) => string
+  color: string
+  bg: string
+}>
 
 export default function HomePage() {
   const nav = useNavigate()
@@ -118,7 +126,7 @@ export default function HomePage() {
               </div>
               <div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
-                  {s.fmt((stats as Record<string, number>)[s.key])}
+                  {s.fmt(stats[s.key])}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--color-muted)', fontWeight: 500 }}>{s.label}</div>
               </div>

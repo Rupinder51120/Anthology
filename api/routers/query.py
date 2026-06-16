@@ -14,7 +14,6 @@ async def query(
     request: QueryRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Ask a question — get answer + citations from the paper corpus."""
     return await rag_service.query(request, db)
 
 
@@ -23,22 +22,29 @@ async def query_stream(
     request: QueryRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Stream answer tokens via SSE as they arrive from Groq."""
-    import os
+    import os, json
     from src.retrieval.retriever import retrieve
     from src.generation.generator import _build_messages
 
-    chunks = await retrieve(
-        request.question,
-        top_k=request.top_k,
-        db=db,
-        use_hyde=getattr(request, "use_hyde", False),
-        paper_id=getattr(request, "paper_id", None),
-    )
-
-    _, messages = _build_messages(request.question, chunks)
-
     async def token_stream():
+        # ── Phase 1: status events ──────────────────────────────
+        yield f"data: {json.dumps({'type': 'status', 'text': 'Searching 122 papers...'})}\n\n"
+
+        chunks = await retrieve(
+            request.question,
+            top_k=request.top_k,
+            db=db,
+            use_hyde=getattr(request, "use_hyde", False),
+            paper_id=getattr(request, "paper_id", None),
+        )
+
+        yield f"data: {json.dumps({'type': 'status', 'text': f'Reranking {len(chunks)} chunks...'})}\n\n"
+
+        _, messages = _build_messages(request.question, chunks)
+
+        yield f"data: {json.dumps({'type': 'status', 'text': 'Generating answer...'})}\n\n"
+
+        # ── Phase 2: token stream ───────────────────────────────
         try:
             from groq import AsyncGroq
             client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY", ""))
@@ -50,11 +56,11 @@ async def query_stream(
             async for chunk in stream:
                 delta = chunk.choices[0].delta.content
                 if delta:
-                    import json
-                    yield f"data: {json.dumps(delta)}\n\n"
+                    yield f"data: {json.dumps({'type': 'token', 'text': delta})}\n\n"
             await client.close()
         except Exception as e:
-            yield f"data: Generation failed: {e}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(

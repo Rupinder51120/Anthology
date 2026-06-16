@@ -3,7 +3,7 @@ import { Search, FileText, Calendar } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { searchPapers } from '../api/client'
 import { Button, Badge, Spinner, Empty } from '../components/ui'
-import { glass, glassCard } from '../lib/theme'
+import { glass } from '../lib/theme'
 
 export default function SearchPage() {
   const [q, setQ] = useState('')

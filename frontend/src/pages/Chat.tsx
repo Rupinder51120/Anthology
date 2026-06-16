@@ -12,13 +12,14 @@ import { Send, Zap, FileText, RotateCcw, BookOpen, Brain, GitBranch, Sparkles } 
 import ReactMarkdown from 'react-markdown'
 import { useChatStore } from '../store'
 import { streamQueryFetch, queryPapers } from '../api/client'
-import { Button, Spinner, Badge } from '../components/ui'
+import { Button, Spinner } from '../components/ui'
 import type { Citation } from '../api/client'
 
 export default function ChatPage() {
   const [input, setInput] = useState('')
   const [useStream, setUseStream] = useState(true)
   const [selectedCitations, setSelectedCitations] = useState<Citation[]>([])
+  const [status, setStatus] = useState<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const { messages, streaming, addMessage, updateLastMessage, finalizeMessage, setStreaming, clearMessages } = useChatStore()
 
@@ -39,8 +40,10 @@ export default function ChatPage() {
       let full = ''
       await streamQueryFetch(
         q, 5,
-        (token) => { full += token; updateLastMessage(full) },
-        () => { finalizeMessage({}); setStreaming(false) },
+        (token) => { full += token; setStatus(''); updateLastMessage(full) },
+        () => { finalizeMessage({}); setStreaming(false); setStatus('') },
+        undefined,
+        (s) => setStatus(s),
       )
     } else {
       try {
@@ -117,7 +120,15 @@ export default function ChatPage() {
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
                 <Sparkles size={13} color="var(--color-accent)" />
-                Searching papers and generating response...
+                {status || 'Searching papers...'}
+              </div>
+            </div>
+          )}
+          {streaming && status && messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.content === '' && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, paddingLeft: 44 }}>
+              <div style={{ fontSize: 11, color: 'var(--color-accent)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Sparkles size={10} color="var(--color-accent)" />
+                {status}
               </div>
             </div>
           )}
@@ -166,7 +177,7 @@ export default function ChatPage() {
             </button>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 8, textAlign: 'center' }}>
-            Enter to send · Shift+Enter for new line · Powered by Groq llama-3.1-8b · 122 papers indexed
+            Enter to send · Shift+Enter for new line · Powered by Groq llama-3.1-8b
           </div>
         </div>
       </div>
@@ -425,7 +436,7 @@ function WelcomeScreen({ onPrompt }: { onPrompt: (p: string) => void }) {
           What would you like to explore?
         </div>
         <div style={{ color: 'var(--color-muted)', fontSize: 14, lineHeight: 1.6 }}>
-          Ask questions, compare papers, explore concepts — backed by 122 indexed papers.
+          Ask questions, compare papers, explore concepts across your indexed library.
         </div>
       </div>
 

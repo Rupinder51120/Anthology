@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react'
 import { Upload, File, CheckCircle, XCircle, Loader, Layers } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { uploadPaper } from '../api/client'
 import { Button, Empty } from '../components/ui'
-import { glass, glassCard } from '../lib/theme'
+import { glass } from '../lib/theme'
 
 interface UploadItem {
   file: File
