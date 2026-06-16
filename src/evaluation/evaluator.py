@@ -1,100 +1,62 @@
 """
-src/evaluator.py
-
-Migrated from Groq-as-judge to Ollama-as-judge.
-- No API key needed
-- No rate limits
-- No sleep needed between calls
-- Retrieval metrics unchanged (no LLM needed)
+src/evaluation/evaluator.py
+Groq-as-judge (llama-3.1-8b-instant) — no Ollama needed, uses existing GROQ_API_KEY
+Metrics: Hit@k, MRR, nDCG@5 (retrieval) + Faithfulness, Relevance, Completeness (generation)
+These are RAGAS-equivalent metrics implemented directly.
 """
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
-import requests
+from groq import Groq
 
-OLLAMA_URL  = "http://localhost:11434/api/generate"
-JUDGE_MODEL = "qwen2.5:7b"
+JUDGE_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 
-# ─── source normalisation ─────────────────────────────────────
+def _get_client():
+    return Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+
 
 def _norm(s: str) -> str:
-    """Normalise a source path to its bare filename stem.
-
-    Handles every variant produced by the pipeline:
-        "data/papers/Foo.pdf"  →  "Foo"
-        "Foo.pdf"              →  "Foo"
-        "Foo"                  →  "Foo"
-    Using stem comparison means path-prefix differences and the presence or
-    absence of the .pdf extension never cause a false negative.
-    """
     return Path(s).stem if s else ""
 
 
-# ─── retrieval metrics ────────────────────────────────────────
+# ── Retrieval metrics (no LLM needed) ────────────────────────
 
-def _hit_at_k(sources: list[str], expected_source: str, k: int) -> int:
-    """1 if the expected source appears in the top-k retrieved sources, else 0.
-
-    Fix: old code used `expected_source in s` (substring match), which fails
-    when one side has a path prefix or .pdf extension and the other doesn't.
-    Now compares normalised stems so all path variants match correctly.
-    """
-    if not sources or not expected_source:
+def _hit_at_k(sources, expected, k):
+    if not sources or not expected:
         return 0
-    exp = _norm(expected_source)
+    exp = _norm(expected)
     return int(any(_norm(s) == exp for s in sources[:k]))
 
-
-def _reciprocal_rank(sources: list[str], expected_source: str) -> float:
-    """1/rank of the first hit, or 0.0 if no hit.
-
-    Fix: same substring-vs-stem issue as _hit_at_k.
-    """
-    if not sources or not expected_source:
+def _reciprocal_rank(sources, expected):
+    if not sources or not expected:
         return 0.0
-    exp = _norm(expected_source)
+    exp = _norm(expected)
     for i, s in enumerate(sources):
         if _norm(s) == exp:
             return 1.0 / (i + 1)
     return 0.0
 
-
-def _ndcg_at_k(sources: list[str], expected_source: str, k: int = 5) -> float:
-    """Normalised Discounted Cumulative Gain for a single-relevant-doc query.
-
-    Fixes vs original:
-    1. Stem-based source comparison (path-prefix / extension agnostic).
-    2. IDCG computed explicitly instead of hardcoded to 1.0 — correct today,
-       safe to extend to graded relevance later.
-    3. Guards for empty inputs and zero IDCG (no crash, returns 0.0).
-    4. k clamped to len(sources) so callers don't need to pre-check.
-    """
-    if not sources or not expected_source:
+def _ndcg_at_k(sources, expected, k=5):
+    if not sources or not expected:
         return 0.0
-
-    k   = min(k, len(sources))
-    exp = _norm(expected_source)
-
+    k = min(k, len(sources))
+    exp = _norm(expected)
     relevance = [1 if _norm(s) == exp else 0 for s in sources[:k]]
-
     dcg  = sum(rel / np.log2(i + 2) for i, rel in enumerate(relevance))
     idcg = sum(rel / np.log2(i + 2) for i, rel in enumerate(sorted(relevance, reverse=True)))
-
     return (dcg / idcg) if idcg > 0.0 else 0.0
 
-
-def compute_retrieval_metrics(results: list[dict], k_values: list[int] = [1, 3, 5]) -> dict:
+def compute_retrieval_metrics(results, k_values=[1, 3, 5]):
     valid = [
         r for r in results
-        if r.get("source_chunk")
-        and r.get("sources")
-        and r["answer"] != "ERROR"
+        if r.get("source_chunk") and r.get("sources")
+        and r["answer"] not in ("ERROR", "")
         and "Generation failed" not in r.get("answer", "")
     ]
-
     if not valid:
         print("  No valid results with source_chunk — retrieval metrics skipped.")
         return {}
@@ -118,132 +80,150 @@ def compute_retrieval_metrics(results: list[dict], k_values: list[int] = [1, 3, 
     return metrics
 
 
-# ─── Ollama-as-judge ──────────────────────────────────────────
+# ── Groq-as-judge (RAGAS-equivalent) ─────────────────────────
 
-JUDGE_PROMPT = """You are evaluating a RAG system answer. Respond ONLY with a JSON object.
+FAITHFULNESS_PROMPT = """You are evaluating a RAG system. Respond ONLY with JSON.
+
+Context:
+{context}
 
 Question: {question}
-Expected answer: {ground_truth}
-Retrieved context: {context}
-System answer: {answer}
+Answer: {answer}
 
-Score each dimension 1-5:
-- faithfulness: grounded in context? (1=hallucinated, 5=fully grounded)
-- relevance: answers the question? (1=off-topic, 5=direct answer)
-- completeness: covers expected answer? (1=missing key points, 5=complete)
+List every factual claim in the answer. For each, is it supported by the context above?
 
-Respond ONLY with this JSON, nothing else:
-{{"faithfulness": <int>, "relevance": <int>, "completeness": <int>}}"""
+Respond ONLY with this JSON:
+{{"claims": ["claim1", "claim2"], "supported": ["claim1"], "faithfulness_score": 0.0}}
 
+faithfulness_score = supported / total claims. If no claims, score = 1.0"""
 
-def _call_judge(question: str, ground_truth: str, context: str, answer: str) -> dict:
-    prompt = JUDGE_PROMPT.format(
-        question=question,
-        ground_truth=ground_truth,
-        context=context[:1500],
-        answer=answer[:800],
-    )
-    resp = requests.post(
-        OLLAMA_URL,
-        json={
-            "model":   JUDGE_MODEL,
-            "prompt":  prompt,
-            "stream":  False,
-            "options": {"temperature": 0.0, "num_predict": 80},
-        },
-        timeout=60,
-    )
-    resp.raise_for_status()
-    raw   = resp.json()["response"].strip()
-    start = raw.find("{")
-    end   = raw.rfind("}") + 1
-    if start == -1 or end == 0:
-        raise ValueError(f"No JSON found in judge response: {raw!r}")
-    return json.loads(raw[start:end])
+RELEVANCY_PROMPT = """You are evaluating whether an answer addresses the question.
+
+Question: {question}
+Answer: {answer}
+
+Score 0.0-1.0: 1.0=fully answers, 0.5=partially, 0.0=irrelevant.
+
+Respond ONLY with this JSON:
+{{"relevancy_score": 0.0, "reasoning": "one line"}}"""
+
+COMPLETENESS_PROMPT = """You are evaluating answer completeness vs a reference.
+
+Question: {question}
+Reference: {ground_truth}
+Answer: {answer}
+
+Score 0.0-1.0: 1.0=covers all key points, 0.5=covers main point, 0.0=misses it.
+
+Respond ONLY with this JSON:
+{{"completeness_score": 0.0, "reasoning": "one line"}}"""
 
 
-def compute_judge_metrics(results: list[dict]) -> dict:
+def _call_groq(prompt: str) -> dict:
+    client = _get_client()
+    try:
+        resp = client.chat.completions.create(
+            model=JUDGE_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.0,
+        )
+        raw = resp.choices[0].message.content.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        start = raw.find("{")
+        end   = raw.rfind("}") + 1
+        if start == -1 or end == 0:
+            return {}
+        return json.loads(raw[start:end])
+    except Exception as e:
+        print(f"  Groq judge error: {e}")
+        return {}
+
+
+def compute_judge_metrics(results):
     valid = [
         r for r in results
         if r["answer"] not in ("ERROR", "")
         and "Generation failed" not in r.get("answer", "")
         and r.get("contexts")
     ]
-
     if not valid:
         print("  No valid results for judge evaluation.")
         return {}
 
-    scores = {"faithfulness": [], "relevance": [], "completeness": []}
+    faith_scores, relev_scores, compl_scores = [], [], []
     failed = 0
 
     for i, r in enumerate(valid):
-        context = "\n---\n".join(r["contexts"][:3])
+        context = "\n---\n".join(r["contexts"][:3])[:2000]
         try:
-            s = _call_judge(
-                question=r["question"],
-                ground_truth=r["ground_truth"],
-                context=context,
-                answer=r["answer"],
-            )
-            for dim in scores:
-                scores[dim].append(float(s.get(dim, 0)))
-            if (i + 1) % 10 == 0:
+            f = _call_groq(FAITHFULNESS_PROMPT.format(
+                context=context, question=r["question"], answer=r["answer"][:600]
+            ))
+            faith_scores.append(float(f.get("faithfulness_score", 0.5)))
+
+            rv = _call_groq(RELEVANCY_PROMPT.format(
+                question=r["question"], answer=r["answer"][:600]
+            ))
+            relev_scores.append(float(rv.get("relevancy_score", 0.5)))
+
+            if r.get("ground_truth"):
+                c = _call_groq(COMPLETENESS_PROMPT.format(
+                    question=r["question"],
+                    ground_truth=r["ground_truth"],
+                    answer=r["answer"][:600]
+                ))
+                compl_scores.append(float(c.get("completeness_score", 0.5)))
+
+            if (i + 1) % 5 == 0:
                 print(f"    Judge progress: {i+1}/{len(valid)}")
+
         except Exception as e:
-            print(f"  Judge failed on question {i+1}: {e}")
-            for dim in scores:
-                scores[dim].append(0.0)
+            print(f"  Judge failed on {i+1}: {e}")
+            faith_scores.append(0.5)
+            relev_scores.append(0.5)
             failed += 1
 
-    if not any(scores["faithfulness"]):
+    if not faith_scores:
         return {}
 
     result = {
-        "faithfulness": round(float(np.mean(scores["faithfulness"])), 4),
-        "relevance":    round(float(np.mean(scores["relevance"])),    4),
-        "completeness": round(float(np.mean(scores["completeness"])), 4),
-        "n_eval":       len(valid),
-        "n_failed":     failed,
+        "faithfulness":  round(float(np.mean(faith_scores)), 4),
+        "relevance":     round(float(np.mean(relev_scores)), 4),
+        "completeness":  round(float(np.mean(compl_scores)), 4) if compl_scores else None,
+        "n_eval":        len(valid),
+        "n_failed":      failed,
     }
-    result["mean_score"] = round(
-        float(np.mean([result["faithfulness"],
-                       result["relevance"],
-                       result["completeness"]])), 4
-    )
+    scores = [result["faithfulness"], result["relevance"]]
+    if result["completeness"] is not None:
+        scores.append(result["completeness"])
+    result["mean_score"] = round(float(np.mean(scores)), 4)
     return result
 
 
-# ─── combined eval ────────────────────────────────────────────
+# ── Combined eval ─────────────────────────────────────────────
 
-def evaluate_results(
-    results:   list[dict],
-    label:     str  = "pipeline",
-    run_judge: bool = True,
-) -> dict:
-    print(f"\n{'='*50}")
-    print(f"Evaluating: {label}")
-    print(f"{'='*50}")
-
+def evaluate_results(results, label="pipeline", run_judge=True):
+    print(f"\n{'='*50}\nEvaluating: {label}\n{'='*50}")
     output = {"label": label}
 
     print("  Computing retrieval metrics...")
     retrieval = compute_retrieval_metrics(results)
     output["retrieval"] = retrieval
     if retrieval:
-        print(f"  Hit@1={retrieval['hit@1']:.4f}  Hit@3={retrieval['hit@3']:.4f}  "
-              f"Hit@5={retrieval['hit@5']:.4f}  MRR={retrieval['mrr']:.4f}  "
-              f"nDCG@5={retrieval['ndcg@5']:.4f}  (n={retrieval['n_eval']})")
+        print(f"  Hit@1={retrieval['hit@1']}  Hit@3={retrieval['hit@3']}  "
+              f"Hit@5={retrieval['hit@5']}  MRR={retrieval['mrr']}  "
+              f"nDCG@5={retrieval['ndcg@5']}  (n={retrieval['n_eval']})")
 
     if run_judge:
-        print("  Running Ollama-as-judge...")
+        print("  Running Groq-as-judge (RAGAS-equivalent)...")
         judge = compute_judge_metrics(results)
         output["judge"] = judge
         if judge:
-            print(f"  Faithfulness={judge['faithfulness']:.4f}  "
-                  f"Relevance={judge['relevance']:.4f}  "
-                  f"Completeness={judge['completeness']:.4f}  "
-                  f"Mean={judge['mean_score']:.4f}  (n={judge['n_eval']})")
+            print(f"  Faithfulness={judge['faithfulness']}  "
+                  f"Relevance={judge['relevance']}  "
+                  f"Completeness={judge.get('completeness')}  "
+                  f"Mean={judge['mean_score']}  (n={judge['n_eval']})")
     else:
         output["judge"] = {}
 
@@ -258,59 +238,7 @@ def evaluate_results(
     return output
 
 
-# ─── comparison table ─────────────────────────────────────────
-
-def compare_configs(results_paths: dict, run_judge: bool = True) -> dict:
-    all_scores = {}
-
-    for label, path in results_paths.items():
-        with open(path) as f:
-            results = json.load(f)
-        all_scores[label] = evaluate_results(results, label=label, run_judge=run_judge)
-
-    print(f"\n{'='*75}")
-    print("RETRIEVAL METRICS")
-    print(f"{'='*75}")
-    print(f"{'Config':<28} {'Hit@1':>6} {'Hit@3':>6} {'Hit@5':>6} {'MRR':>7} {'nDCG@5':>8}")
-    print(f"{'-'*75}")
-    for label, s in all_scores.items():
-        r = s.get("retrieval", {})
-        if r:
-            print(f"{label:<28} {r.get('hit@1',0):>6.4f} {r.get('hit@3',0):>6.4f} "
-                  f"{r.get('hit@5',0):>6.4f} {r.get('mrr',0):>7.4f} "
-                  f"{r.get('ndcg@5',0):>8.4f}")
-
-    if run_judge:
-        print(f"\n{'='*75}")
-        print("JUDGE METRICS (Ollama qwen2.5:7b, 1-5 scale)")
-        print(f"{'='*75}")
-        print(f"{'Config':<28} {'Faith':>7} {'Relev':>7} {'Compl':>7} {'Mean':>7}")
-        print(f"{'-'*75}")
-        for label, s in all_scores.items():
-            j = s.get("judge", {})
-            if j:
-                print(f"{label:<28} {j.get('faithfulness',0):>7.4f} "
-                      f"{j.get('relevance',0):>7.4f} "
-                      f"{j.get('completeness',0):>7.4f} "
-                      f"{j.get('mean_score',0):>7.4f}")
-
-    configs = list(all_scores.values())
-    if len(configs) >= 2:
-        baseline = configs[0]
-        best     = configs[-1]
-        b_score  = baseline.get("mean_score", 0)
-        t_score  = best.get("mean_score", 0)
-        if b_score > 0:
-            pct = ((t_score - b_score) / b_score) * 100
-            print(f"\nImprovement {baseline['label']} → {best['label']}: "
-                  f"{'+' if pct >= 0 else ''}{pct:.1f}% mean score")
-        else:
-            print("\nBaseline mean_score is 0 — improvement not computed.")
-
-    return all_scores
-
-
-def save_scores(scores: dict, path: str = "indexes/eval_scores.json"):
+def save_scores(scores, path="indexes/eval_scores.json"):
     existing = {}
     p = Path(path)
     if p.exists():
@@ -321,10 +249,3 @@ def save_scores(scores: dict, path: str = "indexes/eval_scores.json"):
     with open(p, "w") as f:
         json.dump(existing, f, indent=2)
     print(f"Scores saved → {path}")
-
-
-if __name__ == "__main__":
-    with open("indexes/pipeline_results.json") as f:
-        results = json.load(f)
-    scores = evaluate_results(results, label="ollama_test", run_judge=True)
-    save_scores(scores)

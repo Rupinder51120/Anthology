@@ -8,6 +8,7 @@ import SearchPage from './pages/Search'
 import UploadPage from './pages/Upload'
 import PaperView from './pages/PaperView'
 import CollectionsPage from './pages/Collections'
+import BenchmarkPage from './pages/Benchmark'
 import { SettingsPage } from './pages/Stubs'
 import DiscoveryPage from './pages/Discovery'
 
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/discover"    element={<DiscoveryPage />} />
               <Route path="/upload"      element={<UploadPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/benchmark" element={<BenchmarkPage />} />
               <Route path="/settings"    element={<SettingsPage />} />
             </Routes>
           </main>

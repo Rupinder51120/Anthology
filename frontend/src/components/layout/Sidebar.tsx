@@ -2,8 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Home, Search, MessageSquare, Upload,
-  Library, Layers, Settings, Activity, Compass,
-} from 'lucide-react'
+  Library, Layers, Settings, Activity, Compass, BarChart2 } from 'lucide-react'
 import { getStats } from '../../api/client'
 import { glass } from '../../lib/theme'
 
@@ -15,6 +14,7 @@ const nav = [
   { to: '/upload',      icon: Upload,         label: 'Upload Papers' },
   { to: '/discover',    icon: Compass,        label: 'Discovery' },
   { to: '/collections', icon: Layers,         label: 'Collections' },
+  { to: '/benchmark',   icon: BarChart2,      label: 'Benchmark' },
   { to: '/settings',    icon: Settings,       label: 'Settings' },
 ]
 
