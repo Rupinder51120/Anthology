@@ -59,8 +59,8 @@ export interface StatsResponse {
 
 // ── Query ────────────────────────────────────────────────────
 
-export const queryPapers = (question: string, top_k = 5, session_id = 'default') =>
-  api.post<QueryResponse>('/query', { question, top_k, session_id }).then(r => r.data)
+export const queryPapers = (question: string, top_k = 5, session_id = 'default', paper_id?: string) =>
+  api.post<QueryResponse>('/query', { question, top_k, session_id, paper_id }).then(r => r.data)
 
 export const streamQuery = (question: string, top_k = 5): EventSource => {
   // POST-based SSE via fetch
@@ -72,11 +72,12 @@ export const streamQueryFetch = async (
   top_k = 5,
   onToken: (token: string) => void,
   onDone: () => void,
+  paper_id?: string,
 ) => {
   const res = await fetch('/api/v1/query/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, top_k }),
+    body: JSON.stringify({ question, top_k, paper_id }),
   })
   const reader = res.body!.getReader()
   const decoder = new TextDecoder()
@@ -87,9 +88,9 @@ export const streamQueryFetch = async (
     const lines = chunk.split('\n')
     for (const line of lines) {
       if (line.startsWith('data: ')) {
-        const token = line.slice(6)
-        if (token === '[DONE]') { onDone(); return }
-        onToken(token)
+        const raw = line.slice(6)
+        if (raw === '[DONE]') { onDone(); return }
+        try { onToken(JSON.parse(raw)) } catch { onToken(raw) }
       }
     }
   }

@@ -201,6 +201,9 @@ function MessageBubble({ msg, onCitationClick }: {
     )
   }
 
+  // Only run formatResponse on finalized messages, not while streaming
+  const renderedContent = msg.streaming ? msg.content : formatResponse(msg.content)
+
   return (
     <div style={{ marginBottom: 28, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
       <div style={{
@@ -223,7 +226,6 @@ function MessageBubble({ msg, onCitationClick }: {
         }}>
           <div className="markdown-body">
             <ReactMarkdown
-              children={formatResponse(msg.content)}
               components={{
                 h2: ({ children }) => (
                   <div style={{
@@ -246,7 +248,7 @@ function MessageBubble({ msg, onCitationClick }: {
                   <p style={{ margin: '0 0 12px 0', lineHeight: 1.7 }}>{children}</p>
                 ),
                 strong: ({ children }) => (
-                  <strong style={{ color: '#fff', fontWeight: 700 }}>{children}</strong>
+                  <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>{children}</strong>
                 ),
                 ul: ({ children }) => (
                   <ul style={{ margin: '8px 0 12px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -276,6 +278,7 @@ function MessageBubble({ msg, onCitationClick }: {
                 ),
               }}
             >
+              {renderedContent}
             </ReactMarkdown>
             {msg.streaming && (
               <span style={{
