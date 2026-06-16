@@ -21,6 +21,7 @@ export default function ChatPage() {
   const [selectedCitations, setSelectedCitations] = useState<Citation[]>([])
   const [status, setStatus] = useState('')
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const qc = useQueryClient()
   const { messages, streaming, addMessage, updateLastMessage, finalizeMessage, setStreaming, clearMessages, setMessages } = useChatStore()
@@ -63,6 +64,7 @@ export default function ChatPage() {
       qc.invalidateQueries({ queryKey: ['sessions'] })
     }
 
+    setSuggestions([])
     addMessage({ id: crypto.randomUUID(), role: 'user', content: q })
     if (sid) addSessionMessage(sid, 'user', q)
     setStreaming(true)
@@ -80,6 +82,14 @@ export default function ChatPage() {
           addSessionMessage(sid, 'assistant', full)
           qc.invalidateQueries({ queryKey: ['sessions'] })
         }
+        // generate follow-up suggestions
+        fetch('/api/v1/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, answer: full.slice(0, 400) }),
+        }).then(r => r.json()).then(d => {
+          if (Array.isArray(d.suggestions)) setSuggestions(d.suggestions.slice(0, 3))
+        }).catch(() => {})
       },
       undefined,
       (s) => setStatus(s),
@@ -189,6 +199,30 @@ export default function ChatPage() {
               </div>
             </div>
           )}
+          {suggestions.length > 0 && !streaming && (
+            <div style={{ marginBottom: 16, paddingLeft: 44 }}>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Sparkles size={10} /> Follow-up questions
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {suggestions.map((s, i) => (
+                  <button key={i} onClick={() => setInput(s)}
+                    style={{
+                      background: 'var(--color-surface)', border: '1px solid var(--color-accent)33',
+                      borderRadius: 10, padding: '8px 14px', textAlign: 'left',
+                      color: 'var(--color-muted)', fontSize: 12, cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)', transition: 'all 0.15s',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-text)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-accent)33'; (e.currentTarget as HTMLElement).style.color = 'var(--color-muted)' }}
+                  >
+                    <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>→</span> {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -262,6 +296,7 @@ function MessageBubble({ msg, onCitationClick }: {
                 strong: ({ children }) => <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>{children}</strong>,
                 ul: ({ children }) => <ul style={{ margin: '8px 0 12px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ul>,
                 li: ({ children }) => <li style={{ lineHeight: 1.6, color: 'var(--color-text)' }}>{children}</li>,
+                ol: ({ children }) => <ol style={{ margin: '8px 0 12px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ol>,
                 code: ({ children }) => <code style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '1px 6px', fontSize: 12, fontFamily: 'monospace', color: 'var(--color-accent)' }}>{children}</code>,
                 blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid var(--color-accent)', margin: '12px 0', paddingLeft: 14, color: 'var(--color-muted)', fontStyle: 'italic' }}>{children}</blockquote>,
               }}
