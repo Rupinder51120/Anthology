@@ -163,7 +163,7 @@ export function SettingsPage() {
       {[
         { label: 'Appearance',         items: ['Theme: Light Glass', 'Accent Color: Blue'] },
         { label: 'Search Preferences', items: ['Default Results: 10', 'Default Sort: Relevance'] },
-        { label: 'API Keys',           items: ['Groq API Key: configured', 'Cohere API Key: configured', 'Langfuse: enabled'] },
+        { label: 'API Keys',           items: ['Groq API Key: configured', 'Cohere API Key: configured'] },
       ].map(section => (
         <div key={section.label} style={{ ...glass, borderRadius: 'var(--radius-lg)', padding: 20, marginBottom: 14 }}>
           <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14, color: 'var(--color-text)' }}>{section.label}</div>
