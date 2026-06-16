@@ -95,6 +95,7 @@ class RAGService:
             query=request.question,
             top_k=request.top_k,
             db=db,
+            paper_id=request.paper_id,
         )
         trace.span(
             name="retrieve",
