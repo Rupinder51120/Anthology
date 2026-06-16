@@ -148,3 +148,34 @@ export const submitFeedback = (query_id: string, rating: number, comment?: strin
 
 export const generateFlowchart = (query: string, explanation: string) =>
   api.post<{ diagram: string; success: boolean }>('/flowchart', { query, explanation }).then(r => r.data)
+
+// ── Sessions ─────────────────────────────────────────────────
+
+export interface Session {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SessionMessage {
+  id: string
+  role: string
+  content: string
+  created_at: string
+}
+
+export const createSession = (title = 'New Session') =>
+  api.post<Session>('/sessions', { title }).then(r => r.data)
+
+export const listSessions = () =>
+  api.get<Session[]>('/sessions').then(r => r.data)
+
+export const getSessionMessages = (id: string) =>
+  api.get<SessionMessage[]>(`/sessions/${id}/messages`).then(r => r.data)
+
+export const addSessionMessage = (id: string, role: string, content: string) =>
+  api.post(`/sessions/${id}/messages`, { role, content }).then(r => r.data)
+
+export const deleteSession = (id: string) =>
+  api.delete(`/sessions/${id}`).then(r => r.data)
