@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft, ExternalLink, Hash, Calendar, FileText,
   MessageSquare, Send, BookOpen, Layers,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
-import { getPaper, streamQueryFetch } from '../api/client'
+import { getPaper, streamQueryFetch, listCollections, addPaperToCollection } from '../api/client'
 import { Badge, Spinner, Empty } from '../components/ui'
 import { glass, glassCard } from '../lib/theme'
 import type { Citation } from '../api/client'
@@ -238,18 +238,7 @@ export default function PaperView() {
                   </div>
                 </button>
 
-                <div style={{
-                  ...glassCard,
-                  display: 'flex', alignItems: 'center', gap: 14,
-                }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 11, background: 'var(--color-purple-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Layers size={18} color="var(--color-purple)" />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text)' }}>Add to Collection</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>Coming soon</div>
-                  </div>
-                </div>
+                <AddToCollectionWidget paperId={paper.id} />
               </div>
             </div>
           </div>
@@ -458,6 +447,87 @@ function PaperChatWelcome({ title, onPrompt }: { title: string; onPrompt: (p: st
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function AddToCollectionWidget({ paperId }: { paperId: string }) {
+  const [open, setOpen] = useState(false)
+  const [added, setAdded] = useState<Set<string>>(new Set())
+  const qc = useQueryClient()
+
+  const { data: collections = [] } = useQuery({
+    queryKey: ['collections'],
+    queryFn: listCollections,
+    enabled: open,
+  })
+
+  const add = useMutation({
+    mutationFn: (colId: string) => addPaperToCollection(colId, paperId),
+    onSuccess: (_, colId) => {
+      setAdded(prev => new Set(prev).add(colId))
+      qc.invalidateQueries({ queryKey: ['collections'] })
+    },
+  })
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+          padding: '12px 16px', borderRadius: 12,
+          background: 'var(--glass-bg)',
+          backdropFilter: 'var(--glass-blur)',
+          border: open ? '1px solid var(--color-accent)' : 'var(--glass-border)',
+          transition: 'all 0.15s',
+        }}
+      >
+        <div style={{ width: 40, height: 40, borderRadius: 11, background: 'var(--color-purple-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Layers size={18} color="var(--color-purple)" />
+        </div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text)' }}>Add to Collection</div>
+          <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{open ? 'Select a collection' : 'Organize this paper'}</div>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+          borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        }}>
+          {collections.length === 0 ? (
+            <div style={{ padding: '14px 16px', fontSize: 12, color: 'var(--color-muted)', textAlign: 'center' }}>
+              No collections yet — create one first
+            </div>
+          ) : (
+            collections.map(col => {
+              const isAdded = added.has(col.id)
+              return (
+                <button
+                  key={col.id}
+                  onClick={() => !isAdded && add.mutate(col.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 14px', background: isAdded ? col.color + '15' : 'transparent',
+                    border: 'none', borderBottom: '1px solid var(--color-border)',
+                    cursor: isAdded ? 'default' : 'pointer', fontFamily: 'var(--font-sans)',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!isAdded) (e.currentTarget as HTMLElement).style.background = 'var(--color-surface2)' }}
+                  onMouseLeave={e => { if (!isAdded) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: col.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: 'var(--color-text)', flex: 1, textAlign: 'left' }}>{col.name}</span>
+                  {isAdded && <span style={{ fontSize: 11, color: col.color, fontWeight: 600 }}>✓ Added</span>}
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
     </div>
   )
 }
