@@ -20,6 +20,7 @@ interface ChatStore {
   finalizeMessage: (extra: Partial<Message>) => void
   setStreaming: (v: boolean) => void
   clearMessages: () => void
+  setMessages: (msgs: Message[]) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -39,6 +40,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   }),
   setStreaming: (v) => set({ streaming: v }),
   clearMessages: () => set({ messages: [] }),
+  setMessages: (msgs) => set({ messages: msgs }),
 }))
 
 interface PaperStore {

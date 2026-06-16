@@ -12,6 +12,7 @@ class QueryRequest(BaseModel):
     use_hyde: bool = False
     retrieval_mode: str = Field(default="hybrid")
     session_id: Optional[str] = Field(default="default")
+    paper_id: Optional[str] = Field(default=None)
 
 
 class CitationOut(BaseModel):

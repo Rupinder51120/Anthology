@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react'
-import { Upload, File, CheckCircle, XCircle, Loader } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Upload, File, CheckCircle, XCircle, Loader, Layers } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { uploadPaper } from '../api/client'
-import { Card, Button } from '../components/ui'
+import { Button, Empty } from '../components/ui'
+import { glass } from '../lib/theme'
 
 interface UploadItem {
   file: File
@@ -38,8 +39,7 @@ export default function UploadPage() {
         update(item.file.name, { status: 'done', result, progress: 100 })
         qc.invalidateQueries({ queryKey: ['papers'] })
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Upload failed'
-        update(item.file.name, { status: 'error', error: msg })
+        update(item.file.name, { status: 'error', error: e instanceof Error ? e.message : 'Upload failed' })
       }
     }
   }
@@ -52,9 +52,9 @@ export default function UploadPage() {
   const pendingCount = items.filter(i => i.status === 'pending').length
 
   return (
-    <div style={{ padding: 28, maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ padding: '32px 36px', maxWidth: 700, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Upload Papers</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Upload Papers</h1>
         <p style={{ color: 'var(--color-muted)', fontSize: 13 }}>Add PDF papers to your research library</p>
       </div>
 
@@ -67,33 +67,44 @@ export default function UploadPage() {
           onDrop={handleDrop}
           style={{
             border: `2px dashed ${dragging ? 'var(--color-accent)' : 'var(--color-border)'}`,
-            borderRadius: 16, padding: '48px 24px', textAlign: 'center',
-            cursor: 'pointer', transition: 'all 0.2s',
-            background: dragging ? 'var(--color-accent-dim)' : 'var(--color-surface)',
-            marginBottom: 20,
+            borderRadius: 'var(--radius-xl)', padding: '52px 24px',
+            textAlign: 'center', cursor: 'pointer',
+            transition: 'all 0.2s', marginBottom: 20,
+            background: dragging ? 'var(--color-accent-dim)' : 'var(--glass-bg)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
           }}
         >
-          <Upload size={36} color={dragging ? 'var(--color-accent)' : 'var(--color-muted)'} style={{ margin: '0 auto 12px' }} />
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Drag &amp; drop PDF files here</div>
+          <Upload
+            size={36}
+            color={dragging ? 'var(--color-accent)' : 'var(--color-muted)'}
+            style={{ margin: '0 auto 14px' }}
+          />
+          <div style={{ fontWeight: 700, marginBottom: 4, color: 'var(--color-text)', fontSize: 15 }}>
+            Drag &amp; drop PDF files here
+          </div>
           <div style={{ color: 'var(--color-muted)', fontSize: 13 }}>or click to browse</div>
-          <div style={{ color: 'var(--color-muted)', fontSize: 11, marginTop: 8 }}>Supports PDF only · Max 50MB per file</div>
+          <div style={{ color: 'var(--color-subtle)', fontSize: 11, marginTop: 8 }}>Supports PDF only · Max 50MB per file</div>
         </div>
       </label>
 
       {/* File list */}
       {items.length > 0 && (
-        <Card style={{ marginBottom: 20 }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>Processing Queue</div>
+        <div style={{ ...glass, borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+          <div style={{
+            padding: '14px 18px', borderBottom: '1px solid var(--color-border)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-text)' }}>Processing Queue</div>
             <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>{items.length} files</div>
           </div>
-          <div style={{ padding: '8px 0' }}>
+          <div style={{ padding: '6px 0' }}>
             {items.map(item => (
               <div key={item.file.name} style={{ padding: '10px 18px', borderBottom: '1px solid var(--color-border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: item.status === 'uploading' ? 6 : 0 }}>
-                  <File size={16} color="var(--color-muted)" />
+                  <File size={15} color="var(--color-muted)" />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.file.name}</div>
+                    <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text)' }}>{item.file.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{(item.file.size / 1024 / 1024).toFixed(1)} MB</div>
                   </div>
                   <StatusIcon status={item.status} />
@@ -114,7 +125,7 @@ export default function UploadPage() {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {pendingCount > 0 && (
@@ -127,8 +138,46 @@ export default function UploadPage() {
 }
 
 function StatusIcon({ status }: { status: UploadItem['status'] }) {
-  if (status === 'done')     return <CheckCircle size={16} color="var(--color-success)" />
-  if (status === 'error')    return <XCircle size={16} color="var(--color-danger)" />
+  if (status === 'done')      return <CheckCircle size={16} color="var(--color-success)" />
+  if (status === 'error')     return <XCircle size={16} color="var(--color-danger)" />
   if (status === 'uploading') return <Loader size={16} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
   return <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-border)' }} />
+}
+
+// ── Stubs ────────────────────────────────────────────────────
+
+export function CollectionsPage() {
+  return (
+    <div style={{ padding: '32px 36px' }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Collections</h1>
+      <p style={{ color: 'var(--color-muted)', fontSize: 13, marginBottom: 28 }}>Group papers into research collections</p>
+      <Empty icon={<Layers size={40} />} title="No collections yet" sub="Coming soon — group papers by topic or project" />
+    </div>
+  )
+}
+
+export function SettingsPage() {
+  return (
+    <div style={{ padding: '32px 36px', maxWidth: 600 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 24 }}>Settings</h1>
+      {[
+        { label: 'Appearance',         items: ['Theme: Light Glass', 'Accent Color: Blue'] },
+        { label: 'Search Preferences', items: ['Default Results: 10', 'Default Sort: Relevance'] },
+        { label: 'API Keys',           items: ['Groq API Key: configured', 'Cohere API Key: configured'] },
+      ].map(section => (
+        <div key={section.label} style={{ ...glass, borderRadius: 'var(--radius-lg)', padding: 20, marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14, color: 'var(--color-text)' }}>{section.label}</div>
+          {section.items.map(item => (
+            <div key={item} style={{
+              padding: '10px 0', borderBottom: '1px solid var(--color-border)',
+              fontSize: 13, display: 'flex', justifyContent: 'space-between',
+            }}>
+              <span style={{ color: 'var(--color-muted)' }}>{item.split(':')[0]}</span>
+              <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{item.split(':')[1]?.trim()}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
 }
