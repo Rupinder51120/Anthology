@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 import json
 import time
 from pathlib import Path
@@ -50,11 +49,24 @@ async def _run_one(question: str, top_k: int, use_hyde: bool) -> dict:
         "answer":    result["answer"],
         "contexts":  [c["text"] for c in chunks],
         "sources":   [c["metadata"]["source"] for c in chunks],
+        # FIX: capture actual chunk_ids alongside paper filenames so
+        # evaluator.py's chunk-level Hit@k/MRR/nDCG can score whether the
+        # SPECIFIC right chunk was retrieved, not just the right paper.
+        "chunk_ids": [c["metadata"]["chunk_id"] for c in chunks],
         "elapsed_s": round(time.time() - t, 2),
     }
 
 
-def _run_eval_job(sample_size: int, use_judge: bool):
+async def _run_eval_job(sample_size: int, use_judge: bool):
+    """
+    Native async background task — runs on uvicorn's existing event loop.
+    FIX (async loop bug): do NOT use asyncio.new_event_loop() /
+    run_until_complete here. A background task spinning up a SECOND event
+    loop while AsyncSessionLocal's connection pool was created on uvicorn's
+    main loop caused 'Future attached to a different loop' errors on most
+    requests, silently turning them into ERROR results. Using native
+    `await` keeps everything on the same loop FastAPI already manages.
+    """
     global _job
     try:
         _job.update({"status": "running", "progress": 0, "error": None})
@@ -72,36 +84,37 @@ def _run_eval_job(sample_size: int, use_judge: bool):
         _job["total"] = len(sample)
 
         results = []
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
 
         for i, qa in enumerate(sample):
             q = qa["question"]
             print(f"[{i+1}/{len(sample)}] {q[:70]}...")
             try:
-                r = loop.run_until_complete(_run_one(q, top_k=5, use_hyde=True))
+                r = await _run_one(q, top_k=5, use_hyde=True)
                 results.append({
-                    "question":     q,
-                    "ground_truth": qa["answer"],
-                    "source_chunk": qa.get("source_chunk", ""),
+                    "question":        q,
+                    "ground_truth":    qa["answer"],
+                    "source_chunk":    qa.get("source_chunk", ""),
+                    "source_paper":    qa.get("source_paper", qa.get("source_chunk", "")),
+                    "source_chunk_id": qa.get("source_chunk_id", ""),
                     **r,
                     "config": {"hyde": True, "top_k": 5},
                 })
             except Exception as e:
                 print(f"  Failed: {e}")
                 results.append({
-                    "question":     q,
-                    "ground_truth": qa["answer"],
-                    "source_chunk": qa.get("source_chunk", ""),
-                    "answer":       "ERROR",
-                    "contexts":     [],
-                    "sources":      [],
-                    "elapsed_s":    0,
-                    "error":        str(e),
+                    "question":        q,
+                    "ground_truth":    qa["answer"],
+                    "source_chunk":    qa.get("source_chunk", ""),
+                    "source_paper":    qa.get("source_paper", qa.get("source_chunk", "")),
+                    "source_chunk_id": qa.get("source_chunk_id", ""),
+                    "answer":          "ERROR",
+                    "contexts":        [],
+                    "sources":         [],
+                    "chunk_ids":       [],
+                    "elapsed_s":       0,
+                    "error":           str(e),
                 })
             _job["progress"] = i + 1
-
-        loop.close()
 
         RESULTS_PATH.parent.mkdir(exist_ok=True)
         with open(RESULTS_PATH, "w") as f:
@@ -123,15 +136,18 @@ async def get_scores():
     scores = _load_scores()
     results = _load_results()
     quick_retrieval = None
+    quick_chunk_retrieval = None
     if results:
         try:
-            from src.evaluation.evaluator import compute_retrieval_metrics
+            from src.evaluation.evaluator import compute_retrieval_metrics, compute_chunk_retrieval_metrics
             quick_retrieval = compute_retrieval_metrics(results)
+            quick_chunk_retrieval = compute_chunk_retrieval_metrics(results)
         except Exception:
             pass
     return {
         "runs": scores,
         "quick_retrieval": quick_retrieval,
+        "quick_chunk_retrieval": quick_chunk_retrieval,
         "qa_count": _qa_count(),
         "result_count": len(results),
     }

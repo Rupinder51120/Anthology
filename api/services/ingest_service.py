@@ -18,7 +18,6 @@ def _sync_ingest(pdf_path: str) -> dict:
 
     path = Path(pdf_path)
     filename = path.name
-
     blocks = parse_pdf(str(path))
     first_page = blocks[0].content if blocks else ""
     meta = extract_metadata_from_pdf(first_page, filename)
@@ -52,14 +51,29 @@ def _sync_ingest(pdf_path: str) -> dict:
 async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
     loop = asyncio.get_event_loop()
     data = await loop.run_in_executor(None, _sync_ingest, pdf_path)
-
     if "error" in data:
         return data
 
-    chunks = data["chunks"]
+    chunks     = data["chunks"]
     embeddings = data["embeddings"]
-    meta = data["meta"]
-    filename = data["filename"]
+    meta       = data["meta"]
+    filename   = data["filename"]
+
+    # FIX (ghost chunk bug, audit #1): chunk_ids are regenerated fresh on
+    # every re-parse based on block position. If a re-uploaded paper now
+    # produces fewer blocks than its previous version, the old version's
+    # tail chunk_ids never appear in the new set — ON CONFLICT DO UPDATE
+    # only touches matching IDs, it never removes orphaned ones. Those
+    # stale chunks stayed in the DB forever, causing contradictory/stale
+    # retrieval results. Fix: delete all existing chunks for this exact
+    # filename before inserting the new set, so each upload is a clean
+    # full replace for that paper (same approach build_index.py's
+    # sync_to_pgvector already uses, just scoped to one paper instead of
+    # wiping the whole table).
+    await db.execute(
+        text("DELETE FROM chunks WHERE source = :source"),
+        {"source": filename},
+    )
 
     inserted = 0
     for chunk, emb in zip(chunks, embeddings):
@@ -101,9 +115,7 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
             "embedding": vec,
         })
         inserted += 1
-
     await db.commit()
-
     return {
         "filename": filename,
         "title": meta.get("title", ""),
