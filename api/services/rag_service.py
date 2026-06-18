@@ -86,9 +86,13 @@ class RAGService:
         session_id   = getattr(request, "session_id", "default") or "default"
         memory       = _get_memory(session_id)
         chat_history = memory.get()
-
         lf = _get_langfuse()
-        trace = lf.trace(name="anthology-query", input={"question": request.question})
+
+        trace = None
+        try:
+            trace = lf.trace(name="anthology-query", input={"question": request.question})
+        except Exception:
+            trace = None
 
         t0 = time.time()
         chunks = await retrieve(
@@ -97,12 +101,16 @@ class RAGService:
             db=db,
             paper_id=request.paper_id,
         )
-        trace.span(
-            name="retrieve",
-            input={"query": request.question},
-            output={"chunks": len(chunks)},
-            metadata={"latency_ms": round((time.time() - t0) * 1000, 2)},
-        )
+        if trace:
+            try:
+                trace.span(
+                    name="retrieve",
+                    input={"query": request.question},
+                    output={"chunks": len(chunks)},
+                    metadata={"latency_ms": round((time.time() - t0) * 1000, 2)},
+                )
+            except Exception:
+                pass
 
         image_paths = [
             c["metadata"].get("image_path")
@@ -122,11 +130,15 @@ class RAGService:
         memory.add("assistant", result.get("answer", ""))
 
         latency_ms = round((time.time() - start) * 1000, 2)
-        trace.update(
-            output={"answer": result.get("answer", "")[:200]},
-            metadata={"latency_ms": latency_ms},
-        )
-        lf.flush()
+        if trace:
+            try:
+                trace.update(
+                    output={"answer": result.get("answer", "")[:200]},
+                    metadata={"latency_ms": latency_ms},
+                )
+                lf.flush()
+            except Exception:
+                pass
 
         citations = [
             CitationOut(

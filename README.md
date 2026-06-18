@@ -1,182 +1,375 @@
-<div align="center">
-
-<img src="https://img.shields.io/badge/status-active-brightgreen?style=flat-square" />
-<img src="https://img.shields.io/badge/python-3.11-blue?style=flat-square" />
-<img src="https://img.shields.io/badge/FastAPI-async-009688?style=flat-square" />
-<img src="https://img.shields.io/badge/pgvector-semantic_search-4169E1?style=flat-square" />
-<img src="https://img.shields.io/badge/Groq-LLM-F55036?style=flat-square" />
-<img src="https://img.shields.io/badge/Langfuse-observability-8B5CF6?style=flat-square" />
-<img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" />
-
 # Anthology
 
-### AI Research Intelligence System
+## AI Research Intelligence Platform
 
-*A production RAG platform for citation-grounded question answering over scientific literature.*
+Anthology is a multimodal research intelligence system for scientific literature.
 
+Unlike traditional "chat with PDF" applications, Anthology combines citation-aware embeddings, hybrid retrieval, reranking, multimodal document understanding, evaluation, and observability to provide grounded answers over research papers.
 
-
-</div>
+The system processes text, figures, charts, and tables, retrieves supporting evidence through a multi-stage retrieval pipeline, and generates citation-backed responses using large language models.
 
 ---
 
-## What is this?
+## Key Features
 
-Anthology is a full-stack Retrieval-Augmented Generation system that lets researchers ask questions about scientific papers and receive answers grounded in citations.
+### Retrieval
 
-It is not a wrapper around an LLM. It is an end-to-end information retrieval and generation pipeline — built from scratch — covering ingestion, embedding, hybrid search, reranking, generation, evaluation, and observability.
+* Citation-aware scientific embeddings using SPECTER2
+* Hybrid retrieval:
+
+  * PostgreSQL Full-Text Search (FTS)
+  * pgvector semantic search
+* Reciprocal Rank Fusion (RRF)
+* Cohere cross-encoder reranking
+* HyDE query expansion
+
+### Multimodal Understanding
+
+* PDF parsing with Docling and PyMuPDF
+* Figure captioning using vision-language models
+* Table extraction and summarization
+* Structured graph and chart understanding
+* Section-aware chunking
+
+### Generation
+
+* Citation-grounded answer generation
+* Multi-turn conversational memory
+* Faithfulness verification
+* Source attribution
+
+### Evaluation
+
+* Paper-level retrieval metrics
+* Chunk-level retrieval metrics
+* Hit@K
+* MRR
+* nDCG
+* Faithfulness scoring
+* Relevance scoring
+* Completeness scoring
+
+### Observability
+
+* End-to-end Langfuse tracing
+* Retrieval span tracking
+* Reranking span tracking
+* Generation span tracking
+
 ---
 
-## System Design
+# System Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│                            INGEST PIPELINE                           │
-│                                                                      │
-│   PDF  ──►  Docling / PyMuPDF                                        │
-│               │                                                      │
-│               ├──►  Section-aware chunking (title / abstract /       │
-│               │     introduction weighted higher in RRF scoring)     │
-│               │                                                      │
-│               ├──►  Figure captioning  (Groq vision API)             │
-│               ├──►  Graph parsing      (DePlot → structured table)   │
-│               └──►  SPECTER2 embeddings (768-dim, scientific domain) │
-│                               │                                      │
-│                               ▼                                      │
-│                    PostgreSQL + pgvector                              │
-└───────────────────────────────┬──────────────────────────────────────┘
-                                │
-                    ┌───────────▼───────────┐
-                    │     Query arrives     │
-                    └───────────┬───────────┘
-                                │
-               ┌────────────────┴─────────────────┐
-               │                                  │
-               ▼                                  ▼
-      pgvector cosine search            PostgreSQL full-text search
-      (SPECTER2 query embed)            (tsvector, ranked by ts_rank)
-               │                                  │
-               └──────────────┬───────────────────┘
-                              │
-                              ▼
-               Reciprocal Rank Fusion (RRF)
-               + section-priority score boost
-                              │
-                              ▼
-               Cohere cross-encoder reranking
-               (top-20 → top-5)
-                              │
-                              ▼
-               ┌──────────────────────────────┐
-               │       Groq LLM (llama3)      │
-               │  citation-grounded prompting │
-               │  faithfulness gate           │
-               │  conversation memory         │
-               └──────────────┬───────────────┘
-                              │
-                              ▼
-               Langfuse — distributed tracing
-               retrieve span / rerank span / generate span
+│                           INGESTION PIPELINE                         │
+└──────────────────────────────────────────────────────────────────────┘
+
+PDF
+ │
+ ▼
+Docling / PyMuPDF
+ │
+ ├── Text Extraction
+ ├── Figure Extraction
+ ├── Table Extraction
+ └── Metadata Extraction
+ │
+ ▼
+Section-Aware Chunking
+ │
+ ├── Abstract
+ ├── Introduction
+ ├── Methods
+ ├── Results
+ └── Conclusion
+ │
+ ▼
+Multimodal Enrichment
+ │
+ ├── Figure Captioning
+ ├── Table Summarization
+ └── Graph Parsing
+ │
+ ▼
+SPECTER2 Embeddings
+ │
+ ▼
+PostgreSQL + pgvector
+```
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│                             QUERY PIPELINE                           │
+└──────────────────────────────────────────────────────────────────────┘
+
+User Query
+ │
+ ▼
+HyDE Query Expansion (optional)
+ │
+ ▼
+SPECTER2 Query Embedding
+ │
+ ├─────────────────────┐
+ ▼                     ▼
+
+pgvector Search     PostgreSQL FTS
+ │                     │
+ └──────────┬──────────┘
+            ▼
+
+Reciprocal Rank Fusion
+(RRF)
+
+            ▼
+
+Section-Aware Boosting
+
+            ▼
+
+Cohere Rerank v3.5
+
+            ▼
+
+Top Evidence Chunks
+
+            ▼
+
+Groq / Ollama LLM
+
+            ▼
+
+Answer + Citations
+
+            ▼
+
+Langfuse Tracing
 ```
 
 ---
 
+# Retrieval Pipeline
 
-## API
+Anthology uses a multi-stage retrieval architecture optimized for scientific literature.
 
-| Method | Route | Description |
-|---|---|---|
-| `POST` | `/api/v1/query` | Full RAG query — returns answer + citations + Langfuse trace ID |
-| `GET` | `/api/v1/papers` | List indexed papers |
-| `GET` | `/api/v1/papers/{id}` | Paper by ID |
-| `POST` | `/api/v1/papers/upload` | Ingest a new PDF |
-| `POST` | `/api/v1/search` | Semantic search without generation |
-| `POST` | `/api/v1/feedback` | Submit answer feedback |
-| `GET` | `/api/v1/stats` | Corpus and system stats |
-| `GET` | `/health` | Health check |
-| `GET` | `/api/v1/benchmark` | Benchmark results |
+1. Query embedding with SPECTER2
+2. Semantic retrieval via pgvector
+3. Lexical retrieval via PostgreSQL Full-Text Search
+4. Reciprocal Rank Fusion (RRF)
+5. Section-aware ranking
+6. Cohere cross-encoder reranking
+7. Context assembly
+8. Citation-grounded generation
 
-**Base URL:** `https://anthology-api.onrender.com`  
-**Interactive docs:** `https://anthology-api.onrender.com/docs`
+This design improves retrieval robustness for both keyword-driven and conceptual research questions.
 
 ---
 
-## Project Structure
+# Evaluation Framework
 
-```
+Anthology includes a built-in benchmarking framework for evaluating both retrieval quality and answer quality.
+
+## Retrieval Metrics
+
+### Paper-Level
+
+* Hit@K
+* MRR
+* nDCG
+
+### Chunk-Level
+
+* Hit@K
+* MRR
+* nDCG
+
+Chunk-level evaluation verifies whether the specific evidence chunk was retrieved, not merely whether the correct paper appeared in results.
+
+## Generation Metrics
+
+* Faithfulness
+* Relevance
+* Completeness
+
+## Benchmark Dataset Generation
+
+Benchmark datasets are automatically generated from research papers while minimizing lexical leakage between questions and source evidence.
+
+This enables retrieval evaluation and generation evaluation to be measured independently.
+
+---
+
+# API
+
+| Method | Route                   | Description           |
+| ------ | ----------------------- | --------------------- |
+| POST   | `/api/v1/query`         | Full RAG query        |
+| POST   | `/api/v1/search`        | Retrieval only        |
+| POST   | `/api/v1/papers/upload` | Upload and ingest PDF |
+| GET    | `/api/v1/papers`        | List indexed papers   |
+| GET    | `/api/v1/papers/{id}`   | Get paper             |
+| POST   | `/api/v1/feedback`      | Submit feedback       |
+| GET    | `/api/v1/stats`         | Corpus statistics     |
+| GET    | `/api/v1/benchmark`     | Benchmark results     |
+| GET    | `/health`               | Health check          |
+
+### Production API
+
+https://anthology-api.onrender.com
+
+### API Documentation
+
+https://anthology-api.onrender.com/docs
+
+---
+
+# Tech Stack
+
+## Backend
+
+* FastAPI
+* Async SQLAlchemy
+* Alembic
+* Pydantic
+
+## Database
+
+* PostgreSQL
+* pgvector
+* PostgreSQL Full-Text Search
+
+## Retrieval
+
+* AllenAI SPECTER2
+* Reciprocal Rank Fusion
+* Cohere Rerank v3.5
+* HyDE
+
+## Multimodal Processing
+
+* Docling
+* PyMuPDF
+* Vision Models
+* Table Summarization Pipeline
+
+## LLMs
+
+* Groq
+* Llama 3
+* Ollama
+* Qwen 2.5
+
+## Observability
+
+* Langfuse
+
+## Frontend
+
+* React
+* TypeScript
+* Vite
+
+---
+
+# Project Structure
+
+```text
 Anthology/
 │
 ├── api/
-│   ├── core/                   # Pydantic settings, async SQLAlchemy engine
-│   ├── models/                 # ORM models — Paper, Chunk, Query, Feedback
-│   ├── routers/                # FastAPI route handlers (one file per domain)
-│   ├── schemas/                # Pydantic I/O contracts
+│   ├── core/
+│   ├── models/
+│   ├── routers/
+│   ├── schemas/
 │   └── services/
-│       ├── rag_service.py      # Orchestrates retrieve → rerank → generate → trace
-│       ├── ingest_service.py   # PDF → chunks → embeddings → pgvector
-│       └── stats_service.py    # Corpus statistics
 │
 ├── src/
 │   ├── ingestion/
-│   │   ├── parser.py           # Docling / PyMuPDF → ParsedBlock
-│   │   ├── chunker.py          # Section-aware chunking with priority weights
-│   │   ├── figure_captioner.py # Groq vision → figure captions
-│   │   └── graph_parser.py     # DePlot → structured table extraction
-│   │
 │   ├── retrieval/
-│   │   ├── retriever.py        # pgvector + FTS + RRF + Cohere rerank
-│   │   ├── embedder.py         # SPECTER2 model loading and caching
-│   │   └── hyde.py             # Hypothetical Document Embeddings (optional)
-│   │
 │   ├── generation/
-│   │   ├── generator.py        # Groq / Ollama generation + faithfulness gate
-│   │   └── memory.py           # Conversation session management
-│   │
 │   └── evaluation/
-│       ├── evaluator.py        # Hit@k, MRR, nDCG@5
-│       ├── benchmarker.py      # QA dataset generation
-│       └── pipeline_runner.py  # End-to-end benchmark execution
 │
-├── frontend/                   # React + Vite + TypeScript
-│
+├── frontend/
 ├── scripts/
-│   ├── embed_papers.py         # Batch embed and sync corpus to pgvector
-│   ├── migrate_v2.py           # v2 schema migration
-│   └── patch_papers_schema.py
-│
-├── alembic/                    # Async migrations
+├── alembic/
 ├── docker-compose.yml
 └── requirements.txt
 ```
 
 ---
 
-## Local Development
+# Local Development
 
-**Requirements:** Python 3.11, Docker, Groq API key
+## Requirements
+
+* Python 3.11+
+* Docker
+* PostgreSQL
+* Groq API Key
+* Cohere API Key
 
 ```bash
 git clone https://github.com/Rupinder51120/Anthology.git
 cd Anthology
 
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
+
 pip install -r requirements.txt
 
 cp .env.example .env
-# set: DATABASE_URL, GROQ_API_KEY, COHERE_API_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
+```
 
-docker compose up -d          # start PostgreSQL with pgvector
-alembic upgrade head          # run migrations
-python scripts/embed_papers.py  # embed corpus → pgvector
+Configure:
+
+```env
+DATABASE_URL=
+GROQ_API_KEY=
+COHERE_API_KEY=
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+```
+
+Start services:
+
+```bash
+docker compose up -d
+
+alembic upgrade head
+
+python scripts/embed_papers.py
 
 uvicorn app:app --reload
-# API: http://localhost:8000
-# Docs: http://localhost:8000/docs
+```
+
+API:
+
+```text
+http://localhost:8000
+```
+
+Docs:
+
+```text
+http://localhost:8000/docs
 ```
 
 ---
 
+# Future Roadmap
 
-## License
+* Research paper discovery
+* Semantic Scholar integration
+* ArXiv integration
+* Multi-paper comparison
+* Research trend analysis
+* Agentic literature review workflows
+* Citation graph exploration
+* Research recommendation engine
 
-MIT
+---
+
+# License
+
+MIT License
