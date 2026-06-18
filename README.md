@@ -1,289 +1,110 @@
 # Anthology
 
-## AI Research Intelligence Platform
+## AI Research Intelligence System
 
-Anthology is a multimodal research intelligence system for scientific literature.
+Anthology is a Retrieval-Augmented Generation (RAG) platform for exploring and querying scientific literature.
 
-Unlike traditional "chat with PDF" applications, Anthology combines citation-aware embeddings, hybrid retrieval, reranking, multimodal document understanding, evaluation, and observability to provide grounded answers over research papers.
-
-The system processes text, figures, charts, and tables, retrieves supporting evidence through a multi-stage retrieval pipeline, and generates citation-backed responses using large language models.
+The system ingests research papers, indexes their content, retrieves relevant evidence through a hybrid retrieval pipeline, and generates citation-grounded responses. It is designed as a full-stack application with a FastAPI backend, PostgreSQL/pgvector storage, and a React frontend.
 
 ---
 
-## Key Features
+## Features
 
-### Retrieval
-
-* Citation-aware scientific embeddings using SPECTER2
-* Hybrid retrieval:
+* Research paper ingestion and indexing
+* Section-aware document chunking
+* Hybrid retrieval using:
 
   * PostgreSQL Full-Text Search (FTS)
   * pgvector semantic search
+* SPECTER2 scientific embeddings
 * Reciprocal Rank Fusion (RRF)
-* Cohere cross-encoder reranking
-* HyDE query expansion
-
-### Multimodal Understanding
-
-* PDF parsing with Docling and PyMuPDF
-* Figure captioning using vision-language models
-* Table extraction and summarization
-* Structured graph and chart understanding
-* Section-aware chunking
-
-### Generation
-
+* Cohere reranking
 * Citation-grounded answer generation
-* Multi-turn conversational memory
-* Faithfulness verification
-* Source attribution
-
-### Evaluation
-
-* Paper-level retrieval metrics
-* Chunk-level retrieval metrics
-* Hit@K
-* MRR
-* nDCG
-* Faithfulness scoring
-* Relevance scoring
-* Completeness scoring
-
-### Observability
-
-* End-to-end Langfuse tracing
-* Retrieval span tracking
-* Reranking span tracking
-* Generation span tracking
+* Retrieval benchmarking and evaluation
+* Langfuse observability and tracing
 
 ---
 
-# System Architecture
+## Architecture
 
 ```text
-┌──────────────────────────────────────────────────────────────────────┐
-│                           INGESTION PIPELINE                         │
-└──────────────────────────────────────────────────────────────────────┘
-
 PDF
  │
  ▼
-Docling / PyMuPDF
- │
- ├── Text Extraction
- ├── Figure Extraction
- ├── Table Extraction
- └── Metadata Extraction
+Document Parsing
  │
  ▼
-Section-Aware Chunking
- │
- ├── Abstract
- ├── Introduction
- ├── Methods
- ├── Results
- └── Conclusion
+Chunking
  │
  ▼
-Multimodal Enrichment
- │
- ├── Figure Captioning
- ├── Table Summarization
- └── Graph Parsing
- │
- ▼
-SPECTER2 Embeddings
+Embedding Generation
  │
  ▼
 PostgreSQL + pgvector
-```
-
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│                             QUERY PIPELINE                           │
-└──────────────────────────────────────────────────────────────────────┘
-
-User Query
  │
  ▼
-HyDE Query Expansion (optional)
+Hybrid Retrieval
+(FTS + Vector Search)
  │
  ▼
-SPECTER2 Query Embedding
+RRF Fusion
  │
- ├─────────────────────┐
- ▼                     ▼
-
-pgvector Search     PostgreSQL FTS
- │                     │
- └──────────┬──────────┘
-            ▼
-
-Reciprocal Rank Fusion
-(RRF)
-
-            ▼
-
-Section-Aware Boosting
-
-            ▼
-
-Cohere Rerank v3.5
-
-            ▼
-
-Top Evidence Chunks
-
-            ▼
-
-Groq / Ollama LLM
-
-            ▼
-
+ ▼
+Reranking
+ │
+ ▼
+LLM Generation
+ │
+ ▼
 Answer + Citations
-
-            ▼
-
-Langfuse Tracing
 ```
 
 ---
 
-# Retrieval Pipeline
+## Tech Stack
 
-Anthology uses a multi-stage retrieval architecture optimized for scientific literature.
-
-1. Query embedding with SPECTER2
-2. Semantic retrieval via pgvector
-3. Lexical retrieval via PostgreSQL Full-Text Search
-4. Reciprocal Rank Fusion (RRF)
-5. Section-aware ranking
-6. Cohere cross-encoder reranking
-7. Context assembly
-8. Citation-grounded generation
-
-This design improves retrieval robustness for both keyword-driven and conceptual research questions.
-
----
-
-# Evaluation Framework
-
-Anthology includes a built-in benchmarking framework for evaluating both retrieval quality and answer quality.
-
-## Retrieval Metrics
-
-### Paper-Level
-
-* Hit@K
-* MRR
-* nDCG
-
-### Chunk-Level
-
-* Hit@K
-* MRR
-* nDCG
-
-Chunk-level evaluation verifies whether the specific evidence chunk was retrieved, not merely whether the correct paper appeared in results.
-
-## Generation Metrics
-
-* Faithfulness
-* Relevance
-* Completeness
-
-## Benchmark Dataset Generation
-
-Benchmark datasets are automatically generated from research papers while minimizing lexical leakage between questions and source evidence.
-
-This enables retrieval evaluation and generation evaluation to be measured independently.
-
----
-
-# API
-
-| Method | Route                   | Description           |
-| ------ | ----------------------- | --------------------- |
-| POST   | `/api/v1/query`         | Full RAG query        |
-| POST   | `/api/v1/search`        | Retrieval only        |
-| POST   | `/api/v1/papers/upload` | Upload and ingest PDF |
-| GET    | `/api/v1/papers`        | List indexed papers   |
-| GET    | `/api/v1/papers/{id}`   | Get paper             |
-| POST   | `/api/v1/feedback`      | Submit feedback       |
-| GET    | `/api/v1/stats`         | Corpus statistics     |
-| GET    | `/api/v1/benchmark`     | Benchmark results     |
-| GET    | `/health`               | Health check          |
-
-### Production API
-
-https://anthology-api.onrender.com
-
-### API Documentation
-
-https://anthology-api.onrender.com/docs
-
----
-
-# Tech Stack
-
-## Backend
+### Backend
 
 * FastAPI
-* Async SQLAlchemy
+* SQLAlchemy
 * Alembic
 * Pydantic
 
-## Database
+### Database
 
 * PostgreSQL
 * pgvector
 * PostgreSQL Full-Text Search
 
-## Retrieval
+### Retrieval
 
-* AllenAI SPECTER2
-* Reciprocal Rank Fusion
-* Cohere Rerank v3.5
-* HyDE
+* SPECTER2
+* Cohere Rerank
+* Reciprocal Rank Fusion (RRF)
 
-## Multimodal Processing
-
-* Docling
-* PyMuPDF
-* Vision Models
-* Table Summarization Pipeline
-
-## LLMs
+### LLMs
 
 * Groq
-* Llama 3
 * Ollama
-* Qwen 2.5
 
-## Observability
-
-* Langfuse
-
-## Frontend
+### Frontend
 
 * React
 * TypeScript
 * Vite
 
+### Observability
+
+* Langfuse
+
 ---
 
-# Project Structure
+## Project Structure
 
 ```text
 Anthology/
 │
 ├── api/
-│   ├── core/
-│   ├── models/
-│   ├── routers/
-│   ├── schemas/
-│   └── services/
-│
 ├── src/
 │   ├── ingestion/
 │   ├── retrieval/
@@ -293,35 +114,41 @@ Anthology/
 ├── frontend/
 ├── scripts/
 ├── alembic/
+├── docker/
+│
+├── Dockerfile
 ├── docker-compose.yml
+├── pyproject.toml
 └── requirements.txt
 ```
 
 ---
 
-# Local Development
+## Getting Started
 
-## Requirements
-
-* Python 3.11+
-* Docker
-* PostgreSQL
-* Groq API Key
-* Cohere API Key
+### Clone the Repository
 
 ```bash
 git clone https://github.com/Rupinder51120/Anthology.git
 cd Anthology
-
-python -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
-
-cp .env.example .env
 ```
 
-Configure:
+### Create a Virtual Environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Configure Environment Variables
+
+Create a `.env` file:
 
 ```env
 DATABASE_URL=
@@ -331,45 +158,26 @@ LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 ```
 
-Start services:
+### Start Services
 
 ```bash
 docker compose up -d
-
 alembic upgrade head
-
-python scripts/embed_papers.py
-
-uvicorn app:app --reload
 ```
 
-API:
+### Run the API
 
-```text
-http://localhost:8000
+```bash
+uvicorn api.main:app --reload
 ```
 
-Docs:
+API Documentation:
 
 ```text
 http://localhost:8000/docs
 ```
 
----
 
-# Future Roadmap
-
-* Research paper discovery
-* Semantic Scholar integration
-* ArXiv integration
-* Multi-paper comparison
-* Research trend analysis
-* Agentic literature review workflows
-* Citation graph exploration
-* Research recommendation engine
-
----
-
-# License
+## License
 
 MIT License
