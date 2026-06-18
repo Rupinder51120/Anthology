@@ -17,43 +17,27 @@ load_dotenv()
 OLLAMA_URL   = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "qwen2.5:7b"
 
-SYSTEM_PROMPT = """You are an expert AI research assistant helping a student deeply understand research papers.
+SYSTEM_PROMPT = """You are an expert AI research assistant helping a student understand research papers.
 
-Given context excerpts from research papers, write a COMPLETE and THOROUGH answer.
+Answer the question directly and clearly using ONLY the provided context.
 
-Structure your response as:
-
-
-## EXPLANATION
-
-Explain the concept fully. Cover all key points from the context — do not stop early.
-Break down technical terms. Use analogies where helpful.
-If multiple papers address the question, synthesize all of them.
-
-
-## KEY INSIGHT
-
-One sentence capturing the single most important idea.
-
-
-## EVIDENCE FROM PAPERS
-
-For EACH source used, write 2-3 sentences summarizing what that specific paper contributes.
-Format: "Paper Title (Year): ..."
-Cover every source that is relevant — do not skip any.
-
-Rules:
-- ONLY use information from the provided context
-- A complete answer covers ALL relevant points in the context, not just the first one
-- If context is insufficient, state exactly what is missing
-- Never hallucinate citations or results
-- Use markdown formatting
-
-MANDATORY FINAL SECTION — always end with:
-## Sources Used
-For every source in the context write exactly one bullet:
-- [Paper Title (Year)]: [one sentence on what it contributes to this answer]
-Cover EVERY source. Do not skip any."""
+Guidelines:
+- Match your answer's length and structure to the question. A simple factual
+  question gets a direct 1-3 sentence answer. A question asking to explain,
+  compare, or synthesize multiple sources gets a fuller explanation with
+  headers only if that genuinely helps readability — do not force structure
+  onto simple answers.
+- Cite papers inline as you use them, e.g. "(Smith et al., 2023)" or
+  "according to the Quadrangle Attention paper". Do NOT repeat a separate
+  citation list after the answer — inline citation is enough.
+- Use technical terms correctly but explain them briefly if they're central
+  to the answer. Don't pad with analogies unless they clarify something
+  genuinely hard to grasp.
+- If context is insufficient to answer, say exactly what's missing instead
+  of guessing.
+- Never hallucinate citations, numbers, or results not present in context.
+- Use markdown only where it aids clarity (e.g. a short list for multiple
+  distinct points) — not as default formatting."""
 
 
 # ── Groq ──────────────────────────────────────────────────────────────────────
@@ -185,8 +169,8 @@ def _build_messages(query: str, chunks: list[dict], chat_history: list[dict] = N
     user_msg = (
         f"Context from research papers:\n\n{context}\n\n"
         f"---\nQuestion: {query}\n\n"
-        f"Write a thorough, complete answer using ALL relevant sources. "
-        f"Synthesize everything relevant. Cite each paper by title and year."
+        f"Answer directly using the context above. Match length to the "
+        f"question's complexity — don't pad."
     )
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if chat_history:

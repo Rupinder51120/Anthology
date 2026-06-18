@@ -28,10 +28,12 @@ def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
         t = t.strip()
         if not t:
             t = "[EMPTY]"
-        # Fix #7: HyDE documents are ~250 tokens (~1000 chars); the old 512-char
-        # limit cut them roughly in half before embedding.  MiniLM supports up
-        # to 512 *tokens* (~2000 chars), so 1024 chars is safe for all inputs.
-        cleaned.append(t[:1024])
+       # FIX (audit #2): model is SPECTER2 (allenai/specter2_base), not
+        # MiniLM as the old comment claimed. SPECTER2 supports 512 tokens
+        # (~2000-2500 chars). The old 1024-char limit truncated 13.64% of
+        # chunks by an average of 25.2% (measured on the 12,679-chunk
+        # corpus), discarding real content the model could have used.
+        cleaned.append(t[:2000])
 
     embeddings = model.encode(
         cleaned,
