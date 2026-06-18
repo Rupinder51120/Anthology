@@ -3,6 +3,16 @@ src/evaluation/evaluator.py
 Groq-as-judge (llama-3.1-8b-instant) — no Ollama needed, uses existing GROQ_API_KEY
 Metrics: Hit@k, MRR, nDCG@5 (retrieval) + Faithfulness, Relevance, Completeness (generation)
 These are RAGAS-equivalent metrics implemented directly.
+
+FIX (audit: evaluation flaw): retrieval metrics previously only checked
+paper-level relevance ("did a chunk from the right paper show up"), even
+though the field was misleadingly named source_chunk. Retrieving the WRONG
+chunk from the right paper counted as a perfect hit. Paper-level metrics
+are KEPT (still meaningful — measures "did retrieval find the right
+document at all"), and chunk-level metrics are ADDED alongside them,
+activating automatically when a result has a source_chunk_id field
+(backward compatible — old datasets/results without that field just skip
+chunk-level scoring, no errors).
 """
 
 import json
@@ -23,7 +33,7 @@ def _norm(s: str) -> str:
     return Path(s).stem if s else ""
 
 
-# ── Retrieval metrics (no LLM needed) ────────────────────────
+# ── Paper-level retrieval metrics (existing, unchanged logic) ──
 
 def _hit_at_k(sources, expected, k):
     if not sources or not expected:
@@ -50,7 +60,34 @@ def _ndcg_at_k(sources, expected, k=5):
     idcg = sum(rel / np.log2(i + 2) for i, rel in enumerate(sorted(relevance, reverse=True)))
     return (dcg / idcg) if idcg > 0.0 else 0.0
 
+
+# ── Chunk-level retrieval metrics (NEW — exact chunk_id match, no stemming) ──
+
+def _hit_at_k_chunk(chunk_ids, expected_chunk_id, k):
+    if not chunk_ids or not expected_chunk_id:
+        return 0
+    return int(expected_chunk_id in chunk_ids[:k])
+
+def _reciprocal_rank_chunk(chunk_ids, expected_chunk_id):
+    if not chunk_ids or not expected_chunk_id:
+        return 0.0
+    for i, cid in enumerate(chunk_ids):
+        if cid == expected_chunk_id:
+            return 1.0 / (i + 1)
+    return 0.0
+
+def _ndcg_at_k_chunk(chunk_ids, expected_chunk_id, k=5):
+    if not chunk_ids or not expected_chunk_id:
+        return 0.0
+    k = min(k, len(chunk_ids))
+    relevance = [1 if cid == expected_chunk_id else 0 for cid in chunk_ids[:k]]
+    dcg  = sum(rel / np.log2(i + 2) for i, rel in enumerate(relevance))
+    idcg = sum(rel / np.log2(i + 2) for i, rel in enumerate(sorted(relevance, reverse=True)))
+    return (dcg / idcg) if idcg > 0.0 else 0.0
+
+
 def compute_retrieval_metrics(results, k_values=[1, 3, 5]):
+    """Paper-level metrics (existing behavior, unchanged)."""
     valid = [
         r for r in results
         if r.get("source_chunk") and r.get("sources")
@@ -72,6 +109,46 @@ def compute_retrieval_metrics(results, k_values=[1, 3, 5]):
             hit_scores[k].append(_hit_at_k(sources, expected, k))
         mrr_scores.append(_reciprocal_rank(sources, expected))
         ndcg_scores.append(_ndcg_at_k(sources, expected, k=5))
+
+    metrics = {f"hit@{k}": round(float(np.mean(hit_scores[k])), 4) for k in k_values}
+    metrics["mrr"]    = round(float(np.mean(mrr_scores)), 4)
+    metrics["ndcg@5"] = round(float(np.mean(ndcg_scores)), 4)
+    metrics["n_eval"] = len(valid)
+    return metrics
+
+
+def compute_chunk_retrieval_metrics(results, k_values=[1, 3, 5]):
+    """
+    Chunk-level metrics (NEW). Requires results to have:
+      - source_chunk_id: ground truth chunk_id the question was anchored to
+      - chunk_ids: list of chunk_ids actually retrieved, in rank order
+
+    Backward compatible: if results don't have these fields (older
+    datasets/pipeline_results), returns {} instead of erroring, so existing
+    callers that don't expect this can simply ignore an empty dict.
+    """
+    valid = [
+        r for r in results
+        if r.get("source_chunk_id") and r.get("chunk_ids")
+        and r["answer"] not in ("ERROR", "")
+        and "Generation failed" not in r.get("answer", "")
+    ]
+    if not valid:
+        print("  No valid results with source_chunk_id — chunk-level metrics skipped "
+              "(dataset/pipeline may predate this field; this is expected for old data).")
+        return {}
+
+    hit_scores  = {k: [] for k in k_values}
+    mrr_scores  = []
+    ndcg_scores = []
+
+    for r in valid:
+        expected  = r["source_chunk_id"]
+        chunk_ids = r["chunk_ids"]
+        for k in k_values:
+            hit_scores[k].append(_hit_at_k_chunk(chunk_ids, expected, k))
+        mrr_scores.append(_reciprocal_rank_chunk(chunk_ids, expected))
+        ndcg_scores.append(_ndcg_at_k_chunk(chunk_ids, expected, k=5))
 
     metrics = {f"hit@{k}": round(float(np.mean(hit_scores[k])), 4) for k in k_values}
     metrics["mrr"]    = round(float(np.mean(mrr_scores)), 4)
@@ -207,13 +284,21 @@ def evaluate_results(results, label="pipeline", run_judge=True):
     print(f"\n{'='*50}\nEvaluating: {label}\n{'='*50}")
     output = {"label": label}
 
-    print("  Computing retrieval metrics...")
+    print("  Computing paper-level retrieval metrics...")
     retrieval = compute_retrieval_metrics(results)
     output["retrieval"] = retrieval
     if retrieval:
         print(f"  Hit@1={retrieval['hit@1']}  Hit@3={retrieval['hit@3']}  "
               f"Hit@5={retrieval['hit@5']}  MRR={retrieval['mrr']}  "
               f"nDCG@5={retrieval['ndcg@5']}  (n={retrieval['n_eval']})")
+
+    print("  Computing chunk-level retrieval metrics...")
+    chunk_retrieval = compute_chunk_retrieval_metrics(results)
+    output["chunk_retrieval"] = chunk_retrieval
+    if chunk_retrieval:
+        print(f"  [chunk] Hit@1={chunk_retrieval['hit@1']}  Hit@3={chunk_retrieval['hit@3']}  "
+              f"Hit@5={chunk_retrieval['hit@5']}  MRR={chunk_retrieval['mrr']}  "
+              f"nDCG@5={chunk_retrieval['ndcg@5']}  (n={chunk_retrieval['n_eval']})")
 
     if run_judge:
         print("  Running Groq-as-judge (RAGAS-equivalent)...")

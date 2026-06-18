@@ -193,7 +193,12 @@ async def retrieve(
     if use_hyde:
         from src.retrieval.hyde import expand_query_with_hyde
         _, hyde_docs, _ = expand_query_with_hyde(query, n_docs=2)
-        embeddings = embed_texts([query] + hyde_docs)
+        # FIX: embed ONLY the hyde docs (true HyDE), never mix in the raw
+        # query embedding. Averaging query+hyde dragged the vector toward
+        # generic territory, causing wrong-paper retrieval on specific
+        # technical questions (verified: pulled survey papers over the
+        # specific paper they were surveying).
+        embeddings = embed_texts(hyde_docs)
         query_emb = np.mean(embeddings, axis=0).tolist()
     else:
         import asyncio, functools

@@ -91,8 +91,22 @@ def generate_qa_from_chunk(
     eliminates the primary source of lexical bias: the LLM can no longer
     copy rare tokens from the chunk that BM25 matches trivially.
 
-    The chunk is still recorded as source_chunk so the evaluator knows
-    which chunk to look for at retrieval time.
+    FIX (audit: evaluation flaw — paper-level vs chunk-level ground truth):
+    Previously this function stored `source_chunk` set to the PAPER's
+    filename (meta['source']), not an actual chunk_id. This meant every
+    downstream Hit@k/MRR/nDCG metric only checked "did a chunk from the
+    correct PAPER appear in the results" — retrieving the WRONG chunk from
+    the right paper still counted as a perfect hit. The field name was
+    misleading and the metric was systematically more generous than it
+    should be.
+
+    Now we store BOTH:
+      - source_paper:    the paper filename (same value as before — kept
+                          for backwards-compatible paper-level scoring)
+      - source_chunk_id: the actual chunk_id this question was anchored to,
+                          enabling a genuine chunk-level Hit@k/MRR/nDCG.
+      - source_chunk:    kept as an alias of source_paper for any old code
+                          that still reads this exact key name.
     """
     meta = chunk["metadata"]
     chunk_text = chunk["text"]
@@ -193,6 +207,16 @@ Output:
 
             # Flag abstract-based questions for diagnostics
             pair["generation_source"] = context_label
+
+            # FIX: capture real chunk-level ground truth alongside the
+            # existing paper-level field. source_chunk stays as-is (paper
+            # filename) for backward compatibility with any code reading
+            # that exact key; source_paper is the same value under a
+            # clearer name; source_chunk_id is the NEW field holding the
+            # actual chunk_id this question was generated from.
+            pair["source_paper"]    = meta["source"]
+            pair["source_chunk_id"] = meta.get("chunk_id", "")
+
             cleaned.append(pair)
 
         return cleaned
