@@ -128,3 +128,12 @@ out/
 data/figures/
 
 *pinterestdemo*
+data / download_config.json
+data/download_config.json
+data/download_registry.json
+data/last_download_report.json
+data/papers/
+data/download_config.json
+data/download_registry.json
+data/last_download_report.json
+data/papers/
