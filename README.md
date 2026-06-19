@@ -1,5 +1,6 @@
 # Anthology
 
+<<<<<<< HEAD
 ## AI Research Intelligence System
 
 Anthology is a Retrieval-Augmented Generation (RAG) platform for exploring and querying scientific literature.
@@ -127,10 +128,16 @@ Anthology/
 ## Getting Started
 
 ### Clone the Repository
+=======
+AI Research Intelligence System for exploring and querying scientific literature.
+
+## Clone the Repository
+>>>>>>> origin/main
 
 ```bash
 git clone https://github.com/Rupinder51120/Anthology.git
 cd Anthology
+<<<<<<< HEAD
 ```
 
 ### Create a Virtual Environment
@@ -149,6 +156,22 @@ pip install -r requirements.txt
 ### Configure Environment Variables
 
 Create a `.env` file:
+=======
+```
+
+## Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+## Environment Variables
+
+Create a `.env` file and configure the required API keys and database settings.
+>>>>>>> origin/main
 
 ```env
 DATABASE_URL=
@@ -158,6 +181,7 @@ LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 ```
 
+<<<<<<< HEAD
 ### Start Services
 
 ```bash
@@ -171,13 +195,35 @@ alembic upgrade head
 uvicorn api.main:app --reload
 ```
 
+=======
+## Run with Docker
+
+```bash
+docker compose up -d
+```
+
+## Run Locally
+
+```bash
+alembic upgrade head
+
+uvicorn api.main:app --reload
+```
+
+>>>>>>> origin/main
 API Documentation:
 
 ```text
 http://localhost:8000/docs
 ```
 
+<<<<<<< HEAD
 
 ## License
 
 MIT License
+=======
+## License
+
+MIT
+>>>>>>> origin/main
