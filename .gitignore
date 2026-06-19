@@ -121,10 +121,17 @@ test_smoke.json
 alembic/versions/**pycache**/
 
 # Node (future UI)
-
 node_modules/
 .next/
 out/
+
+# Generated data artifacts
 data/figures/
+data/tables/
+data/uploads/
+data/download_config.json
+data/download_registry.json
+data/last_download_report.json
+data/uploads/
 
 *pinterestdemo*
