@@ -206,6 +206,8 @@ def load_paper(pdf_path: Path) -> dict:
         source = "registry"
     else:
         print(f"  Warning: {filename} not in registry, using PDF extraction")
+        if not pages:
+            raise ValueError(f"PDF contains no extractable text pages: {filename}")
         metadata = extract_metadata_from_pdf(pages[0]["text"], filename)
         source   = "pdf"
 
