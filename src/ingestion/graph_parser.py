@@ -27,20 +27,41 @@ def parse_chart(image_path: str) -> str | None:
         return None
     try:
         from PIL import Image
-        processor, model = _get_deplot()
-        image = Image.open(image_path).convert('RGB')
-        inputs = processor(
-            images=image,
-            text='Generate underlying data table of the figure below:',
-            return_tensors='pt'
-        )
-        predictions = model.generate(**inputs, max_new_tokens=512)
-        result = processor.decode(predictions[0], skip_special_tokens=True)
-        result = result.replace('<0x0A>', '\n').strip()
-        # If output is too short or has no numbers, likely not a chart
-        if len(result) < 20 or not any(c.isdigit() for c in result):
+
+        # 1. Model Load
+        try:
+            processor, model = _get_deplot()
+        except Exception as e:
+            print(f"DePlot model load failed: {e}")
             return None
-        return result
+
+        # 2. Image Load and Validation
+        try:
+            with Image.open(image_path) as img:
+                image = img.convert('RGB') # Load into memory for inference
+        except Exception as e:
+            print(f"DePlot image load failure for {image_path}: {e}")
+            return None
+
+        # 3. Inference
+        try:
+            inputs = processor(
+                images=image,
+                text='Generate underlying data table of the figure below:',
+                return_tensors='pt'
+            )
+            predictions = model.generate(**inputs, max_new_tokens=512)
+            result = processor.decode(predictions[0], skip_special_tokens=True)
+            result = result.replace('<0x0A>', '\n').strip()
+
+            # If output is too short or has no numbers, likely not a chart
+            if len(result) < 20 or not any(c.isdigit() for c in result):
+                return None
+            return result
+        except Exception as e:
+            print(f"DePlot inference failure for {image_path}: {e}")
+            return None
+
     except Exception as e:
-        print(f"DePlot failed for {image_path}: {e}")
+        print(f"Unexpected DePlot error for {image_path}: {e}")
         return None
