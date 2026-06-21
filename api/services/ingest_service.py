@@ -59,63 +59,54 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
     meta       = data["meta"]
     filename   = data["filename"]
 
-    # FIX (ghost chunk bug, audit #1): chunk_ids are regenerated fresh on
-    # every re-parse based on block position. If a re-uploaded paper now
-    # produces fewer blocks than its previous version, the old version's
-    # tail chunk_ids never appear in the new set — ON CONFLICT DO UPDATE
-    # only touches matching IDs, it never removes orphaned ones. Those
-    # stale chunks stayed in the DB forever, causing contradictory/stale
-    # retrieval results. Fix: delete all existing chunks for this exact
-    # filename before inserting the new set, so each upload is a clean
-    # full replace for that paper (same approach build_index.py's
-    # sync_to_pgvector already uses, just scoped to one paper instead of
-    # wiping the whole table).
-    await db.execute(
-        text("DELETE FROM chunks WHERE source = :source"),
-        {"source": filename},
-    )
-
+    
     inserted = 0
-    for chunk, emb in zip(chunks, embeddings):
-        m = chunk["metadata"]
-        vec = "[" + ",".join(str(x) for x in emb.tolist()) + "]"
-        await db.execute(text("""
-            INSERT INTO chunks (
-                chunk_id, source, title, authors, year, section,
-                section_priority, chunk_index, chunk_type, content_type,
-                text, char_count, word_count, page_number, figure_number,
-                image_path, table_markdown, table_summary, embedding
-            ) VALUES (
-                :chunk_id, :source, :title, :authors, :year, :section,
-                :section_priority, :chunk_index, :chunk_type, :content_type,
-                :text, :char_count, :word_count, :page_number, :figure_number,
-                :image_path, :table_markdown, :table_summary, :embedding::vector
-            ) ON CONFLICT (chunk_id) DO UPDATE SET
-                text = EXCLUDED.text,
-                embedding = EXCLUDED.embedding
-        """), {
-            "chunk_id": m.get("chunk_id", ""),
-            "source": m.get("source", filename),
-            "title": meta.get("title", ""),
-            "authors": meta.get("authors", ""),
-            "year": meta.get("year"),
-            "section": m.get("section", ""),
-            "section_priority": m.get("section_priority", 0.5),
-            "chunk_index": m.get("chunk_index", 0),
-            "chunk_type": m.get("chunk_type", "general"),
-            "content_type": m.get("content_type", "text"),
-            "text": chunk["text"],
-            "char_count": m.get("char_count", 0),
-            "word_count": m.get("word_count", 0),
-            "page_number": m.get("page_number"),
-            "figure_number": m.get("figure_number"),
-            "image_path": m.get("image_path"),
-            "table_markdown": m.get("table_markdown"),
-            "table_summary": m.get("table_summary"),
-            "embedding": vec,
-        })
-        inserted += 1
-    await db.commit()
+    async with db.begin():
+        await db.execute(
+            text("DELETE FROM chunks WHERE source = :source"),
+            {"source": filename},
+        )
+
+        for chunk, emb in zip(chunks, embeddings):
+            m = chunk["metadata"]
+            vec = "[" + ",".join(str(x) for x in emb.tolist()) + "]"
+            await db.execute(text("""
+                INSERT INTO chunks (
+                    chunk_id, source, title, authors, year, section,
+                    section_priority, chunk_index, chunk_type, content_type,
+                    text, char_count, word_count, page_number, figure_number,
+                    image_path, table_markdown, table_summary, embedding
+                ) VALUES (
+                    :chunk_id, :source, :title, :authors, :year, :section,
+                    :section_priority, :chunk_index, :chunk_type, :content_type,
+                    :text, :char_count, :word_count, :page_number, :figure_number,
+                    :image_path, :table_markdown, :table_summary, :embedding::vector
+                ) ON CONFLICT (chunk_id) DO UPDATE SET
+                    text = EXCLUDED.text,
+                    embedding = EXCLUDED.embedding
+            """), {
+                "chunk_id": m.get("chunk_id", ""),
+                "source": m.get("source", filename),
+                "title": meta.get("title", ""),
+                "authors": meta.get("authors", ""),
+                "year": meta.get("year"),
+                "section": m.get("section", ""),
+                "section_priority": m.get("section_priority", 0.5),
+                "chunk_index": m.get("chunk_index", 0),
+                "chunk_type": m.get("chunk_type", "general"),
+                "content_type": m.get("content_type", "text"),
+                "text": chunk["text"],
+                "char_count": m.get("char_count", 0),
+                "word_count": m.get("word_count", 0),
+                "page_number": m.get("page_number"),
+                "figure_number": m.get("figure_number"),
+                "image_path": m.get("image_path"),
+                "table_markdown": m.get("table_markdown"),
+                "table_summary": m.get("table_summary"),
+                "embedding": vec,
+            })
+            inserted += 1
+    # db.begin() commits here on clean exit; rolls back on any exception above.
     return {
         "filename": filename,
         "title": meta.get("title", ""),
