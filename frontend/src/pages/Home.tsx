@@ -1,31 +1,69 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Search, MessageSquare, Upload, BookOpen, Zap, Database, Activity, ArrowRight } from 'lucide-react'
+import {
+  Search, MessageSquare, Upload, BookOpen,
+  Zap, Database, Activity, ArrowRight, ArrowUpRight, Sparkles
+} from 'lucide-react'
 import { getStats, getPapers } from '../api/client'
 import { Spinner } from '../components/ui'
 import { glass, glassCard, hoverLift, hoverSlide } from '../lib/theme'
+import MoodToggle from '../components/ui/MoodToggle'
 import type { StatsResponse } from '../api/client'
 
 const actions = [
-  { icon: Search,        label: 'Smart Search',  sub: 'Find papers by concept',   to: '/search',  color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)'   },
-  { icon: MessageSquare, label: 'Chat with AI',  sub: 'Ask research questions',   to: '/chat',    color: 'var(--color-green)',  bg: 'var(--color-green-dim)'  },
-  { icon: Upload,        label: 'Upload Papers', sub: 'Add PDFs to your library', to: '/upload',  color: 'var(--color-orange)', bg: 'var(--color-orange-dim)' },
-  { icon: BookOpen,      label: 'My Library',    sub: 'Browse your collection',   to: '/library', color: 'var(--color-purple)', bg: 'var(--color-purple-dim)' },
+  { icon: Search,        label: 'Smart Search',  sub: 'Find papers by concept',   to: '/search',  color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)',   grad: 'linear-gradient(135deg,rgba(91,158,249,0.15),rgba(91,158,249,0.04))' },
+  { icon: MessageSquare, label: 'Chat with AI',  sub: 'Ask research questions',   to: '/chat',    color: 'var(--color-green)',  bg: 'var(--color-green-dim)',  grad: 'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.04))' },
+  { icon: Upload,        label: 'Upload Papers', sub: 'Add PDFs to your library', to: '/upload',  color: 'var(--color-orange)', bg: 'var(--color-orange-dim)', grad: 'linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.04))' },
+  { icon: BookOpen,      label: 'My Library',    sub: 'Browse your collection',   to: '/library', color: 'var(--color-purple)', bg: 'var(--color-purple-dim)', grad: 'linear-gradient(135deg,rgba(167,139,250,0.15),rgba(167,139,250,0.04))' },
 ]
 
 const statDef = [
-  { icon: BookOpen, label: 'Papers',  key: 'total_papers',  fmt: (v: number) => v.toString(),                color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)'   },
-  { icon: Database, label: 'Chunks',  key: 'total_chunks',  fmt: (v: number) => v.toLocaleString(),          color: 'var(--color-green)',  bg: 'var(--color-green-dim)'  },
-  { icon: Zap,      label: 'Vectors', key: 'vector_chunks', fmt: (v: number) => v.toLocaleString(),          color: 'var(--color-orange)', bg: 'var(--color-orange-dim)' },
-  { icon: Activity, label: 'Queries', key: 'total_queries', fmt: (v: number) => v.toString(),                color: 'var(--color-purple)', bg: 'var(--color-purple-dim)' },
+  { icon: BookOpen, label: 'Papers',  key: 'total_papers',  fmt: (v: number) => v.toString(),         color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)'   },
+  { icon: Database, label: 'Chunks',  key: 'total_chunks',  fmt: (v: number) => v.toLocaleString(),   color: 'var(--color-green)',  bg: 'var(--color-green-dim)'  },
+  { icon: Zap,      label: 'Vectors', key: 'vector_chunks', fmt: (v: number) => v.toLocaleString(),   color: 'var(--color-orange)', bg: 'var(--color-orange-dim)' },
+  { icon: Activity, label: 'Queries', key: 'total_queries', fmt: (v: number) => v.toString(),         color: 'var(--color-purple)', bg: 'var(--color-purple-dim)' },
 ] satisfies Array<{
   icon: typeof BookOpen
   label: string
-  key: keyof Pick<StatsResponse, 'total_papers' | 'total_chunks' | 'vector_chunks' | 'total_queries'>
+  key: keyof Pick<StatsResponse, 'total_papers'|'total_chunks'|'vector_chunks'|'total_queries'>
   fmt: (v: number) => string
   color: string
   bg: string
 }>
+
+const chips = ['"transformer architecture"', '"graph neural networks"', '"federated learning"']
+
+function HeroIllustration() {
+  return (
+    <svg
+      width="190" height="170" viewBox="0 0 200 180"
+      style={{ position: 'absolute', right: 20, bottom: -14, opacity: 0.95, pointerEvents: 'none' }}
+    >
+      <defs>
+        <linearGradient id="paperGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" style={{ stopColor: 'var(--mood-accent)' }} stopOpacity={0.92} />
+          <stop offset="100%" style={{ stopColor: 'var(--mood-accent2)' }} stopOpacity={0.75} />
+        </linearGradient>
+      </defs>
+      {/* back paper */}
+      <g transform="rotate(-8 100 90)">
+        <rect x="40" y="20" width="110" height="140" rx="14" fill="white" stroke="var(--color-border)" />
+        <line x1="58" y1="50" x2="132" y2="50" stroke="var(--color-border)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="58" y1="64" x2="132" y2="64" stroke="var(--color-border)" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      {/* front paper — accent gradient */}
+      <g transform="rotate(6 100 90)">
+        <rect x="46" y="30" width="108" height="138" rx="14" fill="url(#paperGrad)" />
+        <line x1="64" y1="60" x2="130" y2="60" stroke="rgba(255,255,255,0.6)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="64" y1="74" x2="118" y2="74" stroke="rgba(255,255,255,0.6)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="64" y1="88" x2="124" y2="88" stroke="rgba(255,255,255,0.45)" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      {/* sparkle badge */}
+      <circle cx="150" cy="38" r="20" fill="white" stroke="var(--color-border)" />
+      <path d="M150 28l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="var(--mood-accent)" />
+    </svg>
+  )
+}
 
 export default function HomePage() {
   const nav = useNavigate()
@@ -35,80 +73,132 @@ export default function HomePage() {
   return (
     <div style={{ padding: '32px 36px', maxWidth: 1100, margin: '0 auto' }}>
 
-      {/* Hero */}
+      {/* ── Hero ── */}
       <div style={{
         ...glass,
         borderRadius: 'var(--radius-xl)',
         padding: '48px 48px 40px',
-        marginBottom: 24,
+        marginBottom: 20,
         position: 'relative',
         overflow: 'hidden',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.65) 100%)',
       }}>
-        {/* Decorative blobs — use CSS vars for colors */}
-        <div style={{ position: 'absolute', top: -60, right: -60, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, var(--color-blue-dim) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -40, left: 100, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, var(--color-green-dim) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        {/* Floating mood orbs */}
+        <div style={{
+          position: 'absolute', top: -80, right: -40, width: 280, height: 280,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, var(--mood-orb1) 0%, transparent 70%)',
+          animation: 'floatOrb 7s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -60, left: 60, width: 200, height: 200,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, var(--mood-orb2) 0%, transparent 70%)',
+          animation: 'floatOrb 9s ease-in-out infinite reverse',
+          pointerEvents: 'none',
+        }} />
+        <HeroIllustration />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
+          {/* Badge row + mood toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'var(--mood-badge-bg)',
+              border: '1px solid var(--mood-badge-border)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 14px', fontSize: 11, fontWeight: 600,
+              color: 'var(--mood-accent)', letterSpacing: '0.04em',
+            }}>
+              <Sparkles size={11} /> AI Research Assistant
+            </div>
+            <MoodToggle />
+          </div>
+
+          {/* Headline */}
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'var(--color-accent-dim)', border: '1px solid var(--color-accent-border)',
-            borderRadius: 20, padding: '3px 12px', fontSize: 11, fontWeight: 600,
-            color: 'var(--color-accent)', marginBottom: 16, letterSpacing: '0.04em',
+            fontSize: 38, fontWeight: 800, lineHeight: 1.12,
+            color: 'var(--color-text)', letterSpacing: '-0.025em', marginBottom: 12,
           }}>
-            ✦ AI Research Assistant
-          </div>
-
-          <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 10, lineHeight: 1.15, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
             Discover. Understand.<br />
-            <span style={{ color: 'var(--color-accent)' }}>Innovate.</span>
+            <span style={{
+              background: 'var(--mood-btn-grad)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>Innovate.</span>
           </div>
 
-          <div style={{ color: 'var(--color-muted)', fontSize: 15, marginBottom: 28, maxWidth: 480 }}>
+          <div style={{ color: 'var(--color-muted)', fontSize: 15, marginBottom: 28, maxWidth: 480, lineHeight: 1.6 }}>
             Your AI-powered research companion for academic papers and scientific knowledge.
           </div>
 
-          {/* Search */}
-          <div style={{ display: 'flex', gap: 10, maxWidth: 520 }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)', pointerEvents: 'none' }} />
+          {/* Search bar — liquid glass style */}
+          <div style={{
+            display: 'flex', gap: 0, maxWidth: 560,
+            background: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1.5px solid var(--mood-badge-border)',
+            borderRadius: 'var(--radius-pill)',
+            boxShadow: '0 4px 24px var(--mood-glow-sm)',
+            overflow: 'hidden',
+            transition: 'box-shadow 0.2s',
+          }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={14} style={{
+                position: 'absolute', left: 18, top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--mood-accent)', pointerEvents: 'none',
+              }} />
               <input
                 placeholder="Search papers, concepts, authors..."
                 onKeyDown={e => e.key === 'Enter' && nav('/search')}
                 style={{
-                  width: '100%', background: 'var(--glass-bg)',
-                  backdropFilter: 'var(--glass-blur)',
-                  WebkitBackdropFilter: 'var(--glass-blur)',
-                  border: 'var(--glass-border)',
-                  borderRadius: 'var(--radius-md)',
+                  width: '100%', background: 'transparent',
+                  border: 'none', outline: 'none',
                   color: 'var(--color-text)',
-                  padding: '11px 14px 11px 38px',
-                  fontSize: 13, outline: 'none',
-                  boxShadow: 'var(--glass-shadow)',
-                  fontFamily: 'var(--font-sans)',
+                  padding: '13px 14px 13px 42px',
+                  fontSize: 13, fontFamily: 'var(--font-sans)',
                 }}
               />
             </div>
-            <button onClick={() => nav('/search')} style={{
-              background: 'var(--color-accent)', border: 'none',
-              borderRadius: 'var(--radius-md)',
-              color: '#fff', padding: '11px 22px', fontSize: 13,
-              fontWeight: 600, cursor: 'pointer',
-              boxShadow: '0 4px 12px var(--color-accent-dim)',
-              fontFamily: 'var(--font-sans)',
-              transition: 'all 0.15s',
-            }}>
+            <button
+              onClick={() => nav('/search')}
+              className="btn-mood"
+              style={{
+                margin: 5, padding: '9px 22px',
+                fontSize: 13, fontWeight: 600,
+                borderRadius: 'var(--radius-pill)',
+              }}
+            >
               Search
             </button>
           </div>
 
+          {/* Chip suggestions */}
           <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['"transformer architecture"', '"graph neural networks"', '"federated learning"'].map(s => (
+            {chips.map(s => (
               <button key={s} onClick={() => nav('/search')} style={{
-                background: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)',
-                borderRadius: 20, padding: '3px 12px', fontSize: 11,
+                background: 'rgba(255,255,255,0.6)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-pill)',
+                padding: '4px 14px', fontSize: 11,
                 color: 'var(--color-muted)', cursor: 'pointer',
-                fontFamily: 'var(--font-sans)', transition: 'all 0.15s',
-              }}>
+                fontFamily: 'var(--font-sans)',
+                transition: 'all 0.15s',
+              }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--mood-accent)'
+                  e.currentTarget.style.color = 'var(--mood-accent)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--color-border)'
+                  e.currentTarget.style.color = 'var(--color-muted)'
+                }}
+              >
                 Try {s}
               </button>
             ))}
@@ -116,28 +206,44 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* ── Stats bento ── */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {statDef.map(s => (
-            <div key={s.label} style={{ ...glassCard, display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div key={s.label} style={{
+              ...glassCard,
+              display: 'flex', alignItems: 'center', gap: 14,
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              background: 'rgba(255,255,255,0.78)',
+            }}
+              {...hoverLift}
+            >
+              <div style={{
+                width: 46, height: 46, borderRadius: '50%',
+                background: `radial-gradient(circle at 35% 30%, ${s.color}2e, ${s.color}10 70%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: `0 0 0 1px ${s.bg}, 0 6px 16px ${s.bg}`,
+              }}>
                 <s.icon size={20} color={s.color} />
               </div>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.03em', lineHeight: 1 }}>
                   {s.fmt(stats[s.key])}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--color-muted)', fontWeight: 500 }}>{s.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', fontWeight: 500, marginTop: 3 }}>{s.label}</div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Quick Actions */}
+      {/* ── Quick Actions ── */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: 'var(--color-muted)',
+          textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12,
+        }}>
           Quick Actions
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
@@ -145,30 +251,54 @@ export default function HomePage() {
             <button
               key={a.label}
               onClick={() => nav(a.to)}
-              style={{ ...glassCard, cursor: 'pointer', textAlign: 'left', border: 'var(--glass-border)', transition: 'transform 0.2s, box-shadow 0.2s', display: 'flex', flexDirection: 'column', gap: 10 }}
+              style={{
+                ...glassCard,
+                position: 'relative',
+                cursor: 'pointer', textAlign: 'left',
+                display: 'flex', flexDirection: 'column', gap: 14,
+                background: a.grad,
+                border: '1px solid rgba(255,255,255,0.7)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                paddingTop: 22,
+              }}
               {...hoverLift}
             >
-              <div style={{ width: 40, height: 40, borderRadius: 11, background: a.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <a.icon size={18} color={a.color} />
+              <div style={{
+                position: 'absolute', top: 14, right: 14,
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.92)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(255,255,255,0.9)',
+              }}>
+                <ArrowUpRight size={14} color={a.color} />
+              </div>
+
+              <div style={{
+                width: 50, height: 50, borderRadius: '50%',
+                background: `radial-gradient(circle at 35% 30%, ${a.color}2e, ${a.color}10 70%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 0 1px ${a.bg}, 0 8px 22px ${a.bg}`,
+              }}>
+                <a.icon size={20} color={a.color} />
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text)', marginBottom: 2 }}>{a.label}</div>
-                <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{a.sub}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-text)', marginBottom: 3 }}>{a.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', lineHeight: 1.4 }}>{a.sub}</div>
               </div>
-              <ArrowRight size={14} color={a.color} style={{ marginTop: 'auto' }} />
             </button>
           ))}
         </div>
       </div>
 
-      {/* Recent Papers */}
+      {/* ── Recent Papers ── */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
             Recent Papers
           </div>
           <button onClick={() => nav('/library')} style={{
-            fontSize: 12, color: 'var(--color-accent)', background: 'none',
+            fontSize: 12, color: 'var(--mood-accent)', background: 'none',
             border: 'none', cursor: 'pointer', fontWeight: 600,
             display: 'flex', alignItems: 'center', gap: 4,
             fontFamily: 'var(--font-sans)',
@@ -179,19 +309,46 @@ export default function HomePage() {
 
         {papers ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {papers.papers.slice(0, 5).map(p => (
+            {papers.papers.slice(0, 5).map((p, i) => (
               <div
                 key={p.id}
-                style={{ ...glass, borderRadius: 'var(--radius-md)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.15s' }}
+                onClick={() => nav(`/papers/${p.id}`)}
+                style={{
+                  ...glass,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px 18px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                  animation: `fadeUp 0.3s ease ${i * 0.05}s both`,
+                }}
                 {...hoverSlide}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text)' }}>{p.title}</div>
+                  <div style={{
+                    fontWeight: 600, fontSize: 13, marginBottom: 3,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    color: 'var(--color-text)',
+                  }}>{p.title}</div>
                   <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>{p.authors} · {p.year}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 16 }}>
-                  {p.year && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-accent)', background: 'var(--color-accent-dim)', border: '1px solid var(--color-accent-border)', borderRadius: 6, padding: '2px 8px' }}>{p.year}</span>}
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-success)', background: 'var(--color-success-dim)', border: '1px solid rgba(48,209,88,0.20)', borderRadius: 6, padding: '2px 8px' }}>Indexed</span>
+                  {p.year && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: 'var(--mood-accent)',
+                      background: 'var(--mood-badge-bg)',
+                      border: '1px solid var(--mood-badge-border)',
+                      borderRadius: 'var(--radius-sm)', padding: '2px 8px',
+                    }}>{p.year}</span>
+                  )}
+                  <span style={{
+                    fontSize: 11, fontWeight: 600,
+                    color: 'var(--color-success)',
+                    background: 'var(--color-success-dim)',
+                    border: '1px solid rgba(52,211,153,0.22)',
+                    borderRadius: 'var(--radius-sm)', padding: '2px 8px',
+                  }}>Indexed</span>
                 </div>
               </div>
             ))}

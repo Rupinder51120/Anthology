@@ -20,18 +20,19 @@ export const glassCardSm: CSSProperties = {
   padding: 14,
 }
 
-export const badge = (color: 'blue' | 'green' | 'orange' | 'purple' | 'muted'): CSSProperties => {
+export const badge = (color: 'blue' | 'green' | 'orange' | 'purple' | 'pink' | 'muted'): CSSProperties => {
   const map = {
-    blue:   { color: 'var(--color-blue)',   background: 'var(--color-blue-dim)',   border: '1px solid var(--color-accent-border)' },
-    green:  { color: 'var(--color-green)',  background: 'var(--color-green-dim)',  border: '1px solid rgba(48,209,88,0.20)' },
-    orange: { color: 'var(--color-orange)', background: 'var(--color-orange-dim)', border: '1px solid rgba(255,159,10,0.20)' },
-    purple: { color: 'var(--color-purple)', background: 'var(--color-purple-dim)', border: '1px solid rgba(191,90,242,0.20)' },
+    blue:   { color: 'var(--color-blue)',   background: 'var(--color-blue-dim)',   border: '1px solid rgba(91,158,249,0.22)' },
+    green:  { color: 'var(--color-green)',  background: 'var(--color-green-dim)',  border: '1px solid rgba(52,211,153,0.22)' },
+    orange: { color: 'var(--color-orange)', background: 'var(--color-orange-dim)', border: '1px solid rgba(251,191,36,0.22)' },
+    purple: { color: 'var(--color-purple)', background: 'var(--color-purple-dim)', border: '1px solid rgba(167,139,250,0.22)' },
+    pink:   { color: 'var(--color-pink)',   background: 'var(--color-pink-dim)',   border: '1px solid rgba(244,114,182,0.22)' },
     muted:  { color: 'var(--color-muted)',  background: 'rgba(0,0,0,0.04)',        border: '1px solid var(--color-border)' },
   }
   return {
     display: 'inline-flex', alignItems: 'center',
     fontSize: 11, fontWeight: 600,
-    padding: '2px 8px', borderRadius: 6,
+    padding: '2px 8px', borderRadius: 'var(--radius-sm)',
     ...map[color],
   }
 }
@@ -62,3 +63,5 @@ export const hoverSlide = {
     e.currentTarget.style.transform = 'translateX(0)'
   },
 }
+
+export type Mood = 'blue' | 'pink' | 'purple'
