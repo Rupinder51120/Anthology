@@ -37,10 +37,6 @@ CHUNK_SIZE_DEFAULT = 1400
 CHUNK_SIZE_MATH    = 1800
 CHUNK_OVERLAP      = 200
 
-# FIX (audit issue #3 + table chunking): tables don't get split by the normal
-# splitter, so they need their own size threshold. Tables above this length
-# get split into multiple chunks instead of becoming one oversized blob that
-# gets truncated to ~2000 chars at embedding time anyway.
 TABLE_CHUNK_SIZE = 2000
 TABLE_CHUNK_OVERLAP = 100
 
@@ -59,6 +55,34 @@ def _make_table_splitter() -> RecursiveCharacterTextSplitter:
         separators=["\n", " ", ""],
         length_function=len,
     )
+
+
+def _table_header_prefix(table_text: str) -> str:
+    """
+    Return the markdown header block (column-name row + separator row) from
+    a markdown table, or an empty string if the table has no recognisable
+    header.
+
+    Markdown tables always open with exactly two structural lines:
+        | Col A | Col B |        <- column names
+        |-------|-------|        <- separator (cells contain only - and |)
+
+    Prepending these two lines to every non-first split chunk restores full
+    column semantics so a query like "BLEU scores" can match any fragment of
+    a large table, not just the first 2000 chars.
+
+    We extract from the *original* table text rather than from split chunks
+    so the prefix is always complete even when the first chunk is itself
+    truncated (edge case: table whose header alone exceeds TABLE_CHUNK_SIZE).
+    """
+    lines = table_text.splitlines()
+    if len(lines) < 2:
+        return ""
+    
+    sep_re = re.compile(r"^\|[\s\-\|:]+\|?\s*$")
+    if sep_re.match(lines[1].strip()):
+        return lines[0] + "\n" + lines[1] + "\n"
+    return ""
 
 
 def detect_chunk_type(text: str) -> str:
@@ -171,25 +195,7 @@ def chunk_paper(paper: dict) -> list[dict]:
 
 
 def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
-    """
-    Chunk ParsedBlock objects from parser.py (multimodal path).
-    Handles text, figure, table, equation blocks.
-
-    FIX (chunk_id collision): previously figure/table chunk_ids were built
-    from `figure_number` with index hardcoded to 0. If a paper's figures or
-    tables share a figure_number (e.g. Docling's counter resets, or a
-    chart-derived table reuses its source figure's number), two chunks could
-    get the identical chunk_id, which the DB's UNIQUE constraint would
-    reject. Fixed by using a single monotonically-increasing `block_idx`
-    counter across ALL blocks in the paper, guaranteeing uniqueness
-    regardless of what figure_number says.
-
-    FIX (oversized table chunks, audit #3): tables previously bypassed
-    splitting entirely, becoming one chunk no matter how large (up to 38K+
-    chars observed). They're now split with a table-aware splitter so large
-    tables become multiple chunks instead of one chunk that gets silently
-    truncated at embedding time.
-    """
+    
     source  = metadata["filename"]
     chunks  = []
     txt_idx = 0
@@ -257,16 +263,21 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                 })
                 block_idx += 1
             else:
-                # Oversized table — split into multiple chunks so embedding
-                # can actually see the full content, not just the first
-                # ~2000 chars before truncation.
+                
                 table_splitter = _make_table_splitter()
                 table_splits = table_splitter.split_text(chunk_text)
+               
+                header_prefix = _table_header_prefix(chunk_text)
                 for ti, t_split in enumerate(table_splits):
                     if len(t_split.strip()) < 20:
                         continue
+                   
+                    text_with_header = (
+                        t_split if ti == 0 or not header_prefix
+                        else header_prefix + t_split
+                    )
                     chunks.append({
-                        "text": t_split,
+                        "text": text_with_header,
                         "metadata": {
                             "chunk_id":         _chunk_id(source, "table", block_idx),
                             "source":           source,
@@ -283,9 +294,7 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                             "page_number":      block.page_number,
                             "figure_number":    block.figure_number,
                             "image_path":       None,
-                            # Only the first split keeps the full markdown
-                            # reference; avoids repeating a huge string in
-                            # every fragment's metadata.
+                            
                             "table_markdown":   block.table_markdown if ti == 0 else None,
                             "table_summary":    None,
                         }
