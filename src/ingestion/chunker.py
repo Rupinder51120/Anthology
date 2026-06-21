@@ -85,6 +85,22 @@ def _table_header_prefix(table_text: str) -> str:
     return ""
 
 
+def is_valuable_short_fact(text: str) -> bool:
+    """
+    Returns True if the text contains patterns typical of scientific facts,
+    metrics, or statistical results, justifying its preservation even if short.
+    """
+    # 1. Quantitative patterns: decimals, percentages, p-values
+    if re.search(r'\d+\.\d+|\d+%|p\s*[<>=]\s*0\.\d+', text):
+        return True
+
+    # 2. Benchmark assignments: "Metric = Value" (e.g., "F1 = 95.4", "mAP: 78.2")
+    if re.search(r'\b[A-Z]{2,}\s*[=:]\s*[-+]?\d*\.?\d+', text):
+        return True
+
+    return False
+
+
 def detect_chunk_type(text: str) -> str:
     math_patterns = [
         r'\$.*?\$', r'\\[a-zA-Z]+\{', r'[αβγδεζηθλμπσφψω]',
@@ -121,7 +137,7 @@ def chunk_paper(paper: dict) -> list[dict]:
         for section_name, section_text in paper["sections"].items():
             if section_name.lower() in SKIP_SECTIONS:
                 continue
-            if not section_text or len(section_text.strip()) < 50:
+            if not section_text or (len(section_text.strip()) < 50 and not is_valuable_short_fact(section_text)):
                 continue
 
             splitter = _make_splitter(section_name)
@@ -129,7 +145,7 @@ def chunk_paper(paper: dict) -> list[dict]:
             priority = SECTION_PRIORITY.get(section_name.lower(), 0.6)
 
             for i, split in enumerate(splits):
-                if len(split.strip()) < 60:
+                if len(split.strip()) < 60 and not is_valuable_short_fact(split):
                     continue
                 chunk_type = detect_chunk_type(split)
                 chunks.append({
@@ -163,7 +179,7 @@ def chunk_paper(paper: dict) -> list[dict]:
             splitter = _make_splitter("default")
             splits   = splitter.split_text(page["text"])
             for i, split in enumerate(splits):
-                if len(split.strip()) < 60:
+                if len(split.strip()) < 60 and not is_valuable_short_fact(split):
                     continue
                 section_label = f"page_{page['page']}"
                 chunks.append({
@@ -234,7 +250,7 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
 
         elif ct == "table":
             chunk_text = block.content or block.table_markdown or ""
-            if len(chunk_text.strip()) < 20:
+            if len(chunk_text.strip()) < 20 and not is_valuable_short_fact(chunk_text):
                 continue
 
             if len(chunk_text) <= TABLE_CHUNK_SIZE:
@@ -269,7 +285,7 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                
                 header_prefix = _table_header_prefix(chunk_text)
                 for ti, t_split in enumerate(table_splits):
-                    if len(t_split.strip()) < 20:
+                    if len(t_split.strip()) < 20 and not is_valuable_short_fact(t_split):
                         continue
                    
                     text_with_header = (
@@ -302,14 +318,14 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                     block_idx += 1
 
         elif ct in ("text", "equation", "caption"):
-            if len(block.content.strip()) < 50:
+            if len(block.content.strip()) < 50 and not is_valuable_short_fact(block.content):
                 continue
             splitter = _make_splitter(block.section_title or "")
             splits   = splitter.split_text(block.content)
             priority = SECTION_PRIORITY.get((block.section_title or "").lower(), 0.6)
 
             for i, split in enumerate(splits):
-                if len(split.strip()) < 60:
+                if len(split.strip()) < 60 and not is_valuable_short_fact(split):
                     continue
                 chunks.append({
                     "text": split,
