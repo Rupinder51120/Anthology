@@ -28,11 +28,7 @@ def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
         t = t.strip()
         if not t:
             t = "[EMPTY]"
-       # FIX (audit #2): model is SPECTER2 (allenai/specter2_base), not
-        # MiniLM as the old comment claimed. SPECTER2 supports 512 tokens
-        # (~2000-2500 chars). The old 1024-char limit truncated 13.64% of
-        # chunks by an average of 25.2% (measured on the 12,679-chunk
-        # corpus), discarding real content the model could have used.
+       
         cleaned.append(t[:2000])
 
     embeddings = model.encode(
@@ -56,10 +52,9 @@ def embed_chunks(chunks: list[dict], batch_size: int = 32) -> np.ndarray:
     for c in chunks:
         meta   = c["metadata"]
         ctype  = meta.get("content_type", "text")
-        prefix = content_type_prefix.get(ctype, "")
-        if ctype == "text":
-            prefix = f"{meta['title']}. {meta.get('section', '')}. "
-        texts.append(prefix + c["text"])
+        type_prefix = content_type_prefix.get(ctype, "")
+        context_prefix = f"{meta['title']}. {meta.get('section', '')}. "
+        texts.append(f"{context_prefix}{type_prefix}{c['text']}")
     return embed_texts(texts, batch_size=batch_size)
 
 
