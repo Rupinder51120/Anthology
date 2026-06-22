@@ -136,50 +136,89 @@ async def sync_to_pgvector(all_chunks, embeddings):
 
     print(f"\nSyncing {len(all_chunks)} chunks to pgvector...")
     conn = await asyncpg.connect(db_url_pg)
+
+    # 1. Clear existing data to start fresh for bulk build
     await conn.execute("DELETE FROM chunks")
+    await conn.execute("DELETE FROM papers")
 
     now = datetime.utcnow()
-    for i, (chunk, emb) in enumerate(zip(all_chunks, embeddings)):
-        meta = chunk["metadata"]
-        vec  = "[" + ",".join(str(x) for x in emb.tolist()) + "]"
-        await conn.execute(f"""
-            INSERT INTO chunks (
-                id, chunk_id, source, title, authors, year,
-                section, section_priority, chunk_index, chunk_type, content_type,
-                text, char_count, word_count,
-                page_number, figure_number, image_path, table_markdown, table_summary,
-                embedding, created_at
-            ) VALUES (
-                gen_random_uuid(), $1, $2, $3, $4, $5,
-                $6, $7, $8, $9, $10,
-                $11, $12, $13,
-                $14, $15, $16, $17, $18,
-                '{vec}'::vector, $19
-            )
+
+    # Group chunks by source for relational insertion
+    from collections import defaultdict
+    paper_groups = defaultdict(list)
+    for i, chunk in enumerate(all_chunks):
+        paper_groups[chunk["metadata"]["source"]].append(i)
+
+    for filename, indices in paper_groups.items():
+        # Representative chunk for metadata
+        rep_chunk = all_chunks[indices[0]]
+        meta = rep_chunk["metadata"]
+
+        # a. Create Paper record
+        paper_id = await conn.fetchval("""
+            INSERT INTO papers (filename, title, authors, year, topic, url, chunk_count, indexed, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, 0, false, $7, $7)
+            RETURNING id
         """,
-            meta["chunk_id"], meta["source"], meta["title"],
-            meta.get("authors", ""),
-            int(meta["year"]) if meta.get("year") else None,
-            meta.get("section", ""),
-            float(meta.get("section_priority", 0.5)),
-            int(meta.get("chunk_index", 0)),
-            meta.get("chunk_type", "general"),
-            meta.get("content_type", "text"),
+        filename, meta["title"], meta.get("authors", ""),
+        int(meta["year"]) if meta.get("year") else None,
+        meta.get("topic", ""), meta.get("url", ""), now)
+
+        # b. Insert associated chunks
+        fig_count = 0
+        tbl_count = 0
+        for idx in indices:
+            chunk = all_chunks[idx]
+            emb = embeddings[idx]
+            m = chunk["metadata"]
+            vec = "[" + ",".join(str(x) for x in emb.tolist()) + "]"
+
+            if m.get("content_type") == "figure": fig_count += 1
+            elif m.get("content_type") == "table": tbl_count += 1
+
+            await conn.execute(f"""
+                INSERT INTO chunks (
+                    id, chunk_id, paper_id, source, title, authors, year,
+                    section, section_priority, chunk_index, chunk_type, content_type,
+                    text, char_count, word_count,
+                    page_number, figure_number, image_path, table_markdown, table_summary,
+                    embedding, created_at
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, $3, $4, $5, $6,
+                    $7, $8, $9, $10, $11,
+                    $12, $13, $14,
+                    $15, $16, $17, $18, $19,
+                    '{vec}'::vector, $20
+                )
+            """,
+            m["chunk_id"], paper_id, m["source"], m["title"],
+            m.get("authors", ""),
+            int(m["year"]) if m.get("year") else None,
+            m.get("section", ""),
+            float(m.get("section_priority", 0.5)),
+            int(m.get("chunk_index", 0)),
+            m.get("chunk_type", "general"),
+            m.get("content_type", "text"),
             chunk["text"].replace("\x00", ""),
-            int(meta.get("char_count", 0)),
-            int(meta.get("word_count", 0)),
-            meta.get("page_number"),
-            meta.get("figure_number"),
-            meta.get("image_path"),
-            meta.get("table_markdown"),
-            meta.get("table_summary"),
+            int(m.get("char_count", 0)),
+            int(m.get("word_count", 0)),
+            m.get("page_number"),
+            m.get("figure_number"),
+            m.get("image_path"),
+            m.get("table_markdown"),
+            m.get("table_summary"),
             now,
-        )
-        if (i + 1) % 100 == 0:
-            print(f"  Inserted {i+1}/{len(all_chunks)}")
+            )
+
+        # c. Update Paper stats
+        await conn.execute("""
+            UPDATE papers SET
+                chunk_count = $1, figure_count = $2, table_count = $3, indexed = true, updated_at = $4
+            WHERE id = $5
+        """, len(indices), fig_count, tbl_count, now, paper_id)
 
     await conn.close()
-    print(f"Done: {len(all_chunks)} chunks in pgvector")
+    print(f"Done: {len(all_chunks)} chunks and {len(paper_groups)} papers in pgvector")
 
 
 if __name__ == "__main__":

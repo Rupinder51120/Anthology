@@ -71,12 +71,34 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
     tbl_count = 0
 
     async with db.begin():
+        # 1. Upsert Paper record to get paper_id
+        # This ensures we have a relational anchor before inserting chunks
+        paper_res = await db.execute(text("""
+            INSERT INTO papers (filename, title, authors, year, topic, url, chunk_count, indexed, created_at, updated_at)
+            VALUES (:filename, :title, :authors, :year, :topic, :url, 0, false, now(), now())
+            ON CONFLICT (filename) DO UPDATE SET
+                title = EXCLUDED.title,
+                authors = EXCLUDED.authors,
+                year = EXCLUDED.year,
+                updated_at = now()
+            RETURNING id
+        """), {
+            "filename": filename,
+            "title": meta.get("title", ""),
+            "authors": meta.get("authors", ""),
+            "year": meta.get("year"),
+            "topic": meta.get("topic", ""),
+            "url": meta.get("url", ""),
+        })
+        paper_id = paper_res.scalar_one()
+
+        # 2. Clear existing chunks for this paper (relational delete)
         await db.execute(
-            text("DELETE FROM chunks WHERE source = :source"),
-            {"source": filename},
+            text("DELETE FROM chunks WHERE paper_id = :paper_id"),
+            {"paper_id": paper_id},
         )
 
-        # NEW: process in fixed-size batches instead of all at once
+        # 3. process in fixed-size batches instead of all at once
         for start in range(0, len(chunks), BATCH_SIZE):
             batch = chunks[start:start + BATCH_SIZE]
 
@@ -93,12 +115,12 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
                 vec = "[" + ",".join(str(x) for x in emb.tolist()) + "]"
                 await db.execute(text("""
                     INSERT INTO chunks (
-                        chunk_id, source, title, authors, year, section,
+                        chunk_id, paper_id, source, title, authors, year, section,
                         section_priority, chunk_index, chunk_type, content_type,
                         text, char_count, word_count, page_number, figure_number,
                         image_path, table_markdown, table_summary, embedding
                     ) VALUES (
-                        :chunk_id, :source, :title, :authors, :year, :section,
+                        :chunk_id, :paper_id, :source, :title, :authors, :year, :section,
                         :section_priority, :chunk_index, :chunk_type, :content_type,
                         :text, :char_count, :word_count, :page_number, :figure_number,
                         :image_path, :table_markdown, :table_summary, :embedding::vector
@@ -107,6 +129,7 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
                         embedding = EXCLUDED.embedding
                 """), {
                     "chunk_id": m.get("chunk_id", ""),
+                    "paper_id": paper_id,
                     "source": m.get("source", filename),
                     "title": meta.get("title", ""),
                     "authors": meta.get("authors", ""),
@@ -128,9 +151,23 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
                 })
                 inserted += 1
 
-            # NEW: drop references so the batch + its embeddings can be GC'd
-            # before the next iteration allocates the next batch's embeddings.
             del embeddings_batch, batch
+
+        # 4. Finalize Paper stats
+        await db.execute(text("""
+            UPDATE papers SET
+                chunk_count = :c,
+                figure_count = :f,
+                table_count = :t,
+                indexed = true,
+                updated_at = now()
+            WHERE id = :pid
+        """), {
+            "c": inserted,
+            "f": fig_count,
+            "t": tbl_count,
+            "pid": paper_id
+        })
     # db.begin() commits here on clean exit; rolls back on any exception above.
 
     return {
