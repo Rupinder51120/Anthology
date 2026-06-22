@@ -11,11 +11,11 @@ class Settings(BaseSettings):
     pythonpath: str = "."
 
     # Database
-    # FIX: default port corrected to 5432 (docker-compose maps 5432:5432)
-    database_url: str = "postgresql+asyncpg://anthology:anthology@localhost:5432/anthology"
+    # No default provided to ensure it's set via environment variables for security
+    database_url: str = ""
 
     # Redis (optional)
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = ""
 
     # Paths
     indexes_dir: str = "indexes"

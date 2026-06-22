@@ -37,6 +37,7 @@ class ParsedBlock:
     figure_number:  str | None = None
     image_path:     str | None = None
     table_markdown: str | None = None
+    is_enriched:    bool = False    # Tracks if multimodal enrichment succeeded
     metadata:       dict = field(default_factory=dict)
 
 

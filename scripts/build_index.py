@@ -131,7 +131,10 @@ async def sync_to_pgvector(all_chunks, embeddings):
     import asyncpg
     from datetime import datetime
 
-    db_url = os.getenv("DATABASE_URL", "postgresql://anthology:anthology@localhost:5432/anthology")
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        print("Error: DATABASE_URL environment variable is not set.")
+        sys.exit(1)
     db_url_pg = db_url.replace("postgresql+asyncpg://", "postgresql://").replace("+asyncpg", "")
 
     print(f"\nSyncing {len(all_chunks)} chunks to pgvector...")

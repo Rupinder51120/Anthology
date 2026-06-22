@@ -62,23 +62,11 @@ def _table_header_prefix(table_text: str) -> str:
     Return the markdown header block (column-name row + separator row) from
     a markdown table, or an empty string if the table has no recognisable
     header.
-
-    Markdown tables always open with exactly two structural lines:
-        | Col A | Col B |        <- column names
-        |-------|-------|        <- separator (cells contain only - and |)
-
-    Prepending these two lines to every non-first split chunk restores full
-    column semantics so a query like "BLEU scores" can match any fragment of
-    a large table, not just the first 2000 chars.
-
-    We extract from the *original* table text rather than from split chunks
-    so the prefix is always complete even when the first chunk is itself
-    truncated (edge case: table whose header alone exceeds TABLE_CHUNK_SIZE).
     """
     lines = table_text.splitlines()
     if len(lines) < 2:
         return ""
-    
+
     sep_re = re.compile(r"^\|[\s\-\|:]+\|?\s*$")
     if sep_re.match(lines[1].strip()):
         return lines[0] + "\n" + lines[1] + "\n"
@@ -90,14 +78,10 @@ def is_valuable_short_fact(text: str) -> bool:
     Returns True if the text contains patterns typical of scientific facts,
     metrics, or statistical results, justifying its preservation even if short.
     """
-    # 1. Quantitative patterns: decimals, percentages, p-values
     if re.search(r'\d+\.\d+|\d+%|p\s*[<>=]\s*0\.\d+', text):
         return True
-
-    # 2. Benchmark assignments: "Metric = Value" (e.g., "F1 = 95.4", "mAP: 78.2")
     if re.search(r'\b[A-Z]{2,}\s*[=:]\s*[-+]?\d*\.?\d+', text):
         return True
-
     return False
 
 
@@ -170,6 +154,7 @@ def chunk_paper(paper: dict) -> list[dict]:
                         "image_path":       None,
                         "table_markdown":   None,
                         "table_summary":    None,
+                        "is_enriched":      True,
                     }
                 })
     else:
@@ -204,6 +189,7 @@ def chunk_paper(paper: dict) -> list[dict]:
                         "image_path":       None,
                         "table_markdown":   None,
                         "table_summary":    None,
+                        "is_enriched":      True,
                     }
                 })
 
@@ -211,7 +197,7 @@ def chunk_paper(paper: dict) -> list[dict]:
 
 
 def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
-    
+
     source  = metadata["filename"]
     chunks  = []
     txt_idx = 0
@@ -244,6 +230,7 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                     "image_path":       block.image_path,
                     "table_markdown":   None,
                     "table_summary":    None,
+                    "is_enriched":      block.is_enriched,
                 }
             })
             block_idx += 1
@@ -275,19 +262,20 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                         "image_path":       None,
                         "table_markdown":   block.table_markdown,
                         "table_summary":    None,
+                        "is_enriched":      block.is_enriched,
                     }
                 })
                 block_idx += 1
             else:
-                
+
                 table_splitter = _make_table_splitter()
                 table_splits = table_splitter.split_text(chunk_text)
-               
+
                 header_prefix = _table_header_prefix(chunk_text)
                 for ti, t_split in enumerate(table_splits):
                     if len(t_split.strip()) < 20 and not is_valuable_short_fact(t_split):
                         continue
-                   
+
                     text_with_header = (
                         t_split if ti == 0 or not header_prefix
                         else header_prefix + t_split
@@ -310,13 +298,12 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                             "page_number":      block.page_number,
                             "figure_number":    block.figure_number,
                             "image_path":       None,
-                            
                             "table_markdown":   block.table_markdown if ti == 0 else None,
                             "table_summary":    None,
+                            "is_enriched":      block.is_enriched,
                         }
                     })
                     block_idx += 1
-
         elif ct in ("text", "equation", "caption"):
             if len(block.content.strip()) < 50 and not is_valuable_short_fact(block.content):
                 continue
@@ -347,30 +334,10 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                         "image_path":       None,
                         "table_markdown":   None,
                         "table_summary":    None,
+                        "is_enriched":      block.is_enriched,
                     }
                 })
                 txt_idx += 1
                 block_idx += 1
 
     return chunks
-
-
-def chunk_all_papers(all_papers: list[dict]) -> list[dict]:
-    all_chunks = []
-    for paper in all_papers:
-        paper_chunks = chunk_paper(paper)
-        all_chunks.extend(paper_chunks)
-        types = {}
-        for c in paper_chunks:
-            t = c["metadata"]["chunk_type"]
-            types[t] = types.get(t, 0) + 1
-        print(f"  {paper['metadata']['filename'][:45]}: {len(paper_chunks)} chunks | {types}")
-    print(f"\nTotal chunks: {len(all_chunks)}")
-    return all_chunks
-
-
-def save_chunks(chunks: list[dict], output_path: str = "indexes/chunks_metadata.json"):
-    Path("indexes").mkdir(exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(chunks, f, indent=2)
-    print(f"Chunks saved → {output_path}")

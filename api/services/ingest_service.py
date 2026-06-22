@@ -28,19 +28,34 @@ def _sync_ingest(pdf_path: str) -> dict:
         if block.content_type == "figure" and block.image_path:
             try:
                 result = caption_figure(block.image_path, meta.get("title", ""), block.figure_number or "Figure")
+                # A result is "enriched" if it's not the standard fallback "image not available"
+                # and doesn't simply match the fallback format "{figure_number} from {title}"
+                fallback_1 = f"{block.figure_number or 'Figure'} — image not available"
+                fallback_2 = f"{block.figure_number or 'Figure'} from {meta.get('title', '')}"
+
                 block.content = result["caption"]
+                block.is_enriched = (result["caption"] not in (fallback_1, fallback_2))
+
                 if result["table_data"]:
                     block.table_markdown = result["table_data"]
                     block.content_type = "table"
             except Exception as e:
                 print(f"Caption failed: {e}")
+                block.is_enriched = False
         elif block.content_type == "table" and block.table_markdown:
             try:
                 summary = summarize_table(block.table_markdown, meta.get("title", ""))
                 if summary:
                     block.content = f"{block.content}\n\nSummary: {summary}"
+                    block.is_enriched = True
+                else:
+                    block.is_enriched = False
             except Exception as e:
                 print(f"Table summary failed: {e}")
+                block.is_enriched = False
+        else:
+            # Text, equations, and simple captions are considered "enriched" by default
+            block.is_enriched = True
 
     chunks = chunk_parsed_blocks(blocks, meta)
     if not chunks:
