@@ -35,10 +35,10 @@ SECTION_PRIORITY = {
 MATH_SECTIONS = {"methodology", "method", "methods", "approach", "model", "architecture"}
 CHUNK_SIZE_DEFAULT = 1400
 CHUNK_SIZE_MATH    = 1800
-CHUNK_OVERLAP      = 200
+CHUNK_OVERLAP      = 400
 
 TABLE_CHUNK_SIZE = 2000
-TABLE_CHUNK_OVERLAP = 100
+TABLE_CHUNK_OVERLAP = 200
 
 
 def _chunk_id(source: str, section: str, index: int) -> str:
@@ -132,8 +132,12 @@ def chunk_paper(paper: dict) -> list[dict]:
                 if len(split.strip()) < 60 and not is_valuable_short_fact(split):
                     continue
                 chunk_type = detect_chunk_type(split)
+
+                context_prefix = f"[{section_name}] " if section_name else ""
+                chunk_text = context_prefix + split
+
                 chunks.append({
-                    "text": split,
+                    "text": chunk_text,
                     "metadata": {
                         "chunk_id":         _chunk_id(source, section_name, i),
                         "source":           source,
@@ -167,8 +171,12 @@ def chunk_paper(paper: dict) -> list[dict]:
                 if len(split.strip()) < 60 and not is_valuable_short_fact(split):
                     continue
                 section_label = f"page_{page['page']}"
+
+                context_prefix = f"[{section_label}] "
+                chunk_text = context_prefix + split
+
                 chunks.append({
-                    "text": split,
+                    "text": chunk_text,
                     "metadata": {
                         "chunk_id":         _chunk_id(source, section_label, i),
                         "source":           source,
@@ -210,8 +218,12 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
             if not block.image_path:
                 continue
             chunk_text = block.content or f"{block.figure_number or 'Figure'} from {metadata['title']}"
+
+            context_prefix = f"[{block.section_title}] " if block.section_title else ""
+            full_text = context_prefix + chunk_text
+
             chunks.append({
-                "text": chunk_text,
+                "text": full_text,
                 "metadata": {
                     "chunk_id":         _chunk_id(source, "figure", block_idx),
                     "source":           source,
@@ -242,8 +254,12 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
 
             if len(chunk_text) <= TABLE_CHUNK_SIZE:
                 # Small enough — keep as a single chunk, same as before.
+
+                context_prefix = f"[{block.section_title}] " if block.section_title else ""
+                full_text = context_prefix + chunk_text
+
                 chunks.append({
-                    "text": chunk_text,
+                    "text": full_text,
                     "metadata": {
                         "chunk_id":         _chunk_id(source, "table", block_idx),
                         "source":           source,
@@ -280,8 +296,12 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
                         t_split if ti == 0 or not header_prefix
                         else header_prefix + t_split
                     )
+
+                    context_prefix = f"[{block.section_title}] " if block.section_title else ""
+                    full_text = context_prefix + text_with_header
+
                     chunks.append({
-                        "text": text_with_header,
+                        "text": full_text,
                         "metadata": {
                             "chunk_id":         _chunk_id(source, "table", block_idx),
                             "source":           source,
@@ -314,8 +334,12 @@ def chunk_parsed_blocks(blocks: list, metadata: dict) -> list[dict]:
             for i, split in enumerate(splits):
                 if len(split.strip()) < 60 and not is_valuable_short_fact(split):
                     continue
+
+                context_prefix = f"[{block.section_title}] " if block.section_title else ""
+                chunk_text = context_prefix + split
+
                 chunks.append({
-                    "text": split,
+                    "text": chunk_text,
                     "metadata": {
                         "chunk_id":         _chunk_id(source, "text", block_idx),
                         "source":           source,
