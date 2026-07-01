@@ -4,7 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.core.database import get_db
 from api.schemas.schemas import QueryRequest, QueryResponse
 from api.services.rag_service import RAGService
+from api.core.models import GROQ_CHAT_MODEL
+from api.core.config import get_settings
 
+settings = get_settings()
 router = APIRouter(prefix="/api/v1", tags=["Query"])
 rag_service = RAGService()
 
@@ -47,8 +50,8 @@ async def query_stream(
         # ── Phase 2: token stream ───────────────────────────────
         try:
             from groq import AsyncGroq
-            client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY", ""))
-            model  = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+            client = AsyncGroq(api_key=settings.groq_api_key.get_secret_value())
+            model = GROQ_CHAT_MODEL
             stream = await client.chat.completions.create(
                 model=model, messages=messages,
                 max_tokens=1024, temperature=0.2, stream=True,

@@ -54,6 +54,7 @@ class PaperService:
                     year=meta.get("year"),
                     topic=meta.get("topic", ""),
                     url=meta.get("url", ""),
+                    doi=meta.get("doi"),
                     chunk_count=chunk_count,
                     indexed=chunk_count > 0,
                 )

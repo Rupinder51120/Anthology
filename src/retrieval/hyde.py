@@ -13,6 +13,7 @@ Key fixes vs original:
 import re
 import numpy as np
 import requests
+from api.core.models import OLLAMA_CHAT_MODEL
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
@@ -31,7 +32,7 @@ def _generate_one_doc(query: str, temperature: float = 0.55) -> str:
     resp = requests.post(
         OLLAMA_URL,
         json={
-            "model":  "qwen2.5:7b",
+            "model":  OLLAMA_CHAT_MODEL,
             "prompt": HYDE_PROMPT.format(query=query),
             "stream": False,
             "options": {"temperature": temperature, "num_predict": 350},

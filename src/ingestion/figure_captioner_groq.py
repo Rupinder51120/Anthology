@@ -6,9 +6,13 @@ Fallback when Ollama unavailable.
 import base64
 import os
 import time
+
 from dotenv import load_dotenv
 from pathlib import Path
+from api.core.models import GROQ_VISION_MODEL
+from api.core.config import get_settings
 
+settings = get_settings()
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB limit to avoid OOM and API payload errors
@@ -28,7 +32,7 @@ def caption_figure_groq(image_path: str, paper_title: str, figure_number: str) -
 
     try:
         from groq import Groq, RateLimitError, APIStatusError, APIConnectionError, AuthenticationError
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = Groq(api_key=settings.groq_api_key.get_secret_value())
 
         with open(image_path, "rb") as f:
             image_b64 = base64.b64encode(f.read()).decode()
@@ -38,7 +42,7 @@ def caption_figure_groq(image_path: str, paper_title: str, figure_number: str) -
         for attempt in range(3):
             try:
                 response = client.chat.completions.create(
-                    model="meta-llama/llama-4-scout-17b-16e-instruct",
+                    model=GROQ_VISION_MODEL,
                     messages=[{
                         "role": "user",
                         "content": [

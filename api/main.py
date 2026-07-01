@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="AI Research Intelligence System — RAG over 119+ research papers",
+    description="AI Research Intelligence System — RAG over research papers",
     lifespan=lifespan,
 )
 

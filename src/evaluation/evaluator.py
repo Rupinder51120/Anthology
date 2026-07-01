@@ -21,12 +21,15 @@ from pathlib import Path
 
 import numpy as np
 from groq import Groq
+from api.core.models import GROQ_CHAT_MODEL
+from api.core.config import get_settings
 
-JUDGE_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+settings = get_settings()
+JUDGE_MODEL = GROQ_CHAT_MODEL
 
 
 def _get_client():
-    return Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+    return Groq(api_key=settings.groq_api_key.get_secret_value())
 
 
 def _norm(s: str) -> str:

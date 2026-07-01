@@ -1,6 +1,6 @@
 import requests
 import re
-
+from api.core.models import OLLAMA_CHAT_MODEL
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 FLOWCHART_PROMPT = """You are an expert technical diagram engineer. Convert this explanation into a clean, valid Mermaid.js diagram.
@@ -51,7 +51,7 @@ def generate_flowchart(query: str, explanation: str) -> str | None:
         resp = requests.post(
             OLLAMA_URL,
             json={
-                "model": "qwen2.5:7b",
+                "model": OLLAMA_CHAT_MODEL,
                 "prompt": prompt,
                 "stream": False,
                 "options": {

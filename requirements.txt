@@ -195,3 +195,4 @@ cohere
 sentence-transformers
 langfuse
 transformers
+redis

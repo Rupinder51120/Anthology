@@ -2,9 +2,9 @@ import numpy as np
 import re
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
-
+from api.core.models import EMBEDDING_MODEL
 import os
-MODEL_NAME = "allenai/specter2_base"
+MODEL_NAME = EMBEDDING_MODEL
 
 def get_model() -> SentenceTransformer:
     if not hasattr(get_model, "_instance"):
@@ -130,18 +130,3 @@ def save_embeddings(embeddings: np.ndarray, path: str):
 
 def load_embeddings(path: str) -> np.ndarray:
     return np.load(path).astype("float32")
-
-
-
-if __name__ == "__main__":
-    from src.ingestion.ingest import load_all_papers
-    from src.ingestion.chunker import chunk_all_papers
-
-    papers     = load_all_papers("data/papers")
-    chunks     = chunk_all_papers(papers)
-    chunk_embs = embed_chunks(chunks)
-    save_embeddings(chunk_embs, "indexes/chunk_embeddings.npy")
-
-    paper_embs, meta = embed_papers_for_recommendation(papers)
-    save_embeddings(paper_embs, "indexes/paper_embeddings.npy")
-    print(f"Done. Chunks: {chunk_embs.shape} | Papers: {paper_embs.shape}")

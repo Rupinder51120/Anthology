@@ -1,62 +1,80 @@
-"""
-Generate natural language summaries for extracted tables using Ollama qwen2.5:7b.
-"""
+
 from __future__ import annotations
+
 import os
 import time
-import httpx
+import logging
+from api.core.models import GROQ_CHAT_MODEL
+from api.core.config import get_settings
+logger = logging.getLogger(__name__)
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-MAX_TABLE_CHARS = 10000 # Prevent payload-too-large and prompt overflow
-
-
+MAX_TABLE_CHARS = 8000   # keep well under Groq's context limit
+settings = get_settings()
 
 def summarize_table(table_markdown: str, paper_title: str) -> str:
+    """
+    Generate a 2-3 sentence factual summary of a markdown table using Groq.
+    Returns "" on failure — never raises.
+    """
     if not table_markdown or not table_markdown.strip():
         return ""
 
-    # Guard against oversized tables
+    # Guard against oversized payloads
     if len(table_markdown) > MAX_TABLE_CHARS:
         cutoff = table_markdown.rfind("\n", 0, MAX_TABLE_CHARS)
-        if cutoff != -1:
-            table_markdown = table_markdown[:cutoff].strip()
-        else:
-            table_markdown = table_markdown[:MAX_TABLE_CHARS].strip()
+        table_markdown = (
+            table_markdown[:cutoff].strip()
+            if cutoff != -1
+            else table_markdown[:MAX_TABLE_CHARS].strip()
+        )
         table_markdown += "\n... [Table truncated]"
 
-    prompt = f"""You are analyzing a table from the research paper "{paper_title}".
-Table:
-{table_markdown}
-Write a 2-3 sentence factual summary of what this table shows.
-Focus on key numbers, comparisons, and findings.
-Be specific. Do not say "the table shows" — just state the findings directly."""
+    prompt = (
+        f'You are analyzing a table from the research paper "{paper_title}".\n\n'
+        f"Table:\n{table_markdown}\n\n"
+        "Write a 2-3 sentence factual summary of what this table shows. "
+        "Focus on key numbers, comparisons, and findings. "
+        "Be specific. Do not say 'the table shows' — just state the findings directly."
+    )
+
+    api_key = settings.groq_api_key.get_secret_value()
+    if not api_key:
+        logger.warning("GROQ_API_KEY not set — skipping table summarisation")
+        return ""
+
+    try:
+        from groq import Groq, RateLimitError, APIStatusError, APIConnectionError, AuthenticationError
+        client = Groq(api_key=api_key)
+    except Exception as e:
+        logger.warning("Groq client init failed: %s", e)
+        return ""
 
     for attempt in range(3):
         try:
-            response = httpx.post(
-                f"{OLLAMA_URL}/api/generate",
-                json={"model": "qwen2.5:7b", "prompt": prompt, "stream": False},
-                timeout=60.0,
+            response = client.chat.completions.create(
+                model=GROQ_CHAT_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                timeout=30.0,
             )
-
-            if response.status_code == 404:
-                print(f"Table summarization failed: Model 'qwen2.5:7b' not found on Ollama.")
-                return "" # Model missing is a permanent failure
-
-            response.raise_for_status()
-            summary = response.json().get("response", "").strip()
-            if not summary:
+            if not response.choices:
                 return ""
-            return summary
+            content = response.choices[0].message.content
+            return content.strip() if content else ""
 
-        except httpx.TimeoutException:
-            print(f"Table summarization timeout (attempt {attempt+1}/3)")
-        except httpx.ConnectError:
-            print(f"Table summarization connection failure (attempt {attempt+1}/3)")
-        except httpx.HTTPStatusError as e:
-            print(f"Table summarization API error {e.response.status_code} (attempt {attempt+1}/3)")
+        except AuthenticationError:
+            logger.error("Groq authentication failed — check GROQ_API_KEY")
+            return ""
+        except RateLimitError:
+            logger.warning("Groq rate limit (attempt %d/3)", attempt + 1)
+        except (APIConnectionError, APIStatusError) as e:
+            status = getattr(e, "status_code", None)
+            if status and status < 500 and status != 429:
+                logger.warning("Groq permanent error %s: %s", status, e)
+                return ""
+            logger.warning("Groq transient error (attempt %d/3): %s", attempt + 1, e)
         except Exception as e:
-            print(f"Table summarization unexpected error: {e}")
+            logger.warning("Groq unexpected error: %s", e)
             return ""
 
         if attempt < 2:

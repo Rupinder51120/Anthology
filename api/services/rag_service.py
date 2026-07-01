@@ -12,6 +12,9 @@ from langfuse import Langfuse
 
 from src.generation.generator import generate_answer, format_citations
 from src.generation.memory import ConversationMemory
+from api.core.config import get_settings
+
+settings = get_settings()
 
 CACHE_TTL = 3600        # 1 hour
 MAX_SESSIONS = 1000     # FIX: evict oldest sessions beyond this cap
@@ -19,9 +22,9 @@ MAX_SESSIONS = 1000     # FIX: evict oldest sessions beyond this cap
 
 def _get_langfuse():
     return Langfuse(
-        public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-        secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-        host=os.getenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com"),
+        public_key=settings.langfuse_public_key.get_secret_value(),
+        secret_key=settings.langfuse_secret_key.get_secret_value(),
+        host=settings.langfuse_host,
     )
 
 
@@ -51,7 +54,7 @@ def _cache_key(question: str, top_k: int) -> str:
 async def _get_redis():
     try:
         import redis.asyncio as aioredis
-        r = aioredis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        r = aioredis.from_url(settings.redis_url)
         await r.ping()
         return r
     except Exception:
@@ -164,6 +167,7 @@ class RAGService:
             response_type=result.get("response_type", "explanation"),
             tokens_used=result.get("tokens_used", 0),
             latency_ms=latency_ms,
+            paper_id=request.paper_id,
         )
         db.add(db_query)
         # FIX: remove explicit commit here — get_db() commits on exit to avoid double-commit

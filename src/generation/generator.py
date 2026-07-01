@@ -11,11 +11,17 @@ import os
 import asyncio
 import requests
 from dotenv import load_dotenv
+from api.core.models import OLLAMA_CHAT_MODEL
+from api.core.models import GROQ_CHAT_MODEL
+from api.core.models import GROQ_VISION_MODEL
+from api.core.config import get_settings
+
+settings = get_settings()
 
 load_dotenv()
 
 OLLAMA_URL   = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "qwen2.5:7b"
+OLLAMA_MODEL = OLLAMA_CHAT_MODEL
 
 SYSTEM_PROMPT = """You are an expert AI research assistant helping a student understand research papers.
 
@@ -43,12 +49,12 @@ Guidelines:
 # ── Groq ──────────────────────────────────────────────────────────────────────
 
 def _groq_enabled() -> bool:
-    return os.getenv("USE_GROQ", "false").lower() == "true"
+    return settings.use_groq
 
 
 def _groq_client():
     from groq import Groq
-    key = os.getenv("GROQ_API_KEY", "")
+    key = settings.groq_api_key.get_secret_value()
     if not key:
         raise ValueError("GROQ_API_KEY not set")
     return Groq(api_key=key, max_retries=0)
@@ -56,7 +62,7 @@ def _groq_client():
 
 def _call_groq(messages: list[dict]) -> str:
     client = _groq_client()
-    model  = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    model  = GROQ_CHAT_MODEL
     resp   = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -81,7 +87,7 @@ def _call_groq_vision(messages: list[dict], image_paths: list[str]) -> str:
     last = messages[-1]
     vision_msgs = messages[:-1] + [{"role": "user", "content": contents + [{"type": "text", "text": last["content"]}]}]
     resp = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model=GROQ_VISION_MODEL,
         messages=vision_msgs,
         max_tokens=1024,
         temperature=0.2,
@@ -231,7 +237,7 @@ def generate_answer_streaming(
     try:
         if _groq_enabled():
             client     = _groq_client()
-            groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+            groq_model = GROQ_CHAT_MODEL
             stream     = client.chat.completions.create(
                 model=groq_model, messages=messages, max_tokens=1024, temperature=0.2, stream=True,
             )

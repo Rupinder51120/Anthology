@@ -11,6 +11,10 @@ class Base(DeclarativeBase):
 
 def get_database_url() -> str:
     url = settings.database_url
+    if not url:
+        raise ValueError(
+            "Database URL is not set. Please provide a valid database URL in the environment variables."
+        )
     # Render provides postgresql:// — convert to asyncpg
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -21,7 +25,8 @@ engine = create_async_engine(
     get_database_url(),
     echo=settings.debug,
     pool_pre_ping=True,
-    pool_size=5,       # FIX: was 1 — too conservative for concurrent requests
+    pool_size=5, 
+    pool_recycle=1800,      
     max_overflow=10,   # FIX: was 0
 )
 

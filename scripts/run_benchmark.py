@@ -17,7 +17,7 @@ import argparse
 import json
 from collections import defaultdict
 from pathlib import Path
-
+from api.core.models import OLLAMA_CHAT_MODEL
 from src.evaluation.benchmarker import build_qa_dataset
 from src.evaluation.pipeline_runner import run_pipeline_on_dataset
 from src.evaluation.evaluator import compare_configs
@@ -132,7 +132,7 @@ def build_qasper_benchmark(
     import time
 
     OLLAMA_URL   = "http://localhost:11434/api/chat"
-    OLLAMA_MODEL = "qwen2.5:7b"
+    OLLAMA_MODEL = OLLAMA_CHAT_MODEL
 
     def ollama_call(prompt: str, max_tokens: int = 500) -> str:
         """Call local Ollama and return raw text response."""

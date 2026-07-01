@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import SecretStr,field_validator
 from functools import lru_cache
-
+from pydantic_settings import SettingsConfigDict
 
 class Settings(BaseSettings):
     # App
@@ -24,12 +24,32 @@ class Settings(BaseSettings):
     chunks_path: str = "indexes/chunks_metadata.json"  # FIX: was missing, caused paper_service crash
 
     # Groq
-    groq_api_key: str = ""
+    groq_api_key: SecretStr = SecretStr("")
     use_groq: bool = False
-    groq_model: str = "llama-3.1-8b-instant"
-    cohere_api_key: str = ""
-    langfuse_public_key: str = ""
-    langfuse_secret_key: str = ""
+
+    # Default Groq chat model
+    groq_model: str = "openai/gpt-oss-20b"
+
+    # Default Groq vision model
+    groq_vision_model: str = "openai/gpt-oss-120b"
+    # Local Ollama chat model
+    ollama_model: str = "qwen2.5:7b"
+
+    # Embedding model
+    embedding_model: str = "allenai/specter2_base"
+
+    # CrossEncoder reranker
+    cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+    # Cohere reranker
+    cohere_rerank_model: str = "rerank-v3.5"
+
+    # DePlot model
+    deplot_model: str = "google/deplot"
+
+    cohere_api_key: SecretStr = SecretStr("")
+    langfuse_public_key: SecretStr = SecretStr("")
+    langfuse_secret_key: SecretStr = SecretStr("")
     langfuse_host: str = "https://us.cloud.langfuse.com"
 
     # CORS — FIX: added Vite dev server (5173), removed Streamlit (8501)
@@ -51,9 +71,12 @@ class Settings(BaseSettings):
                 return False
         return value
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+       
 
 
 @lru_cache()

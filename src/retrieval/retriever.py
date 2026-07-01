@@ -8,7 +8,10 @@ import os
 import numpy as np
 import cohere
 from src.retrieval.embedder import embed_texts
+from api.core.models import COHERE_RERANK_MODEL, CROSS_ENCODER_MODEL
+from api.core.config import get_settings
 
+settings = get_settings()
 RRF_K = 60
 
 _cross_encoder = None
@@ -24,7 +27,7 @@ def _get_cross_encoder():
     global _cross_encoder
     if _cross_encoder is None:
         from sentence_transformers import CrossEncoder
-        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+        _cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
     return _cross_encoder
 
 
@@ -54,7 +57,7 @@ async def pgvector_search(
         filters += " AND content_type = :ct"
         params["ct"] = content_type
     if paper_id:
-        filters += " AND source = :pid"
+        filters += " AND paper_id = :pid"
         params["pid"] = paper_id
 
     sql = text("""
@@ -88,7 +91,7 @@ async def postgres_fts_search(
         filters += " AND content_type = :ct"
         params["ct"] = content_type
     if paper_id:
-        filters += " AND source = :pid"
+        filters += " AND paper_id = :pid"
         params["pid"] = paper_id
 
     sql = text("""
@@ -131,14 +134,14 @@ def rrf_fuse(
 
 
 async def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
-    api_key = os.getenv("COHERE_API_KEY")
+    api_key = settings.cohere_api_key.get_secret_value()
     if not api_key or not chunks:
         return sorted(chunks, key=lambda x: x["metadata"].get("rerank_score", 0), reverse=True)[:top_k]
     try:
         co = cohere.AsyncClient(api_key)
         docs = [c.get("text") or "" for c in chunks]
         response = await co.rerank(
-            model="rerank-v3.5",
+            model=COHERE_RERANK_MODEL,
             query=query,
             documents=docs,
             top_n=top_k,

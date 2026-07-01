@@ -22,6 +22,7 @@ class CitationOut(BaseModel):
     section: str
     filename: str
     score: Optional[float] = None
+    is_enriched: bool = False
 
 
 class QueryResponse(BaseModel):
@@ -47,9 +48,11 @@ class PaperOut(BaseModel):
     year: Optional[int] = None
     topic: Optional[str] = None
     url: Optional[str] = None
+    doi: Optional[str] = None
     chunk_count: int
     indexed: bool
     created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -76,6 +79,7 @@ class SearchResultOut(BaseModel):
     score: Optional[float] = None
     text: str
     filename: str
+    is_enriched: bool = False
 
 
 class SearchResponse(BaseModel):

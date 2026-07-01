@@ -1,6 +1,10 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 import os, json
+from api.core.models import GROQ_CHAT_MODEL
+from api.core.config import get_settings
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/v1", tags=["Suggest"])
 
@@ -12,8 +16,8 @@ class SuggestRequest(BaseModel):
 async def suggest(req: SuggestRequest):
     try:
         from groq import AsyncGroq
-        client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY", ""))
-        model  = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+        client = AsyncGroq(api_key=settings.groq_api_key.get_secret_value())
+        model = GROQ_CHAT_MODEL
         resp = await client.chat.completions.create(
             model=model,
             messages=[{

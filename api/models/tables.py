@@ -1,7 +1,7 @@
 import uuid
 from pgvector.sqlalchemy import Vector
 from datetime import datetime
-from sqlalchemy import String, Text, Float, Integer, Boolean, DateTime, JSON, ForeignKey
+from sqlalchemy import String, Text, Float, Integer, Boolean, DateTime, JSON, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from api.core.database import Base
@@ -19,11 +19,14 @@ class Paper(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     topic: Mapped[str | None] = mapped_column(String(100), nullable=True)
     url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    doi: Mapped[str | None] = mapped_column(String(255), nullable=True)
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     figure_count: Mapped[int] = mapped_column(Integer, default=0)
     table_count: Mapped[int] = mapped_column(Integer, default=0)
     indexed: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    paper_embedding: Mapped[list | None] = mapped_column(Vector(768), nullable=True)
 
 
 class Query(Base):
@@ -39,7 +42,8 @@ class Query(Base):
     response_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    paper_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("papers.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     feedback: Mapped["Feedback | None"] = relationship(back_populates="query")
 
@@ -48,10 +52,10 @@ class Feedback(Base):
     __tablename__ = "feedback"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    query_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("queries.id"), nullable=False)
+    query_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("queries.id", ondelete="CASCADE"), nullable=False, unique=True)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     query: Mapped["Query"] = relationship(back_populates="feedback")
 
@@ -62,6 +66,7 @@ class Chunk(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chunk_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     source: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    paper_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("papers.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     authors: Mapped[str | None] = mapped_column(Text, nullable=True)
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -82,9 +87,9 @@ class Chunk(Base):
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     table_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
     table_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-
+    is_enriched: Mapped[bool] = mapped_column(Boolean, default=False)
     embedding: Mapped[list | None] = mapped_column(Vector(768), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class ResearchSession(Base):
@@ -92,8 +97,8 @@ class ResearchSession(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(200), nullable=False, default="New Session")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.created_at")
 
@@ -105,7 +110,7 @@ class ChatMessage(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("research_sessions.id", ondelete="CASCADE"), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)  # user | assistant
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     session: Mapped["ResearchSession"] = relationship(back_populates="messages")
 
@@ -115,10 +120,10 @@ class Collection(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     color: Mapped[str] = mapped_column(String(20), default="#7c5cfc")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     paper_links: Mapped[list["CollectionPaper"]] = relationship(back_populates="collection", cascade="all, delete-orphan")
 
@@ -128,6 +133,6 @@ class CollectionPaper(Base):
 
     collection_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True)
     paper_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("papers.id", ondelete="CASCADE"), primary_key=True)
-    added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     collection: Mapped["Collection"] = relationship(back_populates="paper_links")

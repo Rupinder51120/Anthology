@@ -5,9 +5,9 @@ from pathlib import Path
 from collections import defaultdict
 
 import requests
-
+from api.core.models import OLLAMA_CHAT_MODEL
 OLLAMA_URL   = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "qwen2.5:7b"
+OLLAMA_MODEL = OLLAMA_CHAT_MODEL
 
 # ─── JSON extraction ──────────────────────────────────────────
 
