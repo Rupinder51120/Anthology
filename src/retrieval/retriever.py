@@ -63,9 +63,10 @@ async def pgvector_search(
     sql = text("""
         SELECT
             chunk_id, source, title, authors, year,
-            section, section_priority, chunk_type, content_type,
-            text, page_number, figure_number, image_path,
-            table_markdown, table_summary,
+            section, section_priority, chunk_index, chunk_type, content_type,
+            text, char_count, word_count,
+            page_number, figure_number, image_path,
+            table_markdown, table_summary, is_enriched,
             1 - (embedding <=> CAST(:vec AS vector)) as similarity
         FROM chunks
         {filters}
@@ -97,9 +98,10 @@ async def postgres_fts_search(
     sql = text("""
         SELECT
             chunk_id, source, title, authors, year,
-            section, section_priority, chunk_type, content_type,
-            text, page_number, figure_number, image_path,
-            table_markdown, table_summary,
+            section, section_priority, chunk_index, chunk_type, content_type,
+            text, char_count, word_count,
+            page_number, figure_number, image_path,
+            table_markdown, table_summary, is_enriched,
             ts_rank(to_tsvector('english', text),
                     plainto_tsquery('english', :query)) as similarity
         FROM chunks
@@ -168,13 +170,17 @@ def _row_to_dict(row) -> dict:
             "year":             row.year,
             "section":          row.section or "",
             "section_priority": row.section_priority or 0.5,
+            "chunk_index":      getattr(row, "chunk_index", 0) or 0,
             "chunk_type":       row.chunk_type or "general",
             "content_type":     row.content_type or "text",
+            "char_count":       getattr(row, "char_count", 0) or 0,
+            "word_count":       getattr(row, "word_count", 0) or 0,
             "page_number":      row.page_number,
             "figure_number":    row.figure_number,
             "image_path":       row.image_path,
             "table_markdown":   row.table_markdown,
             "table_summary":    row.table_summary,
+            "is_enriched":      bool(getattr(row, "is_enriched", False)),
             "rerank_score":     float(row.similarity),
         }
     }

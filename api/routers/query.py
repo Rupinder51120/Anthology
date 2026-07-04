@@ -4,12 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.core.database import get_db
 from api.schemas.schemas import QueryRequest, QueryResponse
 from api.services.rag_service import RAGService
+from api.services.retrieval_service import RetrievalService
 from api.core.models import GROQ_CHAT_MODEL
 from api.core.config import get_settings
 
 settings = get_settings()
 router = APIRouter(prefix="/api/v1", tags=["Query"])
 rag_service = RAGService()
+retrieval_service = RetrievalService()
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -25,15 +27,14 @@ async def query_stream(
     request: QueryRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    import os, json
-    from src.retrieval.retriever import retrieve
+    import json
     from src.generation.generator import _build_messages
 
     async def token_stream():
         # ── Phase 1: status events ──────────────────────────────
         yield f"data: {json.dumps({'type': 'status', 'text': 'Searching 122 papers...'})}\n\n"
 
-        chunks = await retrieve(
+        chunks = await retrieval_service.retrieve(
             request.question,
             top_k=request.top_k,
             db=db,

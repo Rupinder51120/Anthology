@@ -78,28 +78,42 @@ def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
     return embeddings.astype("float32")
 
 
+def _build_embedding_text(chunk: dict) -> str:
+    meta = chunk.get("metadata") or {}
+    ctype = meta.get("content_type", "text")
+    chunk_text = chunk.get("text") or ""
+
+    parts = []
+    title = meta.get("title", "")
+    section = meta.get("section", "")
+    if title:
+        parts.append(f"Title: {title}")
+    if section:
+        parts.append(f"Section: {section}")
+
+    page_number = meta.get("page_number")
+    if page_number is not None:
+        parts.append(f"Page: {page_number}")
+
+    figure_number = meta.get("figure_number")
+    if figure_number:
+        parts.append(f"Figure: {figure_number}")
+
+    if ctype == "table":
+        table_summary = meta.get("table_summary")
+        if table_summary:
+            parts.append(f"Summary: {table_summary}")
+    elif ctype == "figure" and meta.get("image_path"):
+        parts.append("Visual figure")
+
+    if chunk_text:
+        parts.append(chunk_text)
+
+    return " | ".join(part for part in parts if part)
+
+
 def embed_chunks(chunks: list[dict], batch_size: int = 32) -> np.ndarray:
-    content_type_prefix = {
-        "text":     "",
-        "table":    "Table: ",
-        "figure":   "Figure: ",
-        "equation": "Equation: ",
-    }
-    texts = []
-    for c in chunks:
-        meta   = c["metadata"]
-        ctype  = meta.get("content_type", "text")
-        type_prefix = content_type_prefix.get(ctype, "")
-
-        # Issue 1 & 4: Safe metadata access and clean prefix building
-        title = meta.get("title", "")
-        section = meta.get("section", "")
-        parts = []
-        if title: parts.append(title)
-        if section: parts.append(section)
-        context_prefix = ". ".join(parts) + (". " if parts else "")
-
-        texts.append(f"{context_prefix}{type_prefix}{c['text']}")
+    texts = [_build_embedding_text(c) for c in chunks]
     return embed_texts(texts, batch_size=batch_size)
 
 

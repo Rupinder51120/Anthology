@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from api.models.tables import Query
 from api.schemas.schemas import QueryRequest, QueryResponse, CitationOut
-from src.retrieval.retriever import retrieve
+from api.services.retrieval_service import RetrievalService
 from langfuse import Langfuse
 
 from src.generation.generator import generate_answer, format_citations
@@ -15,6 +15,7 @@ from src.generation.memory import ConversationMemory
 from api.core.config import get_settings
 
 settings = get_settings()
+retrieval_service = RetrievalService()
 
 CACHE_TTL = 3600        # 1 hour
 MAX_SESSIONS = 1000     # FIX: evict oldest sessions beyond this cap
@@ -98,7 +99,7 @@ class RAGService:
             trace = None
 
         t0 = time.time()
-        chunks = await retrieve(
+        chunks = await retrieval_service.retrieve(
             query=request.question,
             top_k=request.top_k,
             db=db,
