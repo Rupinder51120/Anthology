@@ -78,36 +78,65 @@ def embed_texts(texts: list[str], batch_size: int = 32) -> np.ndarray:
     return embeddings.astype("float32")
 
 
+def _strip_section_prefix(chunk_text: str, section: str) -> str:
+    """
+    chunker.py bakes a "[Section] " prefix directly into chunk["text"].
+    Since the embedding text separately adds an explicit "Section: ..."
+    line, keeping the bracket prefix would duplicate the section name in
+    the embedded string. Stripped here only for the embedding
+    representation — chunk["text"] itself (used elsewhere, e.g. for
+    display/DB storage) is left untouched.
+    """
+    if not section:
+        return chunk_text
+    prefix = f"[{section}] "
+    if chunk_text.startswith(prefix):
+        return chunk_text[len(prefix):]
+    return chunk_text
+
+
 def _build_embedding_text(chunk: dict) -> str:
     meta = chunk.get("metadata") or {}
     ctype = meta.get("content_type", "text")
     chunk_text = chunk.get("text") or ""
 
-    parts = []
     title = meta.get("title", "")
     section = meta.get("section", "")
+
+    semantic_text = _strip_section_prefix(chunk_text, section)
+
+    parts = []
     if title:
         parts.append(f"Title: {title}")
     if section:
         parts.append(f"Section: {section}")
 
-    page_number = meta.get("page_number")
-    if page_number is not None:
-        parts.append(f"Page: {page_number}")
-
-    figure_number = meta.get("figure_number")
-    if figure_number:
-        parts.append(f"Figure: {figure_number}")
-
     if ctype == "table":
         table_summary = meta.get("table_summary")
         if table_summary:
             parts.append(f"Summary: {table_summary}")
-    elif ctype == "figure" and meta.get("image_path"):
-        parts.append("Visual figure")
+        table_markdown = meta.get("table_markdown")
+        if table_markdown:
+            parts.append(table_markdown)
+    elif ctype == "figure":
+        figure_number = meta.get("figure_number")
+        if figure_number:
+            # chunker.py's own fallback text (see chunk_parsed_blocks) uses
+            # block.figure_number as a standalone label (e.g. "Figure 3"),
+            # not a bare number — so a plain "Figure: {figure_number}"
+            # would read as "Figure: Figure 3". Only add the "Figure: "
+            # lead-in when the value doesn't already carry that word.
+            if figure_number.strip().lower().startswith("figure"):
+                parts.append(figure_number)
+            else:
+                parts.append(f"Figure: {figure_number}")
 
-    if chunk_text:
-        parts.append(chunk_text)
+    # Equation chunks fall through to the generic path below: their
+    # semantic content is already carried in chunk_text, so no separate
+    # branch is needed.
+
+    if semantic_text:
+        parts.append(semantic_text)
 
     return " | ".join(part for part in parts if part)
 
