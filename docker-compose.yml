@@ -8,6 +8,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - PYTHONPATH=/app
       - OLLAMA_URL=http://ollama:11434
+      - COHERE_API_KEY=${COHERE_API_KEY}
     volumes:
       - ./indexes:/app/indexes
       - ./data:/app/data

@@ -101,6 +101,8 @@ def _build_embedding_text(chunk: dict) -> str:
     chunk_text = chunk.get("text") or ""
 
     title = meta.get("title", "")
+    authors = meta.get("authors", "")
+    year = meta.get("year", "")
     section = meta.get("section", "")
 
     semantic_text = _strip_section_prefix(chunk_text, section)
@@ -108,6 +110,10 @@ def _build_embedding_text(chunk: dict) -> str:
     parts = []
     if title:
         parts.append(f"Title: {title}")
+    if authors:
+        parts.append(f"Authors: {authors}")
+    if year:
+        parts.append(f"Year: {year}")
     if section:
         parts.append(f"Section: {section}")
 

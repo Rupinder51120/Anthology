@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import re
@@ -5,7 +6,11 @@ from pathlib import Path
 from collections import defaultdict
 
 import requests
+from sqlalchemy import select
+from api.core.database import AsyncSessionLocal
+from api.models.tables import Chunk, Paper
 from api.core.models import OLLAMA_CHAT_MODEL
+
 OLLAMA_URL   = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = OLLAMA_CHAT_MODEL
 
@@ -47,35 +52,52 @@ def _content_words(text: str) -> set[str]:
     return {w for w in words if w not in _STOPWORDS and len(w) > 2}
 
 
-# ─── registry loader ──────────────────────────────────────────
+# ─── database loader ──────────────────────────────────────────
 
-def _load_registry(registry_path: str = "data/download_registry.json") -> dict[str, dict]:
-    """Return arxiv_id → {title, abstract, year, authors} from the registry."""
-    try:
-        with open(registry_path) as f:
-            registry = json.load(f)
-        # Registry is a dict keyed by arxiv_id
-        if isinstance(registry, dict):
-            return registry
-        # Fallback: list of records
-        if isinstance(registry, list):
-            return {r["arxiv_id"]: r for r in registry if "arxiv_id" in r}
-    except FileNotFoundError:
-        pass
-    return {}
+async def _load_benchmark_chunks() -> list[dict]:
+    """Load benchmark candidates from the current PostgreSQL source of truth."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Chunk, Paper)
+            .join(Paper, Chunk.paper_id == Paper.id)
+            .order_by(Chunk.source, Chunk.chunk_index)
+        )
+        rows = result.all()
 
+        # Map each paper to its real Abstract chunk.
+        # Rows are ordered by chunk_index, so the first Abstract chunk wins
+        # if a paper contains more than one.
+        abstract_chunk_ids = {}
+        for chunk, paper in rows:
+            if (
+                (chunk.section or "").strip().lower() == "abstract"
+                and paper.id not in abstract_chunk_ids
+            ):
+                abstract_chunk_ids[paper.id] = chunk.chunk_id
 
-def _abstract_for_chunk(chunk: dict, registry: dict) -> str | None:
-    """Return the abstract for the paper this chunk came from, or None."""
-    source = chunk["metadata"].get("source", "")
-    # Registry is keyed by arxiv_id, but each entry has a filename field.
-    # Build a filename→entry lookup on first call.
-    if not hasattr(_abstract_for_chunk, "_filename_index"):
-        _abstract_for_chunk._filename_index = {
-            v["filename"]: v for v in registry.values() if "filename" in v
-        }
-    entry = _abstract_for_chunk._filename_index.get(source)
-    return entry["abstract"].strip() if entry and entry.get("abstract") else None
+        chunks = []
+        for chunk, paper in rows:
+            chunks.append({
+                "text": chunk.text,
+                "metadata": {
+                    "chunk_id": chunk.chunk_id,
+                    "source": chunk.source,
+                    "paper_id": str(chunk.paper_id),
+                    "title": paper.title,
+                    "authors": paper.authors or chunk.authors or "",
+                    "year": paper.year if paper.year is not None else chunk.year,
+                    "abstract": paper.abstract or "",
+                    "abstract_chunk_id": abstract_chunk_ids.get(paper.id, ""),
+                    "section": chunk.section or "",
+                    "section_priority": chunk.section_priority,
+                    "chunk_index": chunk.chunk_index,
+                    "chunk_type": chunk.chunk_type or "general",
+                    "content_type": chunk.content_type or "text",
+                    "is_enriched": chunk.is_enriched,
+                },
+            })
+
+        return chunks
 
 
 # ─── QA generation ────────────────────────────────────────────
@@ -83,7 +105,6 @@ def _abstract_for_chunk(chunk: dict, registry: dict) -> str | None:
 def generate_qa_from_chunk(
     chunk: dict,
     num_questions: int = 2,
-    registry: dict | None = None,
 ) -> list[dict]:
     """Generate QA pairs anchored on the paper abstract (not the chunk text).
 
@@ -102,11 +123,11 @@ def generate_qa_from_chunk(
 
     Now we store BOTH:
       - source_paper:    the paper filename (same value as before — kept
-                          for backwards-compatible paper-level scoring)
+                         for backwards-compatible paper-level scoring)
       - source_chunk_id: the actual chunk_id this question was anchored to,
-                          enabling a genuine chunk-level Hit@k/MRR/nDCG.
+                         enabling a genuine chunk-level Hit@k/MRR/nDCG.
       - source_chunk:    kept as an alias of source_paper for any old code
-                          that still reads this exact key name.
+                         that still reads this exact key name.
     """
     meta = chunk["metadata"]
     chunk_text = chunk["text"]
@@ -115,15 +136,18 @@ def generate_qa_from_chunk(
         return []
 
     # Prefer abstract as the question-generation context
-    abstract = None
-    if registry is not None:
-        abstract = _abstract_for_chunk(chunk, registry)
+    abstract = meta.get("abstract", "")
 
-    if abstract and len(abstract.strip()) > 80:
+    if (
+        abstract
+        and len(abstract.strip()) > 80
+        and meta.get("abstract_chunk_id")
+    ):
         generation_context = abstract[:1000]
         context_label = "Abstract"
     else:
-        # Fallback: use the chunk, but the prompt now explicitly forces paraphrase
+        # Fall back to the sampled chunk whenever there is no usable abstract
+        # or no real Abstract chunk to serve as exact chunk-level ground truth.
         generation_context = chunk_text[:800]
         context_label = "Section excerpt"
 
@@ -214,8 +238,15 @@ Output:
             # that exact key; source_paper is the same value under a
             # clearer name; source_chunk_id is the NEW field holding the
             # actual chunk_id this question was generated from.
-            pair["source_paper"]    = meta["source"]
-            pair["source_chunk_id"] = meta.get("chunk_id", "")
+            pair["source_paper"] = meta["source"]
+
+            # Ground truth must match the text used to generate the question.
+            # Abstract-generated QA points to the paper's real Abstract chunk;
+            # section-generated QA points to the sampled section chunk.
+            if context_label == "Abstract":
+                pair["source_chunk_id"] = meta.get("abstract_chunk_id", "")
+            else:
+                pair["source_chunk_id"] = meta.get("chunk_id", "")
 
             cleaned.append(pair)
 
@@ -228,19 +259,14 @@ Output:
 
 # ─── dataset builder ──────────────────────────────────────────
 
-def build_qa_dataset(
-    chunks_path:   str = "indexes/chunks_metadata.json",
-    registry_path: str = "data/download_registry.json",
-    output_path:   str = "indexes/qa_dataset.json",
-    target_count:  int = 100,       # raised: 50 is below statistical validity threshold
-    sample_every:  int = 3,
+async def build_qa_dataset(
+    output_path: str = "indexes/qa_dataset.json",
+    target_count: int = 10,
+    sample_every: int = 3,
 ) -> list[dict]:
 
-    with open(chunks_path) as f:
-        chunks = json.load(f)
-
-    registry = _load_registry(registry_path)
-    print(f"Registry loaded: {len(registry)} papers")
+    chunks = await _load_benchmark_chunks()
+    print(f"Loaded {len(chunks)} chunks from current PostgreSQL DB")
 
     # Include abstract/intro chunks now — they're the best source for
     # paper-level questions. Exclude only reference lists.
@@ -265,8 +291,6 @@ def build_qa_dataset(
     print(f"Model:  {OLLAMA_MODEL} (local Ollama)\n")
 
     all_qa = []
-    abstract_sourced = 0
-    chunk_sourced = 0
 
     for i, chunk in enumerate(sampled):
         if len(all_qa) >= target_count:
@@ -278,13 +302,8 @@ def build_qa_dataset(
 
         print(f"[{i+1}/{len(sampled)}] {paper_key[:40]} | {chunk['metadata']['section']}")
 
-        pairs = generate_qa_from_chunk(chunk, num_questions=2, registry=registry)
+        pairs = generate_qa_from_chunk(chunk, num_questions=2)
         if pairs:
-            for p in pairs:
-                if p.get("generation_source") == "Abstract":
-                    abstract_sourced += 1
-                else:
-                    chunk_sourced += 1
             all_qa.extend(pairs)
             paper_counts[paper_key] += len(pairs)
         else:
@@ -292,16 +311,28 @@ def build_qa_dataset(
 
     all_qa = all_qa[:target_count]
 
+    # Derive summary statistics from the final saved dataset, not pre-truncation candidates.
+    abstract_sourced = sum(
+        q.get("generation_source") == "Abstract"
+        for q in all_qa
+    )
+    section_sourced = len(all_qa) - abstract_sourced
+    papers_covered = len({
+        q.get("source_paper")
+        for q in all_qa
+        if q.get("source_paper")
+    })
+
     Path("indexes").mkdir(exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(all_qa, f, indent=2)
 
     print(f"\nDataset saved: {len(all_qa)} QA pairs → {output_path}")
     print(f"  Abstract-anchored: {abstract_sourced} ({100*abstract_sourced//max(len(all_qa),1)}%)")
-    print(f"  Chunk-anchored:    {chunk_sourced}    ({100*chunk_sourced//max(len(all_qa),1)}%)")
-    print(f"  Papers covered:    {len(paper_counts)}")
+    print(f"  Section-anchored:  {section_sourced}    ({100*section_sourced//max(len(all_qa),1)}%)")
+    print(f"  Papers covered:    {papers_covered}")
     return all_qa
 
 
 if __name__ == "__main__":
-    build_qa_dataset()
+    asyncio.run(build_qa_dataset())

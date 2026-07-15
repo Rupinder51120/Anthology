@@ -195,4 +195,4 @@ cohere
 sentence-transformers
 langfuse
 transformers
-redis
+redisdocling==<VERSION_FROM_ABOVE>
