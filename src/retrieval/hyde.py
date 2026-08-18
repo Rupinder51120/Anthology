@@ -44,7 +44,7 @@ def _generate_one_doc(query: str, temperature: float = 0.55) -> str:
             "stream": False,
             "options": {"temperature": temperature, "num_predict": 350},
         },
-        timeout=60,
+        timeout=120,
     )
     resp.raise_for_status()
     return resp.json()["response"].strip()

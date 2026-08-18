@@ -105,12 +105,21 @@ def _parse_with_docling(pdf_path: str, figures_dir: str) -> ParsedDocument:
 
     from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    #from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.datamodel.pipeline_options import (
+    PdfPipelineOptions,
+    AcceleratorOptions,
+    AcceleratorDevice,
+    )
 
     figures_path = Path(figures_dir)
     figures_path.mkdir(parents=True, exist_ok=True)
 
     pipeline_options = PdfPipelineOptions()
+    # Force Docling to use CPU instead of Apple MPS
+    pipeline_options.accelerator_options = AcceleratorOptions(
+        device=AcceleratorDevice.CPU
+    )
     pipeline_options.do_ocr                  = True # Enable OCR for image-only PDFs
     pipeline_options.do_table_structure      = True
     pipeline_options.images_scale            = 2.0

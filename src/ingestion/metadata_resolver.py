@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from src.ingestion.ingest import (
     extract_metadata_from_registry,

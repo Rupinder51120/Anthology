@@ -17,12 +17,14 @@ import argparse
 import json
 from collections import defaultdict
 from pathlib import Path
+
 from api.core.models import OLLAMA_CHAT_MODEL
 from src.evaluation.benchmarker import build_qa_dataset
 from src.evaluation.pipeline_runner import run_pipeline_on_dataset
-from src.evaluation.evaluator import compare_configs
 from src.evaluation.retrieval_metrics import RetrievalMetrics
+
 _metrics = RetrievalMetrics()
+
 def lexical_overlap(question: str, answer_text: str) -> float:
     """Jaccard overlap of content words between question and answer chunk."""
     import re as _re
@@ -42,35 +44,6 @@ def lexical_overlap(question: str, answer_text: str) -> float:
     return len(q & a) / len(union) if union else 0.0
 
 
-from src.evaluation.retrieval_metrics import RetrievalMetrics
-
-# ── save the REAL retrieve once, before any patching ──────────
-import src.retrieval.retriever as _ret_module
-_ORIGINAL_RETRIEVE = _ret_module.retrieve
-
-
-# ─────────────────────────────────────────────────────────────
-# RETRIEVER PATCHING  (unchanged from your original)
-# ─────────────────────────────────────────────────────────────
-
-def patch_retriever_mode(mode: str):
-    import src.retrieval.retriever as ret
-    if mode == "hybrid_rerank":
-        ret.USE_RERANKER = True
-        async def retrieve_rerank(query, top_k=5, db=None, **_):
-            return await _ORIGINAL_RETRIEVE(query, top_k=top_k, db=db)
-        ret.retrieve = retrieve_rerank
-
-    elif mode == "full":
-        ret.USE_RERANKER = True
-        async def retrieve_full(query, top_k=5, db=None, **_):
-            return await _ORIGINAL_RETRIEVE(query, top_k=top_k, db=db)
-        ret.retrieve = retrieve_full
-
-def _safe_label(label: str) -> str:
-    return label.replace(" ", "_").replace("+", "plus").replace("/", "_")
-
-
 # ─────────────────────────────────────────────────────────────
 # QASPER INTEGRATION
 # ─────────────────────────────────────────────────────────────
@@ -79,15 +52,6 @@ def _build_paper_index(chunks_path: str = "indexes/chunks_metadata.json") -> dic
     """
     Groups chunks by paper (source filename).
     Extracts abstract text from chunks where section == "abstract".
-
-    Returns:
-        {
-          "paper.pdf": {
-            "title":    "...",
-            "abstract": "...",   # empty string if no abstract chunk found
-            "chunks":   [{"id": "paper.pdf::42", "text": "..."}]
-          }
-        }
     """
     with open(chunks_path) as f:
         chunks = json.load(f)
@@ -109,7 +73,6 @@ def _build_paper_index(chunks_path: str = "indexes/chunks_metadata.json") -> dic
             "text": chunk["text"],
         })
 
-    # Strip whitespace from abstract
     for p in papers.values():
         p["abstract"] = p["abstract"].strip()
 
@@ -123,19 +86,14 @@ def build_qasper_benchmark(
 ):
     """
     Generates QASPER-style QA pairs using local Ollama (qwen2.5:7b).
-    Questions are written from title + abstract ONLY.
-    Answer evidence is located in the full chunk set afterward.
-    This produces low-lexical-overlap questions that BM25 cannot game.
     """
     import requests
-    import re
     import time
 
     OLLAMA_URL   = "http://localhost:11434/api/chat"
     OLLAMA_MODEL = OLLAMA_CHAT_MODEL
 
     def ollama_call(prompt: str, max_tokens: int = 500) -> str:
-        """Call local Ollama and return raw text response."""
         resp = requests.post(
             OLLAMA_URL,
             json={
@@ -150,7 +108,6 @@ def build_qasper_benchmark(
         return resp.json()["message"]["content"].strip()
 
     def parse_json(raw: str) -> dict:
-        """Strip markdown fences and parse JSON — same helper as benchmarker.py."""
         raw = raw.replace("```json", "").replace("```", "").strip()
         start = raw.find("{")
         end   = raw.rfind("}") + 1
@@ -160,17 +117,12 @@ def build_qasper_benchmark(
 
     paper_index = _build_paper_index()
 
-    # Filter papers that have a real abstract
     eligible = {
         src: data for src, data in paper_index.items()
         if len(data["abstract"]) > 100
     }
 
     print(f"Found {len(eligible)} papers with abstracts (need >100 chars)")
-    print(f"Will process up to {max_papers} papers, "
-          f"{questions_per_paper} questions each")
-
-    # Limit to max_papers
     selected = list(eligible.items())[:max_papers]
 
     QUESTION_PROMPT = """You are a researcher who has read ONLY the title and abstract below.
@@ -218,8 +170,6 @@ If no chunk answers the question, set is_answerable to false."""
 
         while generated < questions_per_paper and attempts < questions_per_paper * 3:
             attempts += 1
-
-            # Step 1: generate question from title + abstract only
             try:
                 raw    = ollama_call(QUESTION_PROMPT.format(
                     title=title, abstract=abstract[:1500]
@@ -235,7 +185,6 @@ If no chunk answers the question, set is_answerable to false."""
 
             print(f"  Q: {question[:80]}")
 
-            # Step 2: find answer in chunks (pass top 15 chunks to stay under token limit)
             chunk_sample = chunks[:15]
             chunks_text  = "\n\n".join(
                 f"[{c['id']}]\n{c['text'][:600]}"
@@ -261,7 +210,7 @@ If no chunk answers the question, set is_answerable to false."""
             all_pairs.append({
                 "question":            question,
                 "answer":              a_data.get("answer", ""),
-                "source_chunk":        source,         # paper filename = paper ID
+                "source_chunk":        source,
                 "supporting_chunks":   a_data.get("supporting_chunk_ids", []),
                 "question_type":       q_data.get("question_type", "abstractive"),
                 "difficulty":          q_data.get("difficulty", "medium"),
@@ -281,58 +230,34 @@ If no chunk answers the question, set is_answerable to false."""
 
 
 # ─────────────────────────────────────────────────────────────
-# RETRIEVER ADAPTER FOR EVAL
+# QASPER EVAL RUNNER
 # ─────────────────────────────────────────────────────────────
 
-def make_retriever_fn(mode: str, top_k: int = 10):
-    patch_retriever_mode(mode)
+def make_retriever_fn(strategy: str, top_k: int = 10):
     import src.retrieval.retriever as ret
-    captured = ret.retrieve
 
-    def retriever_fn(question: str) -> list[str]:
-        import asyncio
+    async def retriever_fn(question: str) -> list[str]:
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.orm import sessionmaker
         import os
 
-        async def _run():
-            engine = create_async_engine(os.environ["DATABASE_URL"])
-            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-            async with async_session() as session:
-                results = await captured(question, top_k=top_k, db=session)
-            await engine.dispose()
-            return results
-
-        results = asyncio.run(_run())
+        engine = create_async_engine(os.environ["DATABASE_URL"])
+        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with async_session() as session:
+            results = await ret.retrieve(question, top_k=top_k, db=session, strategy=strategy)
+        await engine.dispose()
         return [r["metadata"]["source"] for r in results]
 
     return retriever_fn
 
-# ─────────────────────────────────────────────────────────────
-# METRICS  (self-contained, no extra files needed)
-# ─────────────────────────────────────────────────────────────
 
-
-
-
-
-# ─────────────────────────────────────────────────────────────
-# QASPER EVAL RUNNER
-# ─────────────────────────────────────────────────────────────
-
-def run_qasper_eval(
+async def run_qasper_eval(
     biased_path:  str = "indexes/qa_dataset.json",
     qasper_path:  str = "indexes/qa_qasper.json",
     k_values: list   = None,
 ):
-    """
-    Loads both benchmarks, runs all retriever configs on each,
-    prints a cross-benchmark comparison table.
-    The drop in BM25 performance from biased→qasper is your key finding.
-    """
     k_values = k_values or [1, 5, 10]
 
-    # ── load benchmarks ──────────────────────────────────────
     def load_qa(path):
         with open(path) as f:
             return json.load(f)
@@ -356,15 +281,16 @@ def run_qasper_eval(
         print("No benchmarks found. Exiting.")
         return
 
-    # ── retriever configs to compare ─────────────────────────
+    # Updated to use the six canonical retrieval strategies
     retriever_configs = [
-        ("Hybrid",        "hybrid_no_rerank"),
-        ("Hybrid+Rerank", "hybrid_rerank"),
-        ("Hybrid+HyDE",   "full"),
+        ("Sparse",        "sparse"),
+        ("Dense",         "dense"),
+        ("Dense HyDE",    "dense_hyde"),
+        ("Hybrid RRF",    "hybrid_rrf"),
+        ("Hybrid Rerank", "hybrid_rerank"),
+        ("Dense Rerank",  "dense_rerank"),
     ]
 
-    # ── run eval ─────────────────────────────────────────────
-    # results[benchmark_name][method_name][k] = {recall, hit, mrr}
     results = defaultdict(lambda: defaultdict(dict))
 
     for bm_name, qa_pairs in benchmarks.items():
@@ -372,7 +298,6 @@ def run_qasper_eval(
         print(f"Evaluating on: {bm_name}")
         print(f"{'='*60}")
 
-        # Compute mean lexical overlap for this benchmark
         overlaps = [
             lexical_overlap(qa["question"], qa.get("answer", ""))
             for qa in qa_pairs
@@ -388,9 +313,9 @@ def run_qasper_eval(
         )
         print(f"  Verdict: {verdict}\n")
 
-        for method_name, mode in retriever_configs:
+        for method_name, strategy in retriever_configs:
             print(f"  Running {method_name}...")
-            retriever_fn = make_retriever_fn(mode, top_k=max(k_values))
+            retriever_fn = make_retriever_fn(strategy, top_k=max(k_values))
 
             recall_sums = defaultdict(float)
             hit_sums    = defaultdict(float)
@@ -398,10 +323,10 @@ def run_qasper_eval(
 
             for qa in qa_pairs:
                 question   = qa["question"]
-                gold_paper = qa["source_chunk"]   # filename is the paper ID
+                gold_paper = qa["source_chunk"]
                 gold       = {gold_paper}
 
-                retrieved = retriever_fn(question)
+                retrieved = await retriever_fn(question)
 
                 mrr_sum += _metrics.mrr(retrieved, gold)
                 for k in k_values:
@@ -415,10 +340,10 @@ def run_qasper_eval(
                 "hit":     {k: hit_sums[k] / n    for k in k_values},
                 "n":       n,
             }
+    # ... (rest of the function)
 
-    # ── print per-benchmark tables ────────────────────────────
     for bm_name, method_results in results.items():
-        k = 5  # primary display K
+        k = 5
         print(f"\n{'='*65}")
         print(f"  Results on: {bm_name}  (primary K={k})")
         print(f"{'='*65}")
@@ -433,7 +358,6 @@ def run_qasper_eval(
                   f"{scores['hit'].get(k, 0):.4f}      "
                   f"{scores['mrr']:.4f}")
 
-    # ── cross-benchmark comparison (the key table) ────────────
     if len(results) >= 2:
         k = 5
         bm_names = list(results.keys())
@@ -469,16 +393,9 @@ def run_qasper_eval(
             )
             row += f"  {drop_str}"
             print(row)
-
         print(f"{'='*75}")
-        print("\n  Interpretation:")
-        print("  • BM25 drop > 0.15 → your chunk-derived questions are lexically biased")
-        print("  • Hybrid/Semantic drop < 0.05 → those methods generalise to real queries")
-        print("  • Report BOTH benchmarks in writeup — that IS the finding")
 
-    # ── save results ──────────────────────────────────────────
     out_path = "indexes/qasper_eval_results.json"
-    # Convert defaultdict to regular dict for JSON serialisation
     serialisable = {
         bm: {
             method: {
@@ -495,16 +412,12 @@ def run_qasper_eval(
     print(f"\n  Full results saved → {out_path}")
 
 
-# ─────────────────────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────────────────────
-
-def main():
+async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-judge",      action="store_true")
     parser.add_argument("--build-qa",      action="store_true")
     parser.add_argument("--build-qasper",  action="store_true",
-                        help="Generate QASPER-style benchmark via local Ollama (qwen2.5:7b)")
+                        help="Generate QASPER-style benchmark via local Ollama (qwen2 la5:7b)")
     parser.add_argument("--qasper",        action="store_true",
                         help="Run cross-benchmark comparison (biased vs QASPER)")
     parser.add_argument("--quick",         action="store_true",
@@ -520,14 +433,13 @@ def main():
     run_judge = not args.no_judge
     qa_path   = "indexes/qa_quick.json" if args.quick else "indexes/qa_dataset.json"
 
-    # ── clean stale files ─────────────────────────────────────
     if args.clean:
         import glob
         patterns = ["indexes/results_*.json", "indexes/results_*_checkpoint.json"]
         removed  = []
         for pat in patterns:
             for f in glob.glob(pat):
-                Path(f).unlink()
+                Path(f).unlink(missing_ok=True)
                 removed.append(f)
         if removed:
             print(f"Cleaned {len(removed)} stale file(s):")
@@ -536,7 +448,6 @@ def main():
         else:
             print("No stale files to clean.")
 
-    # ── QASPER benchmark generation ───────────────────────────
     if args.build_qasper:
         build_qasper_benchmark(
             output_path="indexes/qa_qasper.json",
@@ -545,58 +456,80 @@ def main():
         )
         return
 
-    # ── QASPER cross-benchmark evaluation ─────────────────────
     if args.qasper:
-        run_qasper_eval(
+        await run_qasper_eval(
             biased_path="indexes/qa_dataset.json",
             qasper_path="indexes/qa_qasper.json",
         )
         return
 
-    # ── original benchmark flow (unchanged) ───────────────────
     if args.build_qa or not Path(qa_path).exists():
         print("Building QA dataset...")
-        build_qa_dataset(output_path=qa_path, target_count=50)
+        await build_qa_dataset(output_path=qa_path)
     else:
         with open(qa_path) as f:
             n = len(json.load(f))
         print(f"QA dataset exists: {n} questions ({qa_path})")
 
-    configs = [
-        ("Hybrid",           "hybrid_no_rerank", False),
-        ("Hybrid + rerank",  "hybrid_rerank",    False),
-        ("Hybrid + HyDE",  "full",             True),  # skip — slow on CPU
+    # Final valid retrieval strategies
+    TOP_K = 7
+    STRATEGIES = [
+        "sparse",
+        "dense",
+        "dense_hyde",
+        "hybrid_rrf",
+        "hybrid_rerank",
+        "dense_rerank",
     ]
 
     results_map = {}
-    for label, mode, use_hyde in configs:
-        out_path = f"indexes/results_{_safe_label(label)}.json"
+    for strategy in STRATEGIES:
+        out_path = f"indexes/results_{strategy}.json"
         print(f"\n{'='*55}")
-        print(f"Config: {label}  |  mode={mode}  |  hyde={use_hyde}")
+        print(f"Strategy: {strategy}")
         print(f"{'='*55}")
-        patch_retriever_mode(mode)
-        run_pipeline_on_dataset(
+
+        # run_pipeline_on_dataset already calls evaluate_results and save_scores
+        from src.evaluation.pipeline_runner import run_pipeline_on_dataset_async
+        await run_pipeline_on_dataset_async(
             qa_path=qa_path,
             output_path=out_path,
-            use_hyde=use_hyde,
-            top_k=7,
+            use_hyde=False,
+            top_k=TOP_K,
+            strategy=strategy,
             sleep_between=0,
+            run_judge=run_judge,
         )
-        results_map[label] = out_path
+
+        # Reuse metrics saved by run_pipeline_on_dataset to avoid duplicate evaluation
+        scores_path = out_path.replace(".json", f"_{strategy}_{TOP_K}_scores.json")
+        with open(scores_path, "r") as f:
+            all_scores = json.load(f)
+
+        if len(all_scores) != 1:
+            raise ValueError(f"Unexpected score format in {scores_path}: {list(all_scores.keys())}")
+
+        results_map[strategy] = next(iter(all_scores.values()))
 
     print("\n\n" + "="*55)
-    print("EVALUATION")
+    print("FINAL STRATEGY COMPARISON")
     print("="*55)
-    all_scores = compare_configs(results_map, run_judge=run_judge)
+
+    print(f"{'Strategy':<20s} {'Hit@5':>10s} {'MRR':>10s} {'MeanScore':>12s}")
+    print("-" * 55)
+    for strat, s in results_map.items():
+        ret = s.get("retrieval", {})
+        hit5 = ret.get("hit@5", 0) if ret else 0
+        mrr  = ret.get("mrr", 0) if ret else 0
+        mean = s.get("mean_score", 0)
+        print(f"{strat:<20s} {hit5:>10.4f} {mrr:>10.4f} {mean:>12.4f}")
 
     summary_path = "indexes/benchmark_summary.json"
     with open(summary_path, "w") as f:
-        json.dump(all_scores, f, indent=2)
+        json.dump(results_map, f, indent=2)
 
     print(f"\nBenchmark complete. Summary → {summary_path}")
-    if run_judge:
-        print("Use the 'mean_score' column from the judge table as your resume number.")
-
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())

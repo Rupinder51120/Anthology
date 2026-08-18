@@ -21,6 +21,15 @@ def upgrade():
 
     # 3. Fix queries table: add paper_id
     op.execute("ALTER TABLE queries ADD COLUMN IF NOT EXISTS paper_id UUID")
+    # queries.paper_id + its FK were already created by 5890fefb391a's initial
+    # create_table (auto-named queries_paper_id_fkey, default ON DELETE NO
+    # ACTION). Drop that one before adding the named ON DELETE SET NULL
+    # version below -- Postgres enforces every FK constraint on a column, so
+    # leaving both in place means the NO ACTION constraint blocks deleting a
+    # referenced paper, silently defeating the SET NULL behavior this
+    # migration intends. IF EXISTS makes this safe to run against a database
+    # where the constraint was never named that way (e.g. re-created by hand).
+    op.execute("ALTER TABLE queries DROP CONSTRAINT IF EXISTS queries_paper_id_fkey")
     op.execute("ALTER TABLE queries ADD CONSTRAINT fk_queries_paper FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE SET NULL")
 
     # 4. Add default to queries.retrieval_mode

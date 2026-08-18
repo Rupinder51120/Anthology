@@ -1,6 +1,6 @@
 import asyncio
 import json
-import random
+import os
 import re
 from pathlib import Path
 from collections import defaultdict
@@ -11,8 +11,9 @@ from api.core.database import AsyncSessionLocal
 from api.models.tables import Chunk, Paper
 from api.core.models import OLLAMA_CHAT_MODEL
 
-OLLAMA_URL   = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = OLLAMA_CHAT_MODEL
+OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_URL      = f"{OLLAMA_BASE_URL}/api/chat"
+OLLAMA_MODEL    = OLLAMA_CHAT_MODEL
 
 # ─── JSON extraction ──────────────────────────────────────────
 
@@ -45,6 +46,11 @@ _STOPWORDS = {
     "paper","study","work","method","approach","model","system","result","results",
     "show","shows","shown","using","used","use","based","proposed","present",
     "also","than","then","thus","here","there","between","over","under","per",
+    "neural", "network", "networks", "learning", "deep", "model", "models",
+    "training", "trained", "generative", "artificial", "intelligence",
+    "diffusion", "transformer", "language", "large", "reasoning", "causal",
+    "representation", "feature", "features", "dataset", "datasets",
+    "algorithm", "algorithms",
 }
 
 def _content_words(text: str) -> set[str]:
@@ -197,6 +203,8 @@ Output:
         if not isinstance(pairs, list):
             return []
 
+        print(f"Ollama generated {len(pairs)} raw QA pairs")
+
         chunk_cw = _content_words(chunk_text)
 
         BANNED = [
@@ -214,19 +222,24 @@ Output:
             ql = q.lower()
 
             if any(pat in ql for pat in BANNED):
+                print(f"[REJECT] banned pattern: {q}")
                 continue
             if any(pat in ql for pat in GENERIC):
+                print(f"[REJECT] generic question: {q}")
                 continue
             if re.search(r'equation\s*\(?\d+\)?|eq\.\s*\(?\d+\)?', ql):
+                print(f"[REJECT] equation reference: {q}")
                 continue
             if re.search(r'[α-ωΑ-Ω]|\\[a-zA-Z]+\{', q):
+                print(f"[REJECT] latex/greek: {q}")
                 continue
 
             # Content-word overlap (stopword-filtered, stricter threshold)
             q_cw = _content_words(ql)
             if q_cw:
                 overlap = len(q_cw & chunk_cw) / len(q_cw)
-                if overlap > 0.35:          # tightened from 0.60
+                if overlap > 0.65:          # tightened from 0.60
+                    print(f"[REJECT] overlap={overlap:.2f}: {q}")
                     continue
 
             # Flag abstract-based questions for diagnostics
@@ -261,8 +274,6 @@ Output:
 
 async def build_qa_dataset(
     output_path: str = "indexes/qa_dataset.json",
-    target_count: int = 10,
-    sample_every: int = 3,
 ) -> list[dict]:
 
     chunks = await _load_benchmark_chunks()
@@ -277,41 +288,58 @@ async def build_qa_dataset(
         and len(c["text"].strip()) > 150
     ]
 
-    # Shuffle for cross-paper diversity
-    random.seed(42)
-    random.shuffle(valid_chunks)
-    sampled = valid_chunks[::sample_every]
+    # Group chunks by paper (source)
+    chunks_by_paper = defaultdict(list)
+    for c in valid_chunks:
+        chunks_by_paper[c["metadata"]["source"]].append(c)
 
-    # Track per-paper counts to prevent one paper dominating
-    paper_counts: dict[str, int] = defaultdict(int)
-    MAX_PER_PAPER = 6
+    # Priority for selecting chunks to generate questions from
+    SECTION_PRIORITY = {
+        "abstract": 0,
+        "introduction": 1,
+        "methods": 2,
+        "results": 3,
+        "discussion": 4,
+    }
 
-    print(f"Building QA dataset from {len(sampled)} sampled chunks...")
-    print(f"Target: {target_count} QA pairs")
+    print(f"Building QA dataset from {len(chunks_by_paper)} papers...")
     print(f"Model:  {OLLAMA_MODEL} (local Ollama)\n")
 
     all_qa = []
 
-    for i, chunk in enumerate(sampled):
-        if len(all_qa) >= target_count:
-            break
+    # Iterate over every paper in the database
+    for paper_key, paper_chunks in sorted(chunks_by_paper.items()):
+        # Sort chunks by priority and then by length (descending)
+        # Priority: Abstract > Introduction > Methods > Results > Discussion > Others
+        paper_chunks.sort(
+            key=lambda c: (
+                SECTION_PRIORITY.get(c["metadata"]["section"].lower(), 5),
+                -len(c["text"])
+            )
+        )
 
-        paper_key = chunk["metadata"]["source"]
-        if paper_counts[paper_key] >= MAX_PER_PAPER:
-            continue
+        paper_qa_count = 0
+        for chunk in paper_chunks:
+            if paper_qa_count >= 2:
+                break
 
-        print(f"[{i+1}/{len(sampled)}] {paper_key[:40]} | {chunk['metadata']['section']}")
+            print(f"Processing {paper_key[:40]} | {chunk['metadata']['section']}")
 
-        pairs = generate_qa_from_chunk(chunk, num_questions=2)
-        if pairs:
-            all_qa.extend(pairs)
-            paper_counts[paper_key] += len(pairs)
-        else:
-            print("  (skipped — no valid pairs after filtering)")
+            # Generate QA pairs (up to 2 per chunk)
+            # We want a total of 2 for the paper, so we might only need 1 if we already have 1.
+            num_needed = 2 - paper_qa_count
+            pairs = generate_qa_from_chunk(chunk, num_questions=num_needed)
 
-    all_qa = all_qa[:target_count]
+            if pairs:
+                all_qa.extend(pairs)
+                paper_qa_count += len(pairs)
+            else:
+                print("  (skipped — no valid pairs after filtering)")
 
-    # Derive summary statistics from the final saved dataset, not pre-truncation candidates.
+        if paper_qa_count == 0:
+            print(f"WARNING: No QA pairs generated for {paper_key}")
+
+    # Derive summary statistics from the final saved dataset.
     abstract_sourced = sum(
         q.get("generation_source") == "Abstract"
         for q in all_qa

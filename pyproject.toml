@@ -12,3 +12,16 @@ dependencies = [
     "pymupdf>=1.27.2.3",
     "pypdf>=6.12.2",
 ]
+
+[tool.pytest.ini_options]
+# These are ad hoc debug scripts from a specific ingestion-crash investigation
+# (see docs/ANTHOLOGY_FULL_AUDIT.md, BUG-27), not real tests: no test_*
+# functions, no asserts, and they execute real Docling PDF-conversion
+# pipeline code (heavy model loading, local-file dependent) at import time.
+# A bare `pytest` / `pytest tests/` must not collect them.
+addopts = [
+    "--ignore=tests/test_docling.py",
+    "--ignore=tests/test_page1_no_ocr.py",
+    "--ignore=tests/test_page1_single_thread_ocr.py",
+    "--ignore=tests/split_pdf.py",
+]

@@ -198,24 +198,35 @@ async def rerank(query: str, chunks: list[dict], top_k: int = 5) -> list[dict]:
     api_key = settings.cohere_api_key.get_secret_value()
     if not api_key or not chunks:
         return sorted(chunks, key=lambda x: x["metadata"].get("rerank_score", 0), reverse=True)[:top_k]
-    try:
-        co = cohere.AsyncClient(api_key)
-        docs = [c.get("text") or "" for c in chunks]
-        response = await co.rerank(
-            model=COHERE_RERANK_MODEL,
-            query=query,
-            documents=docs,
-            top_n=top_k,
-        )
-        reranked = []
-        for result in response.results:
-            chunk = chunks[result.index].copy()
-            chunk["metadata"]["rerank_score"] = result.relevance_score
-            reranked.append(chunk)
-        return reranked
-    except Exception as e:
-        print(f"Cohere rerank failed: {type(e).__name__}: {e}")
-        return chunks[:top_k]
+
+    import asyncio
+    retries = 3
+    backoff = [1, 2, 4]
+
+    for attempt in range(retries + 1):
+        try:
+            co = cohere.AsyncClient(api_key)
+            docs = [c.get("text") or "" for c in chunks]
+            response = await co.rerank(
+                model=COHERE_RERANK_MODEL,
+                query=query,
+                documents=docs,
+                top_n=top_k,
+            )
+            reranked = []
+            for result in response.results:
+                chunk = chunks[result.index].copy()
+                chunk["metadata"]["rerank_score"] = result.relevance_score
+                reranked.append(chunk)
+            return reranked
+        except Exception as e:
+            if attempt < retries:
+                wait = backoff[attempt]
+                print(f"Cohere rerank 429/error: {e}. Retrying in {wait}s... ({attempt+1}/{retries})")
+                await asyncio.sleep(wait)
+            else:
+                print(f"Cohere rerank failed after {retries} retries: {type(e).__name__}: {e}")
+                return chunks[:top_k]
 
 
 def _row_to_dict(row) -> dict:

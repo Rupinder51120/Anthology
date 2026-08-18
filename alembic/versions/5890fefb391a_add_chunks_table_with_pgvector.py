@@ -40,7 +40,13 @@ def upgrade() -> None:
     sa.Column('text', sa.Text(), nullable=False),
     sa.Column('char_count', sa.Integer(), nullable=False),
     sa.Column('word_count', sa.Integer(), nullable=False),
-    # embedding column added separately after pgvector extension
+    # Original embedding dimension (1024) before the specter2_768 migration
+    # (down_revision='5890fefb391a') narrowed it to vector(768) for SPECTER2.
+    # This column was historically added out-of-band against the running
+    # database; declaring it here makes `alembic upgrade head` reproduce the
+    # real schema on a fresh database instead of failing when specter2_768
+    # tries to ALTER a column that was never created.
+    sa.Column('embedding', Vector(1024), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('chunk_id')

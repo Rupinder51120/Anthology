@@ -57,6 +57,13 @@ services:
       - api
     restart: unless-stopped
 volumes:
+  # Pinned to the literal name "anthology_pgdata" (not the default
+  # project-prefixed name) so this matches the volume that was previously
+  # declared `external: true`. Compose now creates it automatically if
+  # missing (fresh machine, `docker compose up` just works) and reuses it
+  # unchanged if it already exists (existing dev data is untouched either way
+  # -- Docker doesn't distinguish "compose-managed" vs "externally-created"
+  # for an existing named volume beyond this file's own metadata).
   anthology_pgdata:
-    external: true
+    name: anthology_pgdata
   ollama_data:

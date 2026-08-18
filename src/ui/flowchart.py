@@ -1,7 +1,10 @@
+import os
 import requests
 import re
 from api.core.models import OLLAMA_CHAT_MODEL
-OLLAMA_URL = "http://localhost:11434/api/generate"
+
+OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_URL      = f"{OLLAMA_BASE_URL}/api/generate"
 
 FLOWCHART_PROMPT = """You are an expert technical diagram engineer. Convert this explanation into a clean, valid Mermaid.js diagram.
 

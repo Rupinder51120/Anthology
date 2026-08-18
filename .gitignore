@@ -56,6 +56,12 @@ dist/
 *.sqlite
 *.sqlite3
 
+# Database Backups / Dumps (may contain real user data -- never commit)
+
+backup_pre_remediation.sql
+backup_*.sql
+*.sql.bak
+
 # Research Data (Large Files)
 
 data/papers/
@@ -135,3 +141,19 @@ data/last_download_report.json
 data/uploads/
 
 *pinterestdemo*
+
+batch_1
+pending_papers
+split_pages
+
+# Debug artifacts from the MPS-hang / Docling ad hoc investigation
+# (not real tests: no asserts, execute the real pipeline at import time --
+# see docs/ANTHOLOGY_FULL_AUDIT.md, BUG-27)
+test_single_paper/
+tests/split_pdf.py
+tests/test_docling.py
+tests/test_page1_no_ocr.py
+tests/test_page1_single_thread_ocr.py
+
+# One-off debug script with a hardcoded local-only placeholder credential
+scripts/make_pending.py

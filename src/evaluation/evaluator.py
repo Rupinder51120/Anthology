@@ -172,6 +172,16 @@ Answer: {answer}
 
 List every factual claim in the answer. For each, is it supported by the context above?
 
+Grading Rubric:
+- 1.0: Every claim is explicitly supported by the context.
+- 0.5: Most claims are supported, but some are inferred or slightly outside the scope.
+- 0.0: Significant claims are unsupported or directly contradicted by the context.
+
+Example:
+Context: "The study found that the new catalyst increases efficiency by 20%."
+Answer: "The catalyst improves efficiency by 20%." -> supported: true, score: 1.0
+Answer: "The catalyst is the cheapest on the market." -> supported: false, score: 0.0
+
 Respond ONLY with this JSON:
 {{"claims": ["claim1", "claim2"], "supported": ["claim1"], "faithfulness_score": 0.0}}
 
@@ -182,7 +192,16 @@ RELEVANCY_PROMPT = """You are evaluating whether an answer addresses the questio
 Question: {question}
 Answer: {answer}
 
-Score 0.0-1.0: 1.0=fully answers, 0.5=partially, 0.0=irrelevant.
+Score 0.0-1.0 based on the following rubric:
+- 1.0: The answer directly and fully addresses the question with a high degree of precision.
+- 0.5: The answer partially addresses the question or provides a vague response.
+- 0.0: The answer is irrelevant, fails to address the question, or is a generic error.
+
+Example:
+Q: "How does the Quadrangle Attention mechanism work?"
+A: "It uses a 4-way splitting of the attention matrix to reduce complexity." -> 1.0
+A: "It is a new method for attention." -> 0.5
+A: "The paper was written in 2023." -> 0.0
 
 Respond ONLY with this JSON:
 {{"relevancy_score": 0.0, "reasoning": "one line"}}"""
@@ -193,7 +212,16 @@ Question: {question}
 Reference: {ground_truth}
 Answer: {answer}
 
-Score 0.0-1.0: 1.0=covers all key points, 0.5=covers main point, 0.0=misses it.
+Score 0.0-1.0 based on the following rubric:
+- 1.0: The answer covers all key points present in the reference answer.
+- 0.5: The answer covers the main point but misses important secondary details.
+- 0.0: The answer misses the primary point of the reference.
+
+Example:
+Ref: "The method reduces latency by 30% and memory by 50%."
+A: "It reduces latency by 30% and memory by 50%." -> 1.0
+A: "It reduces latency by 30%." -> 0.5
+A: "The method is faster." -> 0.2
 
 Respond ONLY with this JSON:
 {{"completeness_score": 0.0, "reasoning": "one line"}}"""

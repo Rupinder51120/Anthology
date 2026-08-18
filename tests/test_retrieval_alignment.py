@@ -68,7 +68,11 @@ def test_embed_chunks_uses_enriched_table_context(monkeypatch):
 
     text = _capture_embedding_text(monkeypatch, chunks)
 
-    assert "Paper" in text
+    # Title is intentionally NOT embedded (see _build_embedding_text
+    # docstring): it's identical across every chunk of a paper and was
+    # measured to compress within-paper chunk-level discrimination.
+    assert "Paper" not in text
+    assert "Results" in text
     assert "A concise table summary" in text
 
 
@@ -101,14 +105,15 @@ def test_table_embedding_contract_full(monkeypatch):
 
     text = _capture_embedding_text(monkeypatch, chunks)
 
-    assert "Paper" in text
     assert "Results" in text
     assert "A concise table summary" in text
     assert "| col1 | col2 |" in text
     assert "| 1 | 2 |" in text
 
-    # Operational / ranking fields must never leak into embedded text
-    for forbidden in ("is_enriched", "True", "0.95", "deadbeef", "paper.pdf"):
+    # Title/authors/year are intentionally never embedded (identical across
+    # every chunk of a paper -- see _build_embedding_text docstring) as well
+    # as operational / ranking-only fields, which must never leak in.
+    for forbidden in ("Paper", "is_enriched", "True", "0.95", "deadbeef", "paper.pdf"):
         assert forbidden not in text
 
 
@@ -127,7 +132,6 @@ def test_table_embedding_fallback_no_summary(monkeypatch):
 
     text = _capture_embedding_text(monkeypatch, chunks)
 
-    assert "Paper" in text
     assert "Results" in text
     assert "| col1 | col2 |" in text
 
@@ -147,7 +151,6 @@ def test_table_embedding_fallback_no_markdown(monkeypatch):
 
     text = _capture_embedding_text(monkeypatch, chunks)
 
-    assert "Paper" in text
     assert "Results" in text
     assert "A concise table summary" in text
     assert "table content only" in text
@@ -210,7 +213,8 @@ def test_text_chunk_embedding_still_valid(monkeypatch):
 
     text = _capture_embedding_text(monkeypatch, chunks)
 
-    assert "Paper" in text
+    # Title is intentionally NOT embedded -- see _build_embedding_text docstring.
+    assert "Paper" not in text
     assert "Introduction" in text
     assert "This is the semantic body of the chunk." in text
     # section prefix baked into chunk["text"] should not be duplicated

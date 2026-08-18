@@ -96,26 +96,44 @@ def _strip_section_prefix(chunk_text: str, section: str) -> str:
 
 
 def _build_embedding_text(chunk: dict) -> str:
+    """
+    Builds the text actually fed to the embedding model.
+
+    Deliberately excludes Title/Authors/Year: those fields are IDENTICAL for
+    every chunk belonging to the same paper, so including them compresses
+    the effective content-signal range of the embedding (measured: two
+    chunks from the same paper with unrelated content came out 97.9%
+    cosine-similar when title/authors/year were included, since the
+    embedding model spends most of its representational capacity encoding
+    the constant prefix rather than the actually-varying content).
+
+    Section IS included (as chunker.py's own "[Section] " prefix, already
+    present in chunk["text"] -- not re-added here) because it varies chunk
+    to chunk within a paper and carries real topical signal.
+
+    A controlled n=60 test against real benchmark questions (see
+    docs/ANTHOLOGY_FULL_AUDIT.md, Phase 5 of the backend-completion pass)
+    showed this content-first framing improves within-paper chunk-level
+    hit@1 by ~75% relative and MRR by ~64% relative versus the
+    title/authors/year-prefixed version. Title/authors/year remain fully
+    available via chunk metadata/DB columns for citations, display, and
+    filtering -- only the embedded representation changes.
+    """
     meta = chunk.get("metadata") or {}
     ctype = meta.get("content_type", "text")
     chunk_text = chunk.get("text") or ""
 
-    title = meta.get("title", "")
-    authors = meta.get("authors", "")
-    year = meta.get("year", "")
     section = meta.get("section", "")
 
-    semantic_text = _strip_section_prefix(chunk_text, section)
+    # chunker.py always bakes "[Section] " onto chunk_text before it reaches
+    # the DB, so this is a no-op for real production data. Kept explicit
+    # (rather than trusting the caller blindly) so this function's contract
+    # is correct in isolation for any caller/test fixture.
+    semantic_text = chunk_text
+    if section and not semantic_text.startswith(f"[{section}]"):
+        semantic_text = f"[{section}] {semantic_text}"
 
     parts = []
-    if title:
-        parts.append(f"Title: {title}")
-    if authors:
-        parts.append(f"Authors: {authors}")
-    if year:
-        parts.append(f"Year: {year}")
-    if section:
-        parts.append(f"Section: {section}")
 
     if ctype == "table":
         table_summary = meta.get("table_summary")

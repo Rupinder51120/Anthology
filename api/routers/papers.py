@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -9,6 +10,28 @@ from api.services.paper_service import PaperService
 
 router = APIRouter(prefix="/api/v1", tags=["Papers"])
 paper_service = PaperService()
+
+UPLOAD_DIR = Path("data/papers")
+
+
+def _safe_pdf_filename(filename: str | None) -> str:
+    """
+    Reduce an untrusted upload filename to a basename that cannot escape
+    UPLOAD_DIR, regardless of path traversal ('../'), absolute paths, or
+    nested separators. Path(...).name strips every directory component
+    (relative or absolute) in one step; the remaining checks handle the
+    degenerate cases that leaves behind (empty, '.', '..', or a bare
+    extension), which would otherwise resolve to UPLOAD_DIR itself or a
+    hidden/dot file.
+    """
+    name = Path((filename or "").strip()).name
+    name = name.replace("\\", "_")  # backslash isn't a POSIX separator, but don't allow it to look like one
+    stem = name.rsplit(".", 1)[0] if "." in name else name
+    if not name or name in (".", "..") or not stem:
+        name = f"{uuid.uuid4().hex}.pdf"
+    if not name.lower().endswith(".pdf"):
+        name = f"{name}.pdf"
+    return name
 
 
 @router.post("/papers/upload")
@@ -25,8 +48,15 @@ async def upload_paper(
     if file.size and file.size > 50 * 1024 * 1024:  # 50MB limit
         raise HTTPException(status_code=413, detail="File too large (max 50MB)")
 
-    dest = Path("data/papers") / file.filename
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    safe_name = _safe_pdf_filename(file.filename)
+    dest = (UPLOAD_DIR / safe_name).resolve()
+
+    # Defense in depth: _safe_pdf_filename already guarantees a bare
+    # basename, so this should never trip, but refuse to write anywhere
+    # outside UPLOAD_DIR rather than trust a single layer of sanitization.
+    if UPLOAD_DIR.resolve() not in dest.parents:
+        raise HTTPException(status_code=400, detail="Invalid filename")
 
     content = await file.read()
     with open(dest, "wb") as f_out:

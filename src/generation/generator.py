@@ -9,6 +9,7 @@ LLM providers:
 import json
 import os
 import asyncio
+import logging
 import requests
 from dotenv import load_dotenv
 from api.core.models import OLLAMA_CHAT_MODEL
@@ -16,12 +17,15 @@ from api.core.models import GROQ_CHAT_MODEL
 from api.core.models import GROQ_VISION_MODEL
 from api.core.config import get_settings
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
 
 load_dotenv()
 
-OLLAMA_URL   = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = OLLAMA_CHAT_MODEL
+OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_URL      = f"{OLLAMA_BASE_URL}/api/chat"
+OLLAMA_MODEL    = OLLAMA_CHAT_MODEL
 
 SYSTEM_PROMPT = """You are an expert AI research assistant helping a student understand research papers.
 
@@ -113,8 +117,9 @@ def _call_ollama(messages: list[dict], stream: bool = False) -> requests.Respons
 
 # ── Context helpers ───────────────────────────────────────────────────────────
 
-def format_context(chunks: list[dict], max_chars: int = 4000) -> str:
+def format_context(chunks: list[dict], max_chars: int = 4000) -> tuple[str, list[dict]]:
     parts, total = [], 0
+    used = []
     for i, chunk in enumerate(chunks, 1):
         meta = chunk["metadata"]
         part = (
@@ -126,8 +131,9 @@ def format_context(chunks: list[dict], max_chars: int = 4000) -> str:
         if total + len(part) > max_chars:
             break
         parts.append(part)
+        used.append(chunk)
         total += len(part)
-    return "\n\n".join(parts)
+    return "\n\n".join(parts), used
 
 
 def format_citations(chunks: list[dict]) -> list[dict]:
@@ -170,8 +176,8 @@ def _is_grounded(answer: str, context: str) -> bool:
 
 # ── Main generation ───────────────────────────────────────────────────────────
 
-def _build_messages(query: str, chunks: list[dict], chat_history: list[dict] = None) -> tuple[str, list[dict]]:
-    context = format_context(chunks)
+def _build_messages(query: str, chunks: list[dict], chat_history: list[dict] = None) -> tuple[str, list[dict], list[dict]]:
+    context, used_chunks = format_context(chunks)
     user_msg = (
         f"Context from research papers:\n\n{context}\n\n"
         f"---\nQuestion: {query}\n\n"
@@ -182,7 +188,7 @@ def _build_messages(query: str, chunks: list[dict], chat_history: list[dict] = N
     if chat_history:
         messages.extend(chat_history[-4:])
     messages.append({"role": "user", "content": user_msg})
-    return context, messages
+    return context, messages, used_chunks
 
 
 async def generate_answer(
@@ -194,8 +200,8 @@ async def generate_answer(
     if not chunks:
         return {"answer": "No relevant information found.", "citations": [], "chunks_used": 0, "response_type": "error", "tokens_used": 0}
 
-    context, messages = _build_messages(query, chunks, chat_history)
-    citations         = format_citations(chunks)
+    context, messages, used_chunks = _build_messages(query, chunks, chat_history)
+    citations         = format_citations(used_chunks)
     response_type     = detect_response_type(query)
 
     try:
@@ -213,13 +219,20 @@ async def generate_answer(
             answer      = data["message"]["content"].strip()
             tokens_used = data.get("eval_count", 0)
     except Exception as e:
-        answer      = f"Generation failed: {e}"
-        tokens_used = 0
+        # A hard API failure (bad model name, network error, auth failure,
+        # rate limit, ...) must never be silently relabeled as "the answer
+        # wasn't grounded" -- that disguises a total generation outage as a
+        # normal, expected "insufficient context" response and would hide a
+        # broken backend from anyone reading logs/metrics. Surface it as its
+        # own response_type instead.
+        logger.error("Generation call failed: %s", e, exc_info=True)
+        return {"answer": "The system encountered an error while generating a response. Please try again.",
+                "citations": [], "chunks_used": 0, "response_type": "error", "tokens_used": 0}
 
     if not _is_grounded(answer, context):
         return {"answer": "Could not find a grounded answer in your papers.", "citations": [], "chunks_used": 0, "response_type": "ungrounded", "tokens_used": 0}
 
-    return {"answer": answer, "citations": citations, "chunks_used": len(chunks), "response_type": response_type, "tokens_used": tokens_used}
+    return {"answer": answer, "citations": citations, "chunks_used": len(used_chunks), "response_type": response_type, "tokens_used": tokens_used}
 
 
 def generate_answer_streaming(
@@ -232,7 +245,7 @@ def generate_answer_streaming(
         yield "No relevant information found."
         return
 
-    _, messages = _build_messages(query, chunks, chat_history)
+    _, messages, _ = _build_messages(query, chunks, chat_history)
 
     try:
         if _groq_enabled():
