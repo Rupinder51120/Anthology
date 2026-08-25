@@ -1,6 +1,6 @@
 # Anthology
 
-Anthology is a RAG (retrieval-augmented generation) app for asking questions over a collection of research papers. You upload PDFs, it parses and chunks them, embeds the chunks, and answers questions by retrieving relevant passages and passing them to an LLM — with streamed, cited responses. It's built with FastAPI, PostgreSQL/pgvector, and React. The main engineering focus is the retrieval pipeline: hybrid dense + sparse search, RRF fusion, reranking, and evaluation against both an internal benchmark and QASPER
+Anthology is a multimodal RAG app for asking questions over a collection of research papers. You upload PDFs, it parses and chunks them, embeds the chunks, and answers questions by retrieving relevant passages and passing them to an LLM — with streamed, cited responses. It's built with FastAPI, PostgreSQL/pgvector, and React. The main engineering focus is the retrieval pipeline: hybrid dense + sparse search, RRF fusion, reranking, and evaluation against both an internal benchmark and QASPER
 
 ## How it works
 
@@ -20,11 +20,13 @@ flowchart TD
     DENSE --> RRF[RRF fusion]
     SPARSE --> RRF
     RRF --> RERANK[Cohere reranking]
-    RERANK --> LLM[LLM generation]
+    RERANK --> TEXT[text chunks] --> LLM[LLM]
+    RERANK --> FIG[figure chunks] --> VLLM[vision-capable LLM]
     LLM --> OUT[Streamed answer + citations]
+    VLLM --> OUT
 ```
 
-Anthology's ingestion pipeline is multimodal-aware: figures and tables can be captioned and indexed alongside paper text. The streaming chat endpoint (`/query/stream`) collects any retrieved figure images and routes generation through Groq's vision API (model verified by direct testing to actually accept and reason about image input, not assumed from its name), falling back to text-only generation when no images are retrieved or when the vision call fails. This has been verified to genuinely work: given a real figure from the corpus, the model correctly named all four method labels shown in the image and reasoned about its actual visual content — not text it could have guessed from the figure's caption, which carries almost no descriptive text. The fallback was also verified live, when a real Groq rate limit was hit mid-test and the system degraded to an honest text-only answer instead of failing. The one real gap: figure chunks in the current corpus have so little caption text that they rarely get retrieved for a typical question, so in everyday use through the chat UI a user asking about a figure will usually still get a text-only answer — the vision path is proven to work when a figure chunk is actually retrieved, but that happens infrequently with the current corpus's captions.
+Anthology is multimodal-aware during ingestion: figures and tables are processed and indexed alongside paper text. The streaming chat path can pass retrieved figure images to Groq's vision model and fall back to text generation if vision is unavailable or fails. This was verified end-to-end with a real corpus figure; however, figure chunks currently have sparse captions, so they are rarely retrieved during normal queries.
 
 ## Results
 
