@@ -10,11 +10,11 @@ import MoodToggle from '../ui/MoodToggle'
 
 const nav = [
   { to: '/',            icon: Home,          label: 'Home' },
-  { to: '/search',      icon: Search,        label: 'Search Papers' },
+  { to: '/discover',    icon: Compass,       label: 'Search' },
   { to: '/chat',        icon: MessageSquare, label: 'Chat Assistant' },
   { to: '/library',     icon: Library,       label: 'My Library' },
   { to: '/upload',      icon: Upload,        label: 'Upload Papers' },
-  { to: '/discover',    icon: Compass,       label: 'Discovery' },
+  { to: '/search',      icon: Search,        label: 'My Papers' },
   { to: '/collections', icon: Layers,        label: 'Collections' },
   { to: '/benchmark',   icon: BarChart2,     label: 'Benchmark' },
   { to: '/settings',    icon: Settings,      label: 'Settings' },

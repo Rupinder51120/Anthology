@@ -11,6 +11,6 @@ class DiscoveryRequest(BaseModel):
 
 @router.post("/discover")
 async def discover_papers(request: DiscoveryRequest):
-    """Search ArXiv + Semantic Scholar for papers matching query."""
+    """Search ArXiv + OpenAlex for papers matching query."""
     from src.discovery.discovery_service import discover
     return await discover(request.query, max_per_source=request.max_per_source)

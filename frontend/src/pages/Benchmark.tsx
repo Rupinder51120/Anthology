@@ -2,16 +2,12 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Activity, Play, CheckCircle, AlertCircle, Clock, Zap, Target, BarChart2, BookOpen } from 'lucide-react'
 import { Button, Spinner } from '../components/ui'
-import axios from 'axios'
-const _api = axios.create({ baseURL: '/api/v1' })
-
-// ── API helpers ───────────────────────────────────────────────
-
-const getBenchmarkScores = () => _api.get('/benchmark/scores').then((r: any) => r.data)
-const runEval = (sample_size: number, use_judge: boolean) =>
-  _api.post('/benchmark/run', { sample_size, use_judge }).then((r: any) => r.data)
-const getStatus = () => _api.get('/benchmark/status').then((r: any) => r.data)
-const getResults = (limit = 30) => _api.get(`/benchmark/results?limit=${limit}`).then((r: any) => r.data)
+import {
+  getBenchmarkScores,
+  runBenchmarkEval as runEval,
+  getBenchmarkStatus as getStatus,
+  getBenchmarkResults as getResults,
+} from '../api/client'
 
 // ── Metric Card ───────────────────────────────────────────────
 

@@ -1,22 +1,11 @@
-import { Layers, Settings } from 'lucide-react'
-import { Empty } from '../components/ui'
+import { Settings } from 'lucide-react'
 import { glass } from '../lib/theme'
-
-export function CollectionsPage() {
-  return (
-    <div style={{ padding: '32px 36px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Collections</h1>
-      <p style={{ color: 'var(--color-muted)', fontSize: 13, marginBottom: 28 }}>Group papers into research collections</p>
-      <Empty icon={<Layers size={40} />} title="No collections yet" sub="Planned workspace for organizing papers by project, topic, or literature review." />
-    </div>
-  )
-}
 
 export function SettingsPage() {
   const sections = [
     { label: 'Interface', items: ['Theme: Glass UI', 'Default view: Research dashboard'] },
     { label: 'Retrieval', items: ['Embeddings: SPECTER2', 'Search: pgvector + full-text + RRF'] },
-    { label: 'Generation', items: ['Primary LLM: Groq', 'Fallback: Ollama local models'] },
+    { label: 'Generation', items: ['Primary LLM: Groq (cloud)', 'Swappable provider: Ollama (local) via USE_GROQ config'] },
   ]
 
   return (

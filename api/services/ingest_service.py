@@ -327,6 +327,7 @@ async def ingest_single_paper(pdf_path: str, db: AsyncSession) -> dict:
 
     logger.info("=" * 80)
     return {
+        "paper_id": str(paper_id),
         "filename": filename,
         "title":    meta.get("title", ""),
         "chunks":   inserted,

@@ -9,11 +9,14 @@ services:
       - PYTHONPATH=/app
       - OLLAMA_URL=http://ollama:11434
       - COHERE_API_KEY=${COHERE_API_KEY}
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
     volumes:
       - ./indexes:/app/indexes
       - ./data:/app/data
       - ./src:/app/src
       - ./api:/app/api
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -67,3 +70,4 @@ volumes:
   anthology_pgdata:
     name: anthology_pgdata
   ollama_data:
+  hf_cache:

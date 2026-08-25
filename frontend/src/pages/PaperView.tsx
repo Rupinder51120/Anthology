@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, ExternalLink, Hash, Calendar, FileText,
   MessageSquare, Send, BookOpen, Layers,
@@ -31,7 +31,9 @@ function formatResponse(text: string): string {
 export default function PaperView() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
-  const [tab, setTab] = useState<'overview' | 'chat'>('overview')
+  const location = useLocation()
+  const initialTab = (location.state as { tab?: 'overview' | 'chat' } | null)?.tab ?? 'overview'
+  const [tab, setTab] = useState<'overview' | 'chat'>(initialTab)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -73,7 +75,7 @@ export default function PaperView() {
           ))
           setStreaming(false)
         },
-        paper.filename,
+        paper.id,
       )
     } catch {
       setMessages(prev => prev.map(m =>

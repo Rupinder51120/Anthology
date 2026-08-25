@@ -157,3 +157,9 @@ tests/test_page1_single_thread_ocr.py
 
 # One-off debug script with a hardcoded local-only placeholder credential
 scripts/make_pending.py
+
+# Private/local-only audit documents (not for the public repo)
+docs/ANTHOLOGY_AUDIT_STATE.md
+docs/ANTHOLOGY_FULL_AUDIT.md
+docs/BACKEND_COMPLETION_REPORT.md
+docs/PROJECT_STATUS_AUDIT.md

@@ -1,9 +1,11 @@
 """
 src/generation/generator.py
 
-LLM providers:
-- Groq (cloud) — USE_GROQ=true in .env
-- Ollama (local) — fallback
+LLM providers (configurable/swappable via USE_GROQ in .env, not an
+automatic runtime failover — a Groq failure surfaces as an error, it
+does not retry against Ollama):
+- Groq (cloud) — USE_GROQ=true
+- Ollama (local) — USE_GROQ=false
 """
 
 import json
@@ -11,6 +13,7 @@ import os
 import asyncio
 import logging
 import requests
+from typing import AsyncIterator
 from dotenv import load_dotenv
 from api.core.models import OLLAMA_CHAT_MODEL
 from api.core.models import GROQ_CHAT_MODEL
@@ -40,6 +43,8 @@ Guidelines:
 - Cite papers inline as you use them, e.g. "(Smith et al., 2023)" or
   "according to the Quadrangle Attention paper". Do NOT repeat a separate
   citation list after the answer — inline citation is enough.
+- Never invent a numbered citation marker like "[Source 2]" or "Source 3"
+  — always cite by the paper's actual title/author instead.
 - Use technical terms correctly but explain them briefly if they're central
   to the answer. Don't pad with analogies unless they clarify something
   genuinely hard to grasp.
@@ -120,10 +125,15 @@ def _call_ollama(messages: list[dict], stream: bool = False) -> requests.Respons
 def format_context(chunks: list[dict], max_chars: int = 4000) -> tuple[str, list[dict]]:
     parts, total = [], 0
     used = []
-    for i, chunk in enumerate(chunks, 1):
+    for chunk in chunks:
         meta = chunk["metadata"]
+        # Deliberately no "[Source N]" numbering here -- the model was
+        # observed parroting that exact label as a fake inline citation
+        # (e.g. "...[Source 2]") instead of citing by paper/author as
+        # instructed. Giving it only the paper's real identity to cite
+        # removes the numbered token it was echoing.
         part = (
-            f"[Source {i}] [{meta.get('chunk_type','general').upper()}]\n"
+            f"[{meta.get('chunk_type','general').upper()}]\n"
             f"Paper: {meta['title']} ({meta['year']})\n"
             f"Section: {meta['section']}\n"
             f"---\n{chunk['text']}"
@@ -235,39 +245,67 @@ async def generate_answer(
     return {"answer": answer, "citations": citations, "chunks_used": len(used_chunks), "response_type": response_type, "tokens_used": tokens_used}
 
 
-def generate_answer_streaming(
+async def stream_answer(
     query:        str,
     chunks:       list[dict],
     chat_history: list[dict] = None,
-    image_paths:  list[str] | None = None,
-):
+) -> AsyncIterator[dict]:
+    """
+    Async generator yielding structured SSE-ready events for the
+    /query/stream endpoint. This is the single streaming implementation
+    (the router does not duplicate provider-selection logic) and it
+    mirrors generate_answer()'s config/citation handling exactly:
+    same _groq_enabled() switch, same _build_messages()/format_citations()
+    helpers, so streaming and non-streaming responses stay consistent.
+
+    Yields dicts of the form:
+      {"type": "token",     "text": str}
+      {"type": "citations", "citations": list[dict]}   -- always last on success
+      {"type": "error",     "text": str}                -- terminal on failure
+    """
     if not chunks:
-        yield "No relevant information found."
+        yield {"type": "token", "text": "No relevant information found."}
+        yield {"type": "citations", "citations": []}
         return
 
-    _, messages, _ = _build_messages(query, chunks, chat_history)
+    context, messages, used_chunks = _build_messages(query, chunks, chat_history)
+    citations = format_citations(used_chunks)
 
     try:
         if _groq_enabled():
-            client     = _groq_client()
-            groq_model = GROQ_CHAT_MODEL
-            stream     = client.chat.completions.create(
-                model=groq_model, messages=messages, max_tokens=1024, temperature=0.2, stream=True,
+            from groq import AsyncGroq
+            client = AsyncGroq(api_key=settings.groq_api_key.get_secret_value())
+            stream = await client.chat.completions.create(
+                model=GROQ_CHAT_MODEL, messages=messages, max_tokens=1024, temperature=0.2, stream=True,
             )
-            for chunk in stream:
+            async for chunk in stream:
                 delta = chunk.choices[0].delta.content
                 if delta:
-                    yield delta
+                    yield {"type": "token", "text": delta}
+            await client.close()
         else:
-            resp = _call_ollama(messages, stream=True)
-            resp.raise_for_status()
-            for line in resp.iter_lines():
-                if line:
-                    data  = json.loads(line)
-                    delta = data.get("message", {}).get("content", "")
-                    if delta:
-                        yield delta
-                    if data.get("done"):
-                        break
+            import httpx
+            async with httpx.AsyncClient(timeout=180) as client:
+                async with client.stream(
+                    "POST", OLLAMA_URL,
+                    json={
+                        "model": OLLAMA_MODEL, "messages": messages, "stream": True,
+                        "options": {"temperature": 0.2, "num_predict": 1024, "num_ctx": 8192},
+                    },
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        data  = json.loads(line)
+                        delta = data.get("message", {}).get("content", "")
+                        if delta:
+                            yield {"type": "token", "text": delta}
+                        if data.get("done"):
+                            break
     except Exception as e:
-        yield f"Generation failed: {e}"
+        logger.error("Streaming generation call failed: %s", e, exc_info=True)
+        yield {"type": "error", "text": "The system encountered an error while generating a response."}
+        return
+
+    yield {"type": "citations", "citations": citations}

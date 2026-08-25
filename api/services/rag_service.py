@@ -161,7 +161,7 @@ class RAGService:
             id=query_id,
             question=request.question,
             answer=result.get("answer", ""),
-            retrieval_mode="pgvector",
+            retrieval_mode="hybrid_rerank",  # matches RetrievalService's fixed default strategy
             top_k=request.top_k,
             chunks_used=result.get("chunks_used", 0),
             citations=[c.model_dump() for c in citations],

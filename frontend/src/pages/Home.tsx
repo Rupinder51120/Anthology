@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, MessageSquare, Upload, BookOpen,
+  Search, MessageSquare, Upload, BookOpen, Compass,
   Zap, Database, Activity, ArrowRight, ArrowUpRight, Sparkles
 } from 'lucide-react'
 import { getStats, getPapers } from '../api/client'
@@ -11,10 +11,11 @@ import MoodToggle from '../components/ui/MoodToggle'
 import type { StatsResponse } from '../api/client'
 
 const actions = [
-  { icon: Search,        label: 'Smart Search',  sub: 'Find papers by concept',   to: '/search',  color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)',   grad: 'linear-gradient(135deg,rgba(91,158,249,0.15),rgba(91,158,249,0.04))' },
-  { icon: MessageSquare, label: 'Chat with AI',  sub: 'Ask research questions',   to: '/chat',    color: 'var(--color-green)',  bg: 'var(--color-green-dim)',  grad: 'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.04))' },
-  { icon: Upload,        label: 'Upload Papers', sub: 'Add PDFs to your library', to: '/upload',  color: 'var(--color-orange)', bg: 'var(--color-orange-dim)', grad: 'linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.04))' },
-  { icon: BookOpen,      label: 'My Library',    sub: 'Browse your collection',   to: '/library', color: 'var(--color-purple)', bg: 'var(--color-purple-dim)', grad: 'linear-gradient(135deg,rgba(167,139,250,0.15),rgba(167,139,250,0.04))' },
+  { icon: Compass,       label: 'Search Research',  sub: 'Find new papers on arXiv + OpenAlex', to: '/discover', color: 'var(--color-pink)',   bg: 'var(--color-pink-dim)',   grad: 'linear-gradient(135deg,rgba(244,114,182,0.15),rgba(244,114,182,0.04))' },
+  { icon: Search,        label: 'Search My Papers', sub: 'Search your indexed research corpus', to: '/search',   color: 'var(--color-blue)',   bg: 'var(--color-blue-dim)',   grad: 'linear-gradient(135deg,rgba(91,158,249,0.15),rgba(91,158,249,0.04))' },
+  { icon: MessageSquare, label: 'Chat',             sub: 'Ask research questions',               to: '/chat',     color: 'var(--color-green)',  bg: 'var(--color-green-dim)',  grad: 'linear-gradient(135deg,rgba(52,211,153,0.15),rgba(52,211,153,0.04))' },
+  { icon: Upload,        label: 'Upload',           sub: 'Add PDFs to your library',              to: '/upload',   color: 'var(--color-orange)', bg: 'var(--color-orange-dim)', grad: 'linear-gradient(135deg,rgba(251,191,36,0.15),rgba(251,191,36,0.04))' },
+  { icon: BookOpen,      label: 'Library',          sub: 'Browse your collection',                to: '/library',  color: 'var(--color-purple)', bg: 'var(--color-purple-dim)', grad: 'linear-gradient(135deg,rgba(167,139,250,0.15),rgba(167,139,250,0.04))' },
 ]
 
 const statDef = [
@@ -130,57 +131,48 @@ export default function HomePage() {
             }}>Innovate.</span>
           </div>
 
-          <div style={{ color: 'var(--color-muted)', fontSize: 15, marginBottom: 28, maxWidth: 480, lineHeight: 1.6 }}>
-            Your AI-powered research companion for academic papers and scientific knowledge.
+          <div style={{ color: 'var(--color-muted)', fontSize: 15, marginBottom: 24, maxWidth: 520, lineHeight: 1.6 }}>
+            Discover new research from arXiv and OpenAlex, or search and chat with the papers already in your library.
           </div>
 
-          {/* Search bar — liquid glass style */}
-          <div style={{
-            display: 'flex', gap: 0, maxWidth: 560,
-            background: 'rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1.5px solid var(--mood-badge-border)',
-            borderRadius: 'var(--radius-pill)',
-            boxShadow: '0 4px 24px var(--mood-glow-sm)',
-            overflow: 'hidden',
-            transition: 'box-shadow 0.2s',
-          }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={14} style={{
-                position: 'absolute', left: 18, top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--mood-accent)', pointerEvents: 'none',
-              }} />
-              <input
-                placeholder="Search papers, concepts, authors..."
-                onKeyDown={e => e.key === 'Enter' && nav('/search')}
-                style={{
-                  width: '100%', background: 'transparent',
-                  border: 'none', outline: 'none',
-                  color: 'var(--color-text)',
-                  padding: '13px 14px 13px 42px',
-                  fontSize: 13, fontFamily: 'var(--font-sans)',
-                }}
-              />
-            </div>
+          {/* Two explicit entry points — no single ambiguous search bar */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
-              onClick={() => nav('/search')}
+              onClick={() => nav('/discover')}
               className="btn-mood"
               style={{
-                margin: 5, padding: '9px 22px',
-                fontSize: 13, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '12px 22px', fontSize: 13.5, fontWeight: 600,
                 borderRadius: 'var(--radius-pill)',
               }}
             >
-              Search
+              <Compass size={15} /> Search Research
+              <span style={{ fontWeight: 400, opacity: 0.85, fontSize: 12 }}>· arXiv + OpenAlex</span>
+            </button>
+            <button
+              onClick={() => nav('/search')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '12px 22px', fontSize: 13.5, fontWeight: 600,
+                borderRadius: 'var(--radius-pill)',
+                background: 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1.5px solid var(--mood-badge-border)',
+                color: 'var(--color-text)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <Search size={15} color="var(--mood-accent)" /> Search My Papers
+              <span style={{ fontWeight: 400, color: 'var(--color-muted)', fontSize: 12 }}>· your indexed corpus</span>
             </button>
           </div>
 
-          {/* Chip suggestions */}
-          <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* Chip suggestions — external research topics */}
+          <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {chips.map(s => (
-              <button key={s} onClick={() => nav('/search')} style={{
+              <button key={s} onClick={() => nav('/discover')} style={{
                 background: 'rgba(255,255,255,0.6)',
                 backdropFilter: 'blur(8px)',
                 border: '1px solid var(--color-border)',
@@ -246,7 +238,7 @@ export default function HomePage() {
         }}>
           Quick Actions
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           {actions.map(a => (
             <button
               key={a.label}

@@ -12,6 +12,7 @@ def test_row_to_dict_preserves_new_chunk_metadata():
     row = DummyRow(
         text="Example text",
         chunk_id="abc123",
+        paper_id="paper-uuid-1",
         source="paper.pdf",
         title="Paper",
         authors="Author One",
@@ -39,6 +40,7 @@ def test_row_to_dict_preserves_new_chunk_metadata():
     assert metadata["char_count"] == 123
     assert metadata["word_count"] == 20
     assert metadata["is_enriched"] is True
+    assert metadata["paper_id"] == "paper-uuid-1"
 
 
 def _capture_embedding_text(monkeypatch, chunks):

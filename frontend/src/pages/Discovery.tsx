@@ -1,39 +1,11 @@
-import { useState } from 'react'
-import { Search, ExternalLink, BookOpen, Users, Calendar, TrendingUp, Zap } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Search, ExternalLink, BookOpen, Users, Calendar, TrendingUp, Zap, Plus, MessageSquare } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { Button, Spinner, Empty, Badge } from '../components/ui'
 import { glass, glassCard } from '../lib/theme'
-
-interface DiscoveryPaper {
-  arxiv_id?: string
-  s2_id?: string
-  title: string
-  abstract: string
-  authors: string
-  year?: number
-  url: string
-  pdf_url?: string
-  citation_count?: number
-  source: 'arxiv' | 'semantic_scholar'
-}
-
-interface DiscoveryResult {
-  query: string
-  arxiv: DiscoveryPaper[]
-  s2: DiscoveryPaper[]
-  combined: DiscoveryPaper[]
-  total: number
-}
-
-async function discoverPapers(query: string): Promise<DiscoveryResult> {
-  const res = await fetch('/api/v1/discover', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, max_per_source: 8 }),
-  })
-  if (!res.ok) throw new Error('Discovery failed')
-  return res.json()
-}
+import { discoverPapers, addExternalPaper } from '../api/client'
+import type { DiscoveryPaper, IngestResult } from '../api/client'
 
 const SUGGESTED = [
   'retrieval augmented generation',
@@ -59,10 +31,10 @@ export default function DiscoveryPage() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>
-          Discovery Engine
+          Search
         </h1>
         <p style={{ color: 'var(--color-muted)', fontSize: 13 }}>
-          Search ArXiv + OpenAlex for new papers beyond your library
+          Discover research from arXiv and OpenAlex
         </p>
       </div>
 
@@ -182,7 +154,46 @@ export default function DiscoveryPage() {
   )
 }
 
+type AddState = 'idle' | 'adding' | 'processing' | 'done' | 'error'
+
 function PaperCard({ paper }: { paper: DiscoveryPaper }) {
+  const nav = useNavigate()
+  const [state, setState] = useState<AddState>('idle')
+  const [result, setResult] = useState<IngestResult | null>(null)
+  const [error, setError] = useState('')
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [, forceTick] = useState(0)
+
+  // Live elapsed-time readout while we're waiting on ingestion.
+  useEffect(() => {
+    if (state !== 'processing') return
+    const t = setInterval(() => forceTick(x => x + 1), 1000)
+    return () => clearInterval(t)
+  }, [state])
+
+  const handleAdd = async () => {
+    if (!paper.pdf_url) return
+    setState('adding')
+    setError('')
+    setStartedAt(Date.now())
+    // The download step is fast; anything past a few seconds is really the
+    // parse/embed pipeline. No real phase signal exists for a single
+    // synchronous request, so this is an honest best-effort label switch,
+    // not a fake progress bar.
+    const toProcessing = setTimeout(() => setState('processing'), 3500)
+    try {
+      const r = await addExternalPaper(paper.pdf_url, paper.title)
+      clearTimeout(toProcessing)
+      setResult(r)
+      setState('done')
+    } catch (e: unknown) {
+      clearTimeout(toProcessing)
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail ?? 'Could not add this paper. Try again.')
+      setState('error')
+    }
+  }
+
   return (
     <div style={{
       ...glass,
@@ -230,7 +241,43 @@ function PaperCard({ paper }: { paper: DiscoveryPaper }) {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {state === 'idle' && (
+          <Button
+            size="sm"
+            onClick={handleAdd}
+            disabled={!paper.pdf_url}
+            style={!paper.pdf_url ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          >
+            <Plus size={12} /> {paper.pdf_url ? 'Add to Anthology' : 'No PDF available'}
+          </Button>
+        )}
+        {state === 'adding' && (
+          <Button size="sm" disabled><Spinner size={12} /> Adding…</Button>
+        )}
+        {state === 'processing' && (
+          <Button size="sm" disabled>
+            <Spinner size={12} /> Processing…{startedAt ? ` ${Math.round((Date.now() - startedAt) / 1000)}s` : ''}
+          </Button>
+        )}
+        {state === 'done' && result && (
+          <>
+            <Badge color="green">Added ✓</Badge>
+            <Button variant="ghost" size="sm" onClick={() => nav(`/papers/${result.paper_id}`)}>
+              <BookOpen size={12} /> View Paper
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => nav(`/papers/${result.paper_id}`, { state: { tab: 'chat' } })}>
+              <MessageSquare size={12} /> Chat Now
+            </Button>
+          </>
+        )}
+        {state === 'error' && (
+          <>
+            <span style={{ fontSize: 11.5, color: 'var(--color-danger)' }}>{error}</span>
+            <Button variant="ghost" size="sm" onClick={handleAdd}>Retry</Button>
+          </>
+        )}
+
         <a href={paper.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
           <Button variant="ghost" size="sm">
             <BookOpen size={12} /> View

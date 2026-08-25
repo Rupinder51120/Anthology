@@ -5,7 +5,7 @@ from uuid import UUID
 from pathlib import Path
 from sqlalchemy import text
 from api.core.database import get_db
-from api.schemas.schemas import PaperOut, PaperListResponse
+from api.schemas.schemas import PaperOut, PaperListResponse, AddExternalPaperRequest
 from api.services.paper_service import PaperService
 
 router = APIRouter(prefix="/api/v1", tags=["Papers"])
@@ -64,6 +64,54 @@ async def upload_paper(
 
     try:
         # FIX: directly await — no nested asyncio.run() inside executor
+        result = await ingest_single_paper(str(dest), db)
+        return {"success": True, **result}
+    except Exception as e:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/papers/add-external")
+async def add_external_paper(
+    request: AddExternalPaperRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Download a PDF found via external Search (arXiv/OpenAlex) and ingest it
+    through the same pipeline as a manual upload. Reuses upload_paper's
+    filename-safety and ingestion call unchanged -- this is only a different
+    way to get bytes onto disk before ingestion, not a different pipeline.
+    """
+    import httpx
+    from api.services.ingest_service import ingest_single_paper
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    safe_name = _safe_pdf_filename(request.title or "external-paper")
+    dest = (UPLOAD_DIR / safe_name).resolve()
+
+    if UPLOAD_DIR.resolve() not in dest.parents:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            resp = await client.get(request.pdf_url)
+            resp.raise_for_status()
+            content = resp.content
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not download paper: {e}")
+
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(status_code=502, detail="The linked file is not a valid PDF")
+
+    if len(content) > 50 * 1024 * 1024:  # 50MB limit, matches manual upload
+        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+
+    with open(dest, "wb") as f_out:
+        f_out.write(content)
+
+    try:
         result = await ingest_single_paper(str(dest), db)
         return {"success": True, **result}
     except Exception as e:

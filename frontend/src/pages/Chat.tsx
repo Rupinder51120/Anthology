@@ -71,11 +71,12 @@ export default function ChatPage() {
 
     addMessage({ id: crypto.randomUUID(), role: 'assistant', content: '', streaming: true })
     let full = ''
+    let citations: Citation[] = []
     await streamQueryFetch(
       q, 5,
       (token) => { full += token; setStatus(''); updateLastMessage(full) },
       () => {
-        finalizeMessage({})
+        finalizeMessage({ citations })
         setStreaming(false)
         setStatus('')
         if (sid && full) {
@@ -93,6 +94,7 @@ export default function ChatPage() {
       },
       undefined,
       (s) => setStatus(s),
+      (c) => { citations = c },
     )
   }
 

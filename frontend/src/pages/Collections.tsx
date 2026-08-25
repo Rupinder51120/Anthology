@@ -39,13 +39,15 @@ export default function CollectionsPage() {
   })
 
   const addPaper = useMutation({
-    mutationFn: (paperId: string) => addPaperToCollection(activeCol!, paperId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['collection-papers', activeCol] }); qc.invalidateQueries({ queryKey: ['collections'] }) },
+    mutationFn: (paperId: string) => { console.log('[DIAG] addPaper mutationFn called', { activeCol, paperId }); return addPaperToCollection(activeCol!, paperId) },
+    onSuccess: (data) => { console.log('[DIAG] addPaper SUCCESS', data); qc.invalidateQueries({ queryKey: ['collection-papers', activeCol] }); qc.invalidateQueries({ queryKey: ['collections'] }) },
+    onError: (err) => console.error('[DIAG] addPaper ERROR', err),
   })
 
   const removePaper = useMutation({
-    mutationFn: (paperId: string) => removePaperFromCollection(activeCol!, paperId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['collection-papers', activeCol] }); qc.invalidateQueries({ queryKey: ['collections'] }) },
+    mutationFn: (paperId: string) => { console.log('[DIAG] removePaper mutationFn called', { activeCol, paperId }); return removePaperFromCollection(activeCol!, paperId) },
+    onSuccess: (data) => { console.log('[DIAG] removePaper SUCCESS', data); qc.invalidateQueries({ queryKey: ['collection-papers', activeCol] }); qc.invalidateQueries({ queryKey: ['collections'] }) },
+    onError: (err) => console.error('[DIAG] removePaper ERROR', err),
   })
 
   const activeCollection = collections.find(c => c.id === activeCol)
@@ -150,12 +152,13 @@ export default function CollectionsPage() {
               <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface2)', maxHeight: 260, overflowY: 'auto' }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-muted)', marginBottom: 8 }}>Click to add/remove from collection</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {console.log('[DIAG] allPapers count:', allPapers.length, 'activeCol:', activeCol, 'sample:', allPapers[0])}
                   {allPapers.map(p => {
                     const inCol = colPaperIds.has(p.id)
                     return (
                       <button
                         key={p.id}
-                        onClick={() => inCol ? removePaper.mutate(p.id) : addPaper.mutate(p.id)}
+                        onClick={() => { console.log('[DIAG] row clicked', { id: p.id, inCol, activeCol }); inCol ? removePaper.mutate(p.id) : addPaper.mutate(p.id) }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
                           background: inCol ? (activeCollection?.color ?? '#7c5cfc') + '18' : 'var(--color-bg)',

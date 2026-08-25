@@ -87,7 +87,7 @@ async def pgvector_search(
 
     sql = text("""
         SELECT
-            chunk_id, source, title, authors, year,
+            chunk_id, paper_id, source, title, authors, year,
             section, section_priority, chunk_index, chunk_type, content_type,
             text, char_count, word_count,
             page_number, figure_number, image_path,
@@ -145,7 +145,7 @@ async def postgres_fts_search(
 
     sql = text("""
         SELECT
-            chunk_id, source, title, authors, year,
+            chunk_id, paper_id, source, title, authors, year,
             section, section_priority, chunk_index, chunk_type, content_type,
             text, char_count, word_count,
             page_number, figure_number, image_path,
@@ -234,6 +234,7 @@ def _row_to_dict(row) -> dict:
         "text": row.text,
         "metadata": {
             "chunk_id":         row.chunk_id,
+            "paper_id":         str(row.paper_id),
             "source":           row.source,
             "title":            row.title,
             "authors":          row.authors or "",

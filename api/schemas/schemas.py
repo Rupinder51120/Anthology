@@ -63,6 +63,11 @@ class PaperListResponse(BaseModel):
     total: int
 
 
+class AddExternalPaperRequest(BaseModel):
+    pdf_url: str = Field(..., min_length=1, max_length=2000)
+    title: Optional[str] = Field(default=None, max_length=500)
+
+
 # ── Search ────────────────────────────────────────────────────────────
 
 class SearchRequest(BaseModel):
@@ -80,42 +85,13 @@ class SearchResultOut(BaseModel):
     text: str
     filename: str
     is_enriched: bool = False
+    paper_id: Optional[str] = None
 
 
 class SearchResponse(BaseModel):
     query: str
     results: list[SearchResultOut]
     total: int
-
-
-# ── Recommend ─────────────────────────────────────────────────────────
-
-class RecommendRequest(BaseModel):
-    query: str = Field(..., min_length=3, max_length=500)
-    top_k: int = Field(default=3, ge=1, le=10)
-
-
-class RecommendationOut(BaseModel):
-    title: str
-    authors: Optional[str] = None
-    year: Optional[int] = None
-    filename: str
-    similarity: float
-    url: Optional[str] = None
-
-
-class RecommendResponse(BaseModel):
-    query: str
-    local: list[RecommendationOut]
-    arxiv: list[RecommendationOut]
-
-
-# ── TTS ───────────────────────────────────────────────────────────────
-
-class TTSRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=5000)
-    voice: str = Field(default="Samantha")
-    rate: int = Field(default=175, ge=100, le=300)
 
 
 # ── Flowchart ─────────────────────────────────────────────────────────

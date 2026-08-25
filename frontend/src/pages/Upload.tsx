@@ -1,25 +1,37 @@
-import { useState, useCallback } from 'react'
-import { Upload, File, CheckCircle, XCircle, Loader, Layers } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Upload, File, CheckCircle, XCircle, Loader, MessageSquare, BookOpen } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { uploadPaper } from '../api/client'
-import { Button, Empty } from '../components/ui'
+import type { IngestResult } from '../api/client'
+import { Button } from '../components/ui'
 import { glass } from '../lib/theme'
 
 interface UploadItem {
   file: File
-  status: 'pending' | 'uploading' | 'done' | 'error'
+  status: 'pending' | 'uploading' | 'processing' | 'done' | 'error'
   progress: number
-  result?: Record<string, unknown>
+  processingStartedAt?: number
+  result?: IngestResult
   error?: string
 }
 
 export default function UploadPage() {
   const [items, setItems] = useState<UploadItem[]>([])
   const [dragging, setDragging] = useState(false)
+  const [, forceTick] = useState(0)
   const qc = useQueryClient()
+  const nav = useNavigate()
 
   const update = (name: string, patch: Partial<UploadItem>) =>
     setItems(prev => prev.map(i => i.file.name === name ? { ...i, ...patch } : i))
+
+  // Keep the elapsed-time readout live while anything is being parsed/embedded.
+  useEffect(() => {
+    if (!items.some(i => i.status === 'processing')) return
+    const t = setInterval(() => forceTick(x => x + 1), 1000)
+    return () => clearInterval(t)
+  }, [items])
 
   const addFiles = useCallback((files: File[]) => {
     const pdfs = files.filter(f => f.name.endsWith('.pdf'))
@@ -35,11 +47,22 @@ export default function UploadPage() {
     for (const item of pending) {
       update(item.file.name, { status: 'uploading' })
       try {
-        const result = await uploadPaper(item.file, pct => update(item.file.name, { progress: pct }))
+        const result = await uploadPaper(item.file, pct => {
+          if (pct >= 100) {
+            // Bytes are on the server now -- everything after this is
+            // parsing/enrichment/embedding, which has no progress signal,
+            // only elapsed time.
+            update(item.file.name, { progress: 100, status: 'processing', processingStartedAt: Date.now() })
+          } else {
+            update(item.file.name, { progress: pct })
+          }
+        })
         update(item.file.name, { status: 'done', result, progress: 100 })
         qc.invalidateQueries({ queryKey: ['papers'] })
       } catch (e: unknown) {
-        update(item.file.name, { status: 'error', error: e instanceof Error ? e.message : 'Upload failed' })
+        const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+          ?? (e instanceof Error ? e.message : 'Upload failed')
+        update(item.file.name, { status: 'error', error: msg })
       }
     }
   }
@@ -101,7 +124,7 @@ export default function UploadPage() {
           <div style={{ padding: '6px 0' }}>
             {items.map(item => (
               <div key={item.file.name} style={{ padding: '10px 18px', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: item.status === 'uploading' ? 6 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <File size={15} color="var(--color-muted)" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text)' }}>{item.file.name}</div>
@@ -109,16 +132,42 @@ export default function UploadPage() {
                   </div>
                   <StatusIcon status={item.status} />
                 </div>
+
                 {item.status === 'uploading' && (
-                  <div style={{ height: 3, background: 'var(--color-border)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${item.progress}%`, background: 'var(--color-accent)', borderRadius: 2, transition: 'width 0.3s' }} />
+                  <>
+                    <div style={{ fontSize: 11, color: 'var(--color-accent)', marginBottom: 4 }}>Uploading… {item.progress}%</div>
+                    <div style={{ height: 3, background: 'var(--color-border)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${item.progress}%`, background: 'var(--color-accent)', borderRadius: 2, transition: 'width 0.3s' }} />
+                    </div>
+                  </>
+                )}
+
+                {item.status === 'processing' && (
+                  <div style={{ fontSize: 11, color: 'var(--color-accent)' }}>
+                    Parsing &amp; embedding…{' '}
+                    {item.processingStartedAt && `${Math.round((Date.now() - item.processingStartedAt) / 1000)}s elapsed`}
+                    <div style={{ color: 'var(--color-subtle)', marginTop: 2 }}>
+                      Complex papers with many tables or figures can take several minutes.
+                    </div>
                   </div>
                 )}
+
                 {item.status === 'done' && item.result && (
-                  <div style={{ fontSize: 11, color: 'var(--color-success)', marginTop: 4 }}>
-                    ✓ Ingested · {String(item.result.chunks ?? 0)} chunks · {String(item.result.figures ?? 0)} figures · {String(item.result.tables ?? 0)} tables
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--color-success)', marginBottom: 6 }}>
+                      ✓ Indexed · {item.result.chunks} chunks · {item.result.figures} figures · {item.result.tables} tables
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Button variant="ghost" size="sm" onClick={() => nav(`/papers/${item.result!.paper_id}`)}>
+                        <BookOpen size={12} /> View Paper
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => nav(`/papers/${item.result!.paper_id}`, { state: { tab: 'chat' } })}>
+                        <MessageSquare size={12} /> Chat Now
+                      </Button>
+                    </div>
                   </div>
                 )}
+
                 {item.status === 'error' && (
                   <div style={{ fontSize: 11, color: 'var(--color-danger)', marginTop: 4 }}>✗ {item.error}</div>
                 )}
@@ -138,46 +187,8 @@ export default function UploadPage() {
 }
 
 function StatusIcon({ status }: { status: UploadItem['status'] }) {
-  if (status === 'done')      return <CheckCircle size={16} color="var(--color-success)" />
-  if (status === 'error')     return <XCircle size={16} color="var(--color-danger)" />
-  if (status === 'uploading') return <Loader size={16} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
+  if (status === 'done')       return <CheckCircle size={16} color="var(--color-success)" />
+  if (status === 'error')      return <XCircle size={16} color="var(--color-danger)" />
+  if (status === 'uploading' || status === 'processing') return <Loader size={16} color="var(--color-accent)" style={{ animation: 'spin 1s linear infinite' }} />
   return <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-border)' }} />
-}
-
-// ── Stubs ────────────────────────────────────────────────────
-
-export function CollectionsPage() {
-  return (
-    <div style={{ padding: '32px 36px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Collections</h1>
-      <p style={{ color: 'var(--color-muted)', fontSize: 13, marginBottom: 28 }}>Group papers into research collections</p>
-      <Empty icon={<Layers size={40} />} title="No collections yet" sub="Coming soon — group papers by topic or project" />
-    </div>
-  )
-}
-
-export function SettingsPage() {
-  return (
-    <div style={{ padding: '32px 36px', maxWidth: 600 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 24 }}>Settings</h1>
-      {[
-        { label: 'Appearance',         items: ['Theme: Light Glass', 'Accent Color: Blue'] },
-        { label: 'Search Preferences', items: ['Default Results: 10', 'Default Sort: Relevance'] },
-        { label: 'API Keys',           items: ['Groq API Key: configured', 'Cohere API Key: configured'] },
-      ].map(section => (
-        <div key={section.label} style={{ ...glass, borderRadius: 'var(--radius-lg)', padding: 20, marginBottom: 14 }}>
-          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14, color: 'var(--color-text)' }}>{section.label}</div>
-          {section.items.map(item => (
-            <div key={item} style={{
-              padding: '10px 0', borderBottom: '1px solid var(--color-border)',
-              fontSize: 13, display: 'flex', justifyContent: 'space-between',
-            }}>
-              <span style={{ color: 'var(--color-muted)' }}>{item.split(':')[0]}</span>
-              <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{item.split(':')[1]?.trim()}</span>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  )
 }

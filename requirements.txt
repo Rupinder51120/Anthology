@@ -196,3 +196,6 @@ langfuse
 transformers
 redis==8.0.1
 docling==2.110.0
+torch==2.12.1+cpu
+torchvision==0.27.1+cpu
+onnxruntime

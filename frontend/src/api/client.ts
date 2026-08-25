@@ -47,6 +47,7 @@ export interface SearchResult {
   score: number | null
   text: string
   filename: string
+  paper_id: string | null
 }
 
 export interface StatsResponse {
@@ -74,6 +75,7 @@ export const streamQueryFetch = async (
   onDone: () => void,
   paper_id?: string,
   onStatus?: (text: string) => void,
+  onCitations?: (citations: Citation[]) => void,
 ) => {
   const res = await fetch('/api/v1/query/stream', {
     method: 'POST',
@@ -82,11 +84,17 @@ export const streamQueryFetch = async (
   })
   const reader = res.body!.getReader()
   const decoder = new TextDecoder()
+  let buffer = ''
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    const chunk = decoder.decode(value)
-    const lines = chunk.split('\n')
+    // SSE events can be split across network reads -- buffer partial
+    // lines instead of parsing each chunk in isolation, otherwise a
+    // large event (e.g. citations) that straddles two reads gets
+    // truncated mid-JSON and silently misparsed.
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
     for (const line of lines) {
       if (line.startsWith('data: ')) {
         const raw = line.slice(6)
@@ -95,6 +103,8 @@ export const streamQueryFetch = async (
           const evt = JSON.parse(raw)
           if (evt.type === 'status') { onStatus?.(evt.text) }
           else if (evt.type === 'token') { onToken(evt.text) }
+          else if (evt.type === 'citations') { onCitations?.(evt.citations ?? []) }
+          else if (evt.type === 'error') { onStatus?.(''); onToken(evt.text) }
         } catch { onToken(raw) }
       }
     }
@@ -103,6 +113,16 @@ export const streamQueryFetch = async (
 }
 
 // ── Papers ───────────────────────────────────────────────────
+
+export interface IngestResult {
+  success: boolean
+  paper_id: string
+  filename: string
+  title: string
+  chunks: number
+  figures: number
+  tables: number
+}
 
 export const getPapers = () =>
   api.get<{ papers: Paper[]; total: number }>('/papers').then(r => r.data)
@@ -113,11 +133,14 @@ export const getPaper = (id: string) =>
 export const uploadPaper = (file: File, onProgress?: (pct: number) => void) => {
   const form = new FormData()
   form.append('file', file)
-  return api.post('/papers/upload', form, {
+  return api.post<IngestResult>('/papers/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: e => onProgress?.(Math.round((e.loaded * 100) / (e.total ?? 1))),
   }).then(r => r.data)
 }
+
+export const addExternalPaper = (pdf_url: string, title?: string) =>
+  api.post<IngestResult>('/papers/add-external', { pdf_url, title }).then(r => r.data)
 
 export const syncPapers = () =>
   api.post('/papers/sync').then(r => r.data)
@@ -208,3 +231,43 @@ export const addPaperToCollection = (col_id: string, paper_id: string) =>
 
 export const removePaperFromCollection = (col_id: string, paper_id: string) =>
   api.delete(`/collections/${col_id}/papers/${paper_id}`).then(r => r.data)
+
+// ── Discovery ────────────────────────────────────────────────
+
+export interface DiscoveryPaper {
+  arxiv_id?: string
+  s2_id?: string
+  title: string
+  abstract: string
+  authors: string
+  year?: number
+  url: string
+  pdf_url?: string
+  citation_count?: number
+  source: 'arxiv' | 'semantic_scholar'
+}
+
+export interface DiscoveryResult {
+  query: string
+  arxiv: DiscoveryPaper[]
+  s2: DiscoveryPaper[]
+  combined: DiscoveryPaper[]
+  total: number
+}
+
+export const discoverPapers = (query: string) =>
+  api.post<DiscoveryResult>('/discover', { query, max_per_source: 8 }).then(r => r.data)
+
+// ── Benchmark ────────────────────────────────────────────────
+
+export const getBenchmarkScores = () =>
+  api.get('/benchmark/scores').then(r => r.data)
+
+export const runBenchmarkEval = (sample_size: number, use_judge: boolean) =>
+  api.post('/benchmark/run', { sample_size, use_judge }).then(r => r.data)
+
+export const getBenchmarkStatus = () =>
+  api.get('/benchmark/status').then(r => r.data)
+
+export const getBenchmarkResults = (limit = 30) =>
+  api.get(`/benchmark/results?limit=${limit}`).then(r => r.data)

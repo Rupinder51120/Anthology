@@ -1,30 +1,20 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Search, BookOpen, Calendar, Hash, ExternalLink } from 'lucide-react'
-import { getPapers, uploadPaper } from '../api/client'
+import { getPapers } from '../api/client'
 import { Button, Badge, Input, Empty, Spinner } from '../components/ui'
-import { glass, glassCard } from '../lib/theme'
+import { glass } from '../lib/theme'
 import type { Paper } from '../api/client'
 
 export default function LibraryPage() {
   const [q, setQ] = useState('')
-  const [dragging, setDragging] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
-  const qc = useQueryClient()
+  const nav = useNavigate()
   const { data, isLoading } = useQuery({ queryKey: ['papers'], queryFn: getPapers })
-  const uploadMut = useMutation({
-    mutationFn: (file: File) => uploadPaper(file, pct => setUploadProgress(p => ({ ...p, [file.name]: pct }))),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['papers'] }); setUploadProgress({}) },
-  })
   const papers = (data?.papers ?? []).filter(p =>
     !q || p.title.toLowerCase().includes(q.toLowerCase()) ||
     p.authors.toLowerCase().includes(q.toLowerCase())
   )
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setDragging(false)
-    Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf')).forEach(f => uploadMut.mutate(f))
-  }
   return (
     <div style={{ padding: '32px 36px', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -32,34 +22,12 @@ export default function LibraryPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>My Library</h1>
           <p style={{ color: 'var(--color-muted)', fontSize: 13, marginTop: 2 }}>{data?.total ?? 0} papers indexed</p>
         </div>
-        <label style={{ cursor: 'pointer' }}>
-          <Button variant="primary">+ Upload PDF</Button>
-          <input type="file" accept=".pdf" multiple onChange={e => Array.from(e.target.files ?? []).forEach(f => uploadMut.mutate(f))} style={{ display: 'none' }} />
-        </label>
+        <Button variant="primary" onClick={() => nav('/upload')}>+ Upload PDF</Button>
       </div>
-      <div style={{ marginBottom: 16, position: 'relative' }}>
+      <div style={{ marginBottom: 20, position: 'relative' }}>
         <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)', pointerEvents: 'none' }} />
-        <Input value={q} onChange={setQ} placeholder="Search papers, authors..." style={{ paddingLeft: 34 }} />
+        <Input value={q} onChange={setQ} placeholder="Filter by title or author..." style={{ paddingLeft: 34 }} />
       </div>
-      <div onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={handleDrop} style={{ border: `2px dashed ${dragging ? 'var(--color-accent)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-lg)', padding: '18px', textAlign: 'center', marginBottom: 20, transition: 'all 0.2s', background: dragging ? 'var(--color-accent-dim)' : 'transparent', color: 'var(--color-muted)', fontSize: 13 }}>
-        📄 Drag &amp; drop PDF files here or click Upload PDF above
-      </div>
-      {Object.keys(uploadProgress).length > 0 && (
-        <div style={{ ...glassCard, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--color-text)' }}>Processing Queue</div>
-          {Object.entries(uploadProgress).map(([name, pct]) => (
-            <div key={name} style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                <span style={{ color: 'var(--color-muted)' }}>{name}</span>
-                <span style={{ color: pct === 100 ? 'var(--color-success)' : 'var(--color-accent)' }}>{pct === 100 ? '✓ Done' : `${pct}%`}</span>
-              </div>
-              <div style={{ height: 3, background: 'var(--color-border)', borderRadius: 2 }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-accent)', borderRadius: 2, transition: 'width 0.3s' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spinner size={32} /></div>
       ) : papers.length === 0 ? (

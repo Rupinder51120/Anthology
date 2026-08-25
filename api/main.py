@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from api.core.config import get_settings
 from api.core.database import create_tables
-from api.routers import health, query, papers, search, recommend, tts, flowchart, benchmark, feedback, stats, discovery, sessions, suggest, collections
+from api.routers import health, query, papers, search, flowchart, benchmark, feedback, stats, discovery, sessions, suggest, collections
 
 settings = get_settings()
 
@@ -46,8 +46,6 @@ app.include_router(health.router)
 app.include_router(query.router)
 app.include_router(papers.router)
 app.include_router(search.router)
-app.include_router(recommend.router)
-app.include_router(tts.router)
 app.include_router(flowchart.router)
 app.include_router(benchmark.router)
 app.include_router(feedback.router)

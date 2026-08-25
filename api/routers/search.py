@@ -32,6 +32,7 @@ async def search(
             score=c["metadata"].get("rerank_score"),
             text=c["text"][:500],
             filename=c["metadata"].get("source", ""),
+            paper_id=c["metadata"].get("paper_id"),
         )
         for c in chunks
     ]

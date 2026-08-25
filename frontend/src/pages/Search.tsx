@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, FileText, Calendar } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { searchPapers } from '../api/client'
@@ -7,13 +8,14 @@ import { glass } from '../lib/theme'
 
 export default function SearchPage() {
   const [q, setQ] = useState('')
+  const nav = useNavigate()
   const search = useMutation({ mutationFn: () => searchPapers(q, 15) })
 
   return (
     <div style={{ padding: '32px 36px', maxWidth: 900, margin: '0 auto' }}>
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>Search Papers</h1>
-        <p style={{ color: 'var(--color-muted)', fontSize: 13 }}>Semantic search across all indexed chunks</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em', marginBottom: 4 }}>My Papers</h1>
+        <p style={{ color: 'var(--color-muted)', fontSize: 13 }}>Search your indexed research corpus</p>
       </div>
 
       {/* Search bar */}
@@ -87,7 +89,9 @@ export default function SearchPage() {
                 <div key={i} style={{
                   ...glass, borderRadius: 'var(--radius-lg)', padding: 18,
                   transition: 'transform 0.15s',
+                  cursor: r.paper_id ? 'pointer' : 'default',
                 }}
+                onClick={() => r.paper_id && nav(`/papers/${r.paper_id}`)}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.transform = 'translateX(4px)'}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.transform = 'translateX(0)'}
                 >

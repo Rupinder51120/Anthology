@@ -1,14 +1,16 @@
+import time
+import logging
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.core.database import get_db
 from api.schemas.schemas import QueryRequest, QueryResponse
-from api.services.rag_service import RAGService
+from api.services.rag_service import RAGService, _get_langfuse
 from api.services.retrieval_service import RetrievalService
-from api.core.models import GROQ_CHAT_MODEL
 from api.core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["Query"])
 rag_service = RAGService()
 retrieval_service = RetrievalService()
@@ -28,42 +30,67 @@ async def query_stream(
     db: AsyncSession = Depends(get_db),
 ):
     import json
-    from src.generation.generator import _build_messages
+    from src.generation.generator import stream_answer
 
     async def token_stream():
-        # ── Phase 1: status events ──────────────────────────────
-        yield f"data: {json.dumps({'type': 'status', 'text': 'Searching 122 papers...'})}\n\n"
+        start = time.time()
+        lf = _get_langfuse()
+        trace = None
+        try:
+            trace = lf.trace(name="anthology-query-stream", input={"question": request.question})
+        except Exception:
+            trace = None
 
-        chunks = await retrieval_service.retrieve(
-            request.question,
-            top_k=request.top_k,
-            db=db,
-            use_hyde=getattr(request, "use_hyde", False),
-            paper_id=getattr(request, "paper_id", None),
-        )
+        # ── Phase 1: retrieval ──────────────────────────────────
+        yield f"data: {json.dumps({'type': 'status', 'text': 'Searching your papers...'})}\n\n"
+
+        t0 = time.time()
+        try:
+            chunks = await retrieval_service.retrieve(
+                request.question,
+                top_k=request.top_k,
+                db=db,
+                use_hyde=getattr(request, "use_hyde", False),
+                paper_id=getattr(request, "paper_id", None),
+            )
+        except Exception as e:
+            # A retrieval failure (e.g. a malformed paper_id) must not abort
+            # the HTTP response mid-stream -- that leaves the client's fetch
+            # reader hanging forever with no [DONE], no error, nothing.
+            logger.error("Retrieval call failed: %s", e, exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'text': 'The system encountered an error while searching your papers.'})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        if trace:
+            try:
+                trace.span(
+                    name="retrieve",
+                    input={"query": request.question},
+                    output={"chunks": len(chunks)},
+                    metadata={"latency_ms": round((time.time() - t0) * 1000, 2)},
+                )
+            except Exception:
+                pass
 
         yield f"data: {json.dumps({'type': 'status', 'text': f'Reranking {len(chunks)} chunks...'})}\n\n"
-
-        _, messages = _build_messages(request.question, chunks)
-
         yield f"data: {json.dumps({'type': 'status', 'text': 'Generating answer...'})}\n\n"
 
-        # ── Phase 2: token stream ───────────────────────────────
-        try:
-            from groq import AsyncGroq
-            client = AsyncGroq(api_key=settings.groq_api_key.get_secret_value())
-            model = GROQ_CHAT_MODEL
-            stream = await client.chat.completions.create(
-                model=model, messages=messages,
-                max_tokens=1024, temperature=0.2, stream=True,
-            )
-            async for chunk in stream:
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    yield f"data: {json.dumps({'type': 'token', 'text': delta})}\n\n"
-            await client.close()
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+        # ── Phase 2: generation (same provider config as /query) ─
+        full_answer = ""
+        async for event in stream_answer(request.question, chunks):
+            if event["type"] == "token":
+                full_answer += event["text"]
+            yield f"data: {json.dumps(event)}\n\n"
+
+        if trace:
+            try:
+                trace.update(
+                    output={"answer": full_answer[:200]},
+                    metadata={"latency_ms": round((time.time() - start) * 1000, 2)},
+                )
+                lf.flush()
+            except Exception:
+                pass
 
         yield "data: [DONE]\n\n"
 

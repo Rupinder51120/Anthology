@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
+from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
@@ -71,6 +72,15 @@ async def add_paper(col_id: UUID, paper_id: UUID, db: AsyncSession = Depends(get
     if existing.scalar_one_or_none():
         return {"success": True}
     db.add(CollectionPaper(collection_id=col_id, paper_id=paper_id))
+    try:
+        # Flush now so a DB-level failure (e.g. a constraint violation)
+        # raises here, before the response is built, instead of surfacing
+        # later at commit time in get_db()'s teardown -- after the client
+        # has already been told {"success": true}.
+        await db.flush()
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to add paper to collection")
     return {"success": True}
 
 
