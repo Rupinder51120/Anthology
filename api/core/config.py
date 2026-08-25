@@ -31,7 +31,12 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-20b"
 
     # Default Groq vision model
-    groq_vision_model: str = "openai/gpt-oss-120b"
+    # Verified by direct API test (2026-08-26) to actually accept image
+    # input and produce content-grounded responses on the current Groq
+    # account -- the prior default (openai/gpt-oss-120b) and the
+    # .env.example-documented meta-llama/llama-4-scout-17b-16e-instruct
+    # both rejected multimodal requests (400/404) when tested live.
+    groq_vision_model: str = "qwen/qwen3.6-27b"
     # Local Ollama chat model
     ollama_model: str = "qwen2.5:7b"
 

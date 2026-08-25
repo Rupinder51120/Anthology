@@ -10,7 +10,7 @@ from api.schemas.schemas import QueryRequest, QueryResponse, CitationOut
 from api.services.retrieval_service import RetrievalService
 from langfuse import Langfuse
 
-from src.generation.generator import generate_answer, format_citations
+from src.generation.generator import generate_answer, format_citations, collect_image_paths
 from src.generation.memory import ConversationMemory
 from api.core.config import get_settings
 
@@ -116,12 +116,7 @@ class RAGService:
             except Exception:
                 pass
 
-        image_paths = [
-            c["metadata"].get("image_path")
-            for c in chunks
-            if c["metadata"].get("content_type") == "figure"
-            and c["metadata"].get("image_path")
-        ]
+        image_paths = collect_image_paths(chunks)
 
         result = await generate_answer(
             query=request.question,

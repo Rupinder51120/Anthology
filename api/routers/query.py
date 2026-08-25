@@ -30,7 +30,7 @@ async def query_stream(
     db: AsyncSession = Depends(get_db),
 ):
     import json
-    from src.generation.generator import stream_answer
+    from src.generation.generator import stream_answer, collect_image_paths
 
     async def token_stream():
         start = time.time()
@@ -73,11 +73,15 @@ async def query_stream(
                 pass
 
         yield f"data: {json.dumps({'type': 'status', 'text': f'Reranking {len(chunks)} chunks...'})}\n\n"
+
+        image_paths = collect_image_paths(chunks)
+        if image_paths and settings.use_groq:
+            yield f"data: {json.dumps({'type': 'status', 'text': f'Found {len(image_paths)} relevant figure(s) -- using vision-capable generation...'})}\n\n"
         yield f"data: {json.dumps({'type': 'status', 'text': 'Generating answer...'})}\n\n"
 
         # ── Phase 2: generation (same provider config as /query) ─
         full_answer = ""
-        async for event in stream_answer(request.question, chunks):
+        async for event in stream_answer(request.question, chunks, image_paths=image_paths):
             if event["type"] == "token":
                 full_answer += event["text"]
             yield f"data: {json.dumps(event)}\n\n"

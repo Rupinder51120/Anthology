@@ -98,10 +98,20 @@ def _call_groq_vision(messages: list[dict], image_paths: list[str]) -> str:
     resp = client.chat.completions.create(
         model=GROQ_VISION_MODEL,
         messages=vision_msgs,
-        max_tokens=1024,
+        # qwen/qwen3.6-27b (the verified vision-capable model on this
+        # account) is a reasoning model that emits a <think>...</think>
+        # block before its actual answer; 1024 tokens was observed (live
+        # test) to sometimes truncate mid-reasoning before reaching the
+        # answer, so this is set high enough for the trace to complete.
+        max_tokens=2048,
         temperature=0.2,
     )
-    return resp.choices[0].message.content.strip()
+    answer = resp.choices[0].message.content.strip()
+    # Strip the reasoning trace -- users should see the answer, not the
+    # model's internal chain-of-thought.
+    if "<think>" in answer and "</think>" in answer:
+        answer = answer.split("</think>", 1)[1].strip()
+    return answer
 
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
@@ -163,6 +173,22 @@ def format_citations(chunks: list[dict]) -> list[dict]:
                 "score":    meta.get("rerank_score"),
             })
     return sorted(citations, key=lambda x: x.get("score") or 0, reverse=True)
+
+
+def collect_image_paths(chunks: list[dict]) -> list[str]:
+    """
+    Pulls image file paths out of retrieved figure chunks -- shared by both
+    the streaming and non-streaming query paths so there is exactly one
+    place that decides which figures are eligible for vision generation.
+    Only figures that were actually retrieved (already filtered/reranked by
+    the retrieval pipeline) are considered -- this never scans the corpus.
+    """
+    return [
+        c["metadata"].get("image_path")
+        for c in chunks
+        if c["metadata"].get("content_type") == "figure"
+        and c["metadata"].get("image_path")
+    ]
 
 
 def detect_response_type(query: str) -> str:
@@ -249,6 +275,7 @@ async def stream_answer(
     query:        str,
     chunks:       list[dict],
     chat_history: list[dict] = None,
+    image_paths:  list[str] | None = None,
 ) -> AsyncIterator[dict]:
     """
     Async generator yielding structured SSE-ready events for the
@@ -258,7 +285,22 @@ async def stream_answer(
     same _groq_enabled() switch, same _build_messages()/format_citations()
     helpers, so streaming and non-streaming responses stay consistent.
 
+    image_paths (optional): file paths of retrieved figure chunks, as
+    produced by collect_image_paths(). When the active provider is Groq
+    (_groq_enabled() is True) and images are present, generation is routed
+    through the existing _call_groq_vision() -- the same function
+    generate_answer() already uses, not a second implementation. Groq's
+    vision response isn't token-streamed here (the underlying call is a
+    single blocking request); it is yielded as one "token" event once
+    ready, so the SSE contract (status -> token(s) -> citations -> [DONE])
+    is unchanged for the client. When the active provider is Ollama, the
+    configured local model (qwen2.5:7b) is not vision-capable, so images
+    are intentionally ignored and generation falls back to the normal
+    text-only streaming path below -- silently pretending a non-vision
+    model can see images would be worse than just not using them.
+
     Yields dicts of the form:
+      {"type": "status",    "text": str}                -- optional, informational
       {"type": "token",     "text": str}
       {"type": "citations", "citations": list[dict]}   -- always last on success
       {"type": "error",     "text": str}                -- terminal on failure
@@ -270,6 +312,24 @@ async def stream_answer(
 
     context, messages, used_chunks = _build_messages(query, chunks, chat_history)
     citations = format_citations(used_chunks)
+
+    if _groq_enabled() and image_paths:
+        try:
+            loop = asyncio.get_running_loop()
+            answer = await loop.run_in_executor(None, _call_groq_vision, messages, image_paths)
+            yield {"type": "token", "text": answer}
+            yield {"type": "citations", "citations": citations}
+            return
+        except Exception as e:
+            # The vision call can fail for reasons a missing/invalid image
+            # file doesn't cover -- e.g. the configured vision model isn't
+            # actually available on the current provider account/key. That
+            # is a real, observed failure mode (see README), not a
+            # hypothetical: don't let it silently pretend to work, but
+            # also don't kill the whole answer -- fall back to the normal
+            # text-only path below instead of erroring the request.
+            logger.error("Vision generation call failed, falling back to text-only: %s", e, exc_info=True)
+            yield {"type": "status", "text": "Vision generation was unavailable for the retrieved figure(s) -- answering from text only."}
 
     try:
         if _groq_enabled():
@@ -284,6 +344,8 @@ async def stream_answer(
                     yield {"type": "token", "text": delta}
             await client.close()
         else:
+            if image_paths:
+                yield {"type": "status", "text": "Relevant figures were found, but the local generation model does not support vision -- answering from text only."}
             import httpx
             async with httpx.AsyncClient(timeout=180) as client:
                 async with client.stream(

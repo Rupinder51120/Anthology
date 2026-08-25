@@ -31,13 +31,15 @@ jobs:
       - name: Install test dependencies
         # Installing the full requirements.txt (Docling/Torch/transformers)
         # is unnecessary for this suite and would make CI slow. These are
-        # the actual packages needed to import and run the 35 tests below,
-        # verified locally against a clean venv before adding this workflow.
+        # the actual packages needed to import and run the 43 tests below
+        # (including requests/groq for src/generation/generator.py, needed
+        # since the streaming-vision tests import that module), verified
+        # locally against a clean venv before adding this workflow.
         run: |
           python -m pip install --upgrade pip
           pip install pytest pytest-asyncio fastapi pydantic pydantic-settings \
             python-multipart sqlalchemy asyncpg pgvector numpy \
-            langchain-text-splitters python-dotenv
+            langchain-text-splitters python-dotenv requests groq
 
       - name: Run test suite
         # tests/test_docling.py, tests/test_page1_no_ocr.py,
