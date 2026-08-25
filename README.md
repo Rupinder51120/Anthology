@@ -5,40 +5,37 @@ Anthology is a RAG (retrieval-augmented generation) app for asking questions ove
 ## How it works
 
 ```mermaid
-flowchart LR
-    subgraph Ingestion
-        PDF[PDF] --> DOC[Docling parsing + OCR]
-        DOC --> CHUNK[Metadata + section-aware chunking]
-        CHUNK --> EMBED[SPECTER2 embeddings]
-        EMBED --> PG[(PostgreSQL + pgvector)]
-    end
+flowchart TD
+    PDF[PDF] --> DOC[Docling parsing]
+    DOC --> CHUNK[Metadata + chunking]
+    CHUNK --> EMBED[SPECTER2 embeddings]
+    EMBED --> PG[(PostgreSQL + pgvector)]
 
-    subgraph Query
-        Q[User query] --> API[FastAPI]
-        API --> RET[Dense + sparse retrieval]
-        RET --> RRF[RRF fusion]
-        RRF --> RR[Cohere rerank]
-        RR --> LLM[Groq / Ollama]
-        LLM --> OUT[Streamed answer + citations]
-    end
-
-    PG -.-> RET
-    OUT --> UI[React frontend]
+    USER[User] --> UI[React frontend]
+    UI --> API[FastAPI]
+    API --> DENSE[Dense retrieval]
+    API --> SPARSE[Sparse retrieval]
+    DENSE --> PG
+    SPARSE --> PG
+    DENSE --> RRF[RRF fusion]
+    SPARSE --> RRF
+    RRF --> RERANK[Cohere reranking]
+    RERANK --> LLM[LLM generation]
+    LLM --> OUT[Streamed answer + citations]
 ```
 
 ## Results
 
-The retrieval pipeline is evaluated two different ways, and they're not really comparable.
+**Internal benchmark** — 247 questions generated from the project's own corpus, hybrid retrieval + rerank:
+Hit@1 = 77.3%, Hit@5 = 85.8%, MRR = 81.7%
 
-Internally, on 247 questions generated from the corpus itself, hybrid retrieval + rerank gets **Hit@1 = 77.3%, Hit@5 = 85.8%, MRR = 81.7%** — the best of the strategies tried.
+**External QASPER evaluation** — 281 papers, 892 answerable questions from QASPER's validation split:
 
-Externally, against QASPER's validation split (281 papers, 892 answerable questions), everything scores noticeably lower, and plain BM25 actually beats the SPECTER2 dense embeddings:
+- SPECTER2 dense: Hit@1 12.8%, Hit@5 23.0%, MRR 17.8%
+- BM25: Hit@1 22.1%, Hit@5 35.3%, MRR 28.1%
+- Hybrid RRF: Hit@1 19.7%, Hit@5 37.0%, MRR 27.2%
 
-- dense (SPECTER2): Hit@1 0.128, Hit@5 0.230, MRR 0.178
-- BM25: Hit@1 0.221, Hit@5 0.353, MRR 0.281
-- hybrid RRF: Hit@1 0.197, Hit@5 0.370, MRR 0.272
-
-The internal benchmark measures which strategy works best *on this corpus*; QASPER measures how the same code holds up on a harder, external dataset with a different question style. BM25 beating dense retrieval here is specific to QASPER, not a general claim about either method — it's just what was actually measured.
+The internal benchmark is self-referential because its questions were generated from the project corpus, while QASPER evaluates retrieval on an external dataset. The lower QASPER scores therefore expose a real generalization gap rather than being directly comparable to the internal benchmark. On QASPER, BM25 outperforms SPECTER2 dense retrieval, while hybrid RRF achieves the best Hit@5.
 
 Current corpus: 121 papers, 11,889 chunks. 44/44 tests pass locally.
 
