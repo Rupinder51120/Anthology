@@ -1,0 +1,67 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      # api/core/database.py builds a SQLAlchemy async engine at import time.
+      # Engine creation is lazy (no connection is opened just by importing),
+      # so a syntactically valid placeholder URL is enough to satisfy that
+      # import for the tests below -- none of them talk to a real database.
+      # This is not a credential: it points nowhere and is never connected to.
+      DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/ci_placeholder
+      PYTHONPATH: .
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        # Installing the full requirements.txt (Docling/Torch/transformers)
+        # is unnecessary for this suite and would make CI slow. These are
+        # the actual packages needed to import and run the 35 tests below,
+        # verified locally against a clean venv before adding this workflow.
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio fastapi pydantic pydantic-settings \
+            python-multipart sqlalchemy asyncpg pgvector numpy \
+            langchain-text-splitters python-dotenv
+
+      - name: Run test suite
+        # tests/test_docling.py, tests/test_page1_no_ocr.py,
+        # tests/test_page1_single_thread_ocr.py, and tests/split_pdf.py are
+        # already excluded via pyproject.toml's addopts -- they execute the
+        # real Docling PDF pipeline at import time and aren't real tests.
+        #
+        # Two more files are intentionally skipped here, each documented at
+        # its own skip reason:
+        #
+        # tests/test_collections_add_paper.py is a real integration test
+        # against a live Postgres instance seeded with the actual corpus
+        # (see the test's own docstring) -- CI has neither. It's run and
+        # passes locally against the project's own docker-compose Postgres
+        # (see README.md's "Running tests" section).
+        #
+        # tests/test_retrieval_alignment.py mocks the embedding call itself,
+        # but importing src/retrieval/embedder.py still pulls in the real
+        # sentence-transformers/torch stack at module load time. Installing
+        # that here would multiply this job's runtime for a test whose
+        # actual logic never touches the model. Also run and passing
+        # locally (see README.md).
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_collections_add_paper.py \
+            --ignore=tests/test_retrieval_alignment.py \
+            -v

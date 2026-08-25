@@ -16,6 +16,7 @@
 .ruff_cache/
 .coverage
 htmlcov/
+.benchmarks/
 
 # Virtual Environments
 
@@ -28,6 +29,7 @@ env/
 
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
@@ -163,3 +165,4 @@ docs/ANTHOLOGY_AUDIT_STATE.md
 docs/ANTHOLOGY_FULL_AUDIT.md
 docs/BACKEND_COMPLETION_REPORT.md
 docs/PROJECT_STATUS_AUDIT.md
+docs/RESUME_READY.md

@@ -152,7 +152,6 @@ export default function CollectionsPage() {
               <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface2)', maxHeight: 260, overflowY: 'auto' }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-muted)', marginBottom: 8 }}>Click to add/remove from collection</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {console.log('[DIAG] allPapers count:', allPapers.length, 'activeCol:', activeCol, 'sample:', allPapers[0])}
                   {allPapers.map(p => {
                     const inCol = colPaperIds.has(p.id)
                     return (

@@ -1,16 +1,40 @@
 [project]
-name = "rag"
-version = "0.1.0"
-description = "Add your description here"
+name = "anthology"
+version = "1.0.0"
+description = "AI research assistant: hybrid dense+sparse RAG (pgvector + Postgres FTS + Cohere rerank) over a self-ingested paper corpus, with a FastAPI backend and React frontend."
 readme = "README.md"
 requires-python = ">=3.11"
+# This list reflects the packages actually imported by api/, src/, and
+# scripts/ (verified via AST import-scan), plus the runtime tooling needed
+# to serve/migrate/test the app. It is NOT the pinned, canonical dependency
+# set for the running container -- requirements.txt (installed directly by
+# the Dockerfile) is. Keep this list accurate to the import graph rather
+# than trying to mirror requirements.txt's full pinned/transitive closure.
 dependencies = [
-    "ipykernel>=7.2.0",
-    "langchain>=1.3.2",
-    "langchain-community>=0.4.2",
-    "langchain-core>=1.4.0",
-    "pymupdf>=1.27.2.3",
-    "pypdf>=6.12.2",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pydantic-settings",
+    "python-multipart",
+    "sqlalchemy",
+    "asyncpg",
+    "psycopg2-binary",
+    "alembic",
+    "pgvector",
+    "redis",
+    "numpy",
+    "docling",
+    "sentence-transformers",
+    "transformers",
+    "langchain-text-splitters",
+    "groq",
+    "cohere",
+    "langfuse",
+    "arxiv",
+    "requests",
+    "httpx",
+    "python-dotenv",
+    "Pillow",
 ]
 
 [tool.pytest.ini_options]

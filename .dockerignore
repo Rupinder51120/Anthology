@@ -1,0 +1,65 @@
+# Git
+.git
+.github
+
+# Python environments / caches
+.venv
+venv
+env
+ENV
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.benchmarks
+htmlcov
+.coverage
+
+# Secrets — never let these get baked into an image layer
+.env
+.env.*
+!.env.example
+
+# Private/internal audit documents — not needed by the running app
+docs/ANTHOLOGY_AUDIT_STATE.md
+docs/ANTHOLOGY_FULL_AUDIT.md
+docs/BACKEND_COMPLETION_REPORT.md
+docs/PROJECT_STATUS_AUDIT.md
+docs/RESUME_READY.md
+
+# Local corpus / generated index & benchmark artifacts — mounted in via
+# docker-compose volumes at runtime (./data:/app/data, ./indexes:/app/indexes),
+# not needed in the image layer itself, and some of these are large.
+data/papers
+data/raw
+data/processed
+data/figures
+data/tables
+data/uploads
+indexes
+
+# Logs (33MB+ ingestion log, not needed at runtime)
+logs
+
+# Frontend (built and served by its own separate Dockerfile/image)
+frontend/node_modules
+frontend/dist
+frontend/build
+
+# IDE / OS / misc
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+.claude
+
+# Temporary / build artifacts
+tmp
+temp
+*.tmp
+build
+dist
+*.egg-info
