@@ -1,6 +1,14 @@
 # Anthology
 
-A retrieval-augmented question-answering system for a self-ingested corpus of research papers, combining hybrid dense/sparse retrieval over PostgreSQL/pgvector with a FastAPI backend and a React/TypeScript frontend.
+A retrieval-augmented generation (RAG) system for question-answering over a self-ingested corpus of research papers, combining hybrid dense/sparse retrieval over PostgreSQL/pgvector with a Python/FastAPI backend and a React/TypeScript frontend.
+
+## Highlights
+
+- Designed and implemented a **hybrid dense + sparse retrieval pipeline** (PostgreSQL/pgvector cosine search + PostgreSQL full-text search, fused with Reciprocal Rank Fusion, reranked with the Cohere API) achieving **77.3% Hit@1 / 85.8% Hit@5 / 0.817 MRR** on a 247-question internal benchmark.
+- Built and ran an **external generalization evaluation against the third-party QASPER dataset** (281 papers, 892 questions) via a standalone, reproducible Python script — reporting results transparently, including a case where BM25 outperformed dense embeddings.
+- Engineered a **Python/FastAPI backend** (async SQLAlchemy, PostgreSQL, Redis) serving a **React/TypeScript** frontend, with **SSE-streamed, citation-grounded LLM responses** and a swappable Groq/Ollama generation backend.
+- Built a **PDF ingestion pipeline** (Docling parsing with OCR, LLM-based table/figure captioning, SPECTER2 embeddings) processing scientific papers end-to-end into a queryable vector store.
+- Shipped a **5-service Docker Compose deployment** (API, PostgreSQL, Redis, Ollama, frontend) with **44 passing automated tests** (unit + integration) and a **GitHub Actions CI** pipeline covering 35 of them (see [Testing](#testing) for why the other 9 are excluded).
 
 ## Overview
 
@@ -158,7 +166,7 @@ This is the **current** state of the local corpus, verified via `GET /api/v1/sta
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| API | FastAPI | HTTP routing, request/response validation |
+| API | Python, FastAPI | REST API routing, request/response validation |
 | Database | PostgreSQL 16 + pgvector | Paper/chunk storage, vector search, full-text search |
 | ORM / migrations | SQLAlchemy (async) + Alembic | |
 | Cache | Redis | Response caching |
